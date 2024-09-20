@@ -1,0 +1,19 @@
+services:
+
+  backend-dev:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file: "./backend/.env"
+    volumes:
+      - ./backend:/app
+    command: ["fastapi", "dev"]
+
+  # frontend-dev:
+  #   build: ./frontend
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./frontend:/app
+  #   env_file: "./frontend/.env"
+  #   command: ["pnpm", "run", "dev"]
