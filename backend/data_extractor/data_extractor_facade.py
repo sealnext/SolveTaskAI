@@ -1,4 +1,4 @@
-from .data_extractor import DataExtractorFactory
+from data_extractor import DataExtractorFactory
 
 class DataExtractorFacade:
   """
@@ -10,4 +10,5 @@ class DataExtractorFacade:
 
   @staticmethod
   def get_projects():
-    print(DataExtractorFactory.create_data_extractor())
+    data_extractor = DataExtractorFactory.create_data_extractor()
+    return data_extractor.get_all_projects()

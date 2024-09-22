@@ -1,6 +1,6 @@
 from data_extractor import DataExtractor
 import requests
-from urllib.parse import join as url_join
+from urllib.parse import urljoin
 
 
 class DataExtractorJira(DataExtractor):
@@ -15,7 +15,7 @@ class DataExtractorJira(DataExtractor):
 
 
   def get_all_projects(self):
-    api_route = url_join(self.base_api_url, "/project")
+    api_route = urljoin(self.base_api_url, "/project")  # Changed from url_join to urljoin
     response = self.session.get(api_route)
 
     if response.status_code == 200:
@@ -25,7 +25,7 @@ class DataExtractorJira(DataExtractor):
 
 
   def get_all_tickets(self, project_key: str):
-    api_route = url_join(self.base_api_url, "/search")
+    api_route = urljoin(self.base_api_url, "/search")  # Changed from url_join to urljoin
     query_params = {
       'jql': f'project={project_key}',
       'maxResults': 50

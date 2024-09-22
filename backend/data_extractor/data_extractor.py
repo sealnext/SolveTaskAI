@@ -1,6 +1,6 @@
+from __future__ import annotations
 from enum import Enum
 from abc import ABC, abstractmethod
-from __future__ import annotations
 
 
 class TicketingSystemType(Enum):
