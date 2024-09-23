@@ -1,0 +1,26 @@
+from fastapi import status
+
+class BaseCustomException(Exception):
+    def __init__(self, detail: str, status_code: int):
+        self.detail = detail
+        self.status_code = status_code
+
+class InvalidCredentialsException(BaseCustomException):
+    def __init__(self, detail: str = "Invalid username or password"):
+        super().__init__(detail, status.HTTP_401_UNAUTHORIZED)
+
+class UserAlreadyExistsException(BaseCustomException):
+    def __init__(self, detail: str = "User already exists"):
+        super().__init__(detail, status.HTTP_400_BAD_REQUEST)
+
+class UserNotFoundException(BaseCustomException):
+    def __init__(self, detail: str = "User not found"):
+        super().__init__(detail, status.HTTP_404_NOT_FOUND)
+
+class InvalidTokenException(BaseCustomException):
+    def __init__(self, detail: str = "Invalid token"):
+        super().__init__(detail, status.HTTP_401_UNAUTHORIZED)
+
+class ValidationErrorException(BaseCustomException):
+    def __init__(self, detail: str = "Validation error"):
+        super().__init__(detail, status.HTTP_422_UNPROCESSABLE_ENTITY)

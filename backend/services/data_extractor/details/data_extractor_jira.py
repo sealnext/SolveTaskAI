@@ -1,4 +1,4 @@
-from data_extractor import DataExtractor
+from ..data_extractor import DataExtractor
 import requests
 from urllib.parse import urljoin
 
