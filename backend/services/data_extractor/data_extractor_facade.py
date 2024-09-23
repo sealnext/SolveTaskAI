@@ -1,4 +1,5 @@
-from data_extractor import DataExtractorFactory
+from .data_extractor_factory import DataExtractorFactory
+
 
 class DataExtractorFacade:
   """
