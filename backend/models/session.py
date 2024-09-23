@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy.orm import declarative_base
 from datetime import datetime, UTC
-from .base import Base
+
+Base = declarative_base()
 
 class Session(Base):
     __tablename__ = "sessions"
