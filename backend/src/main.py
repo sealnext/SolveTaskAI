@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from services.data_extractor import DataExtractorFacade
+from services import DataExtractorFacade
 from api.auth import router as auth_router
 from exceptions.handlers import register_exception_handlers
 
