@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
-from custom_exceptions import BaseCustomException
+from fastapi.exceptions import RequestValidationError
+from .custom_exceptions import BaseCustomException
 
 def register_exception_handlers(app: FastAPI):
     @app.exception_handler(BaseCustomException)
@@ -16,3 +17,13 @@ def register_exception_handlers(app: FastAPI):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"message": "Internal server error"}
         )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        return JSONResponse(
+            status_code=422,
+            content={
+            "detail": "Invalid request data. Please check your input and try again.",
+            "errors": exc.errors()
+        }
+    )
