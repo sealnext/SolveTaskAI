@@ -1,13 +1,18 @@
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from services import DataExtractorFacade
 from api.auth import router as auth_router
 from exceptions.handlers import register_exception_handlers
+from db.sync import sync_database
 
 app = FastAPI()
 
-# Register the auth router
+@app.on_event("startup")
+async def startup_event():
+    await sync_database()
+
 app.include_router(auth_router)
 
 # Register custom exception handlers

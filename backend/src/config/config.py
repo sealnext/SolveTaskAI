@@ -8,3 +8,4 @@ JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+SYNC_DATABASE = os.getenv("SYNC_DATABASE", "False").lower() == "true"
