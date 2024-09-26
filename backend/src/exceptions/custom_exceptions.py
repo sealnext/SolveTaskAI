@@ -6,7 +6,7 @@ class BaseCustomException(Exception):
         self.status_code = status_code
 
 class InvalidCredentialsException(BaseCustomException):
-    def __init__(self, detail: str = "Invalid username or password"):
+    def __init__(self, detail: str = "Invalid credentials"):
         super().__init__(detail, status.HTTP_401_UNAUTHORIZED)
 
 class UserAlreadyExistsException(BaseCustomException):
