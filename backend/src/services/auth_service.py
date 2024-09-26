@@ -4,13 +4,13 @@ from config import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_ACCESS_TOKEN_EXPIRE_MINUTE
 from exceptions import InvalidTokenException
 
 class AuthService:
-    def create_access_token_for_user(self, username: str) -> str:
+    def create_access_token_for_user(self, email: str) -> str:
         try:
             expires_delta = timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
             expire = datetime.now(timezone.utc) + expires_delta
             
             to_encode = {
-                "sub": username,
+                "sub": email,
                 "exp": expire
             }
             
@@ -21,8 +21,8 @@ class AuthService:
     def verify_and_decode_token(self, token: str) -> str:
         try:
             payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-            username: str = payload.get("sub")
-            return username
+            email: str = payload.get("sub")
+            return email
         except JWTError:
             raise InvalidTokenException
 

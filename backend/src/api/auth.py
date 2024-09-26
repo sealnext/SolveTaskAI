@@ -22,7 +22,7 @@ async def login(
     user_service: UserService = Depends(get_user_service),
 ):
     user = await user_service.authenticate_user(form_data.username, form_data.password)
-    access_token = auth_service.create_access_token_for_user(user.username)
+    access_token = auth_service.create_access_token_for_user(user.email)
     return Token(access_token=access_token, token_type="bearer")
 
 
