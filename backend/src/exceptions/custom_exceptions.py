@@ -24,3 +24,7 @@ class InvalidTokenException(BaseCustomException):
 class ValidationErrorException(BaseCustomException):
     def __init__(self, detail: str = "Validation error"):
         super().__init__(detail, status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+class SecurityException(BaseCustomException):
+    def __init__(self, detail: str = "Authentication refused"):
+        super().__init__(detail, status.HTTP_401_UNAUTHORIZED)
