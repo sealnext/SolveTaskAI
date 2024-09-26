@@ -3,7 +3,8 @@ from .custom_exceptions import (
     UserAlreadyExistsException,
     UserNotFoundException,
     InvalidTokenException,
-    ValidationErrorException
+    ValidationErrorException,
+    SecurityException
 )
 
 __all__ = [
@@ -11,5 +12,6 @@ __all__ = [
     "UserAlreadyExistsException",
     "UserNotFoundException",
     "InvalidTokenException",
-    "ValidationErrorException"
+    "ValidationErrorException",
+    "SecurityException"
 ]

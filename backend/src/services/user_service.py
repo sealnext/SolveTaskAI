@@ -17,13 +17,10 @@ class UserService:
     async def authenticate_user(self, email: str, password: str) -> User:
         user = await self.user_repository.get_by_email(email)
         if not user:
-            raise InvalidCredentialsException("User not found")
-        try:
-            if not verify_password(password, user.hashed_password):
-                raise InvalidCredentialsException("Invalid password")
-        except Exception as e:
-            logger.error(f"Error verifying password: {str(e)}")
-            raise InvalidCredentialsException("An error occurred during authentication")
+            raise InvalidCredentialsException
+        
+        if verify_password(password, user.hashed_password) == False:
+            raise InvalidCredentialsException
         return user
 
     async def create_new_user(self, user_create: UserCreate) -> User:
