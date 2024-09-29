@@ -1,23 +1,24 @@
 from datetime import datetime, timezone, timedelta
 from jose import jwt, JWTError
-from config import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_ACCESS_TOKEN_EXPIRE_MINUTES, JWT_REFRESH_TOKEN_EXPIRE_DAYS
-from exceptions import InvalidTokenException, SecurityException
-import uuid
+from fastapi import Request, Response
+from fastapi_csrf_protect import CsrfProtect
 from typing import Tuple, Dict
-from fastapi import Request
+import uuid
+
+from config import (
+    CSRF_TOKEN_EXPIRE_MINUTES,
+    JWT_SECRET_KEY,
+    JWT_ALGORITHM,
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS
+)
+from exceptions import InvalidTokenException, SecurityException
 
 class AuthService:
     def __init__(self):
         self.revoked_tokens: Dict[str, datetime] = {}
 
-    def extract_request_localization(self, request: Request):
-        device_info = {
-            "user_agent": request.headers.get("User-Agent"),
-            "ip_address": request.client.host
-        }
-        location = request.headers.get("X-Forwarded-For", request.client.host)
-        return device_info, location
-
+    # Token creation and management
     def create_token_pair(self, email: str, device_info: dict, location: str) -> Tuple[str, str]:
         access_token = self._create_access_token(email, device_info, location)
         refresh_token = self._create_refresh_token(email, device_info, location)
@@ -58,7 +59,9 @@ class AuthService:
         except Exception as e:
             raise InvalidTokenException(f"Refresh token creation failed: {str(e)}")
 
-    def verify_and_decode_token(self, token: str, current_device_info: dict, current_location: str) -> str:
+    # Token verification and refresh
+    @staticmethod
+    def verify_and_decode_token(token: str, current_device_info: dict, current_location: str) -> str:
         try:
             payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
             email: str = payload.get("sub")
@@ -70,8 +73,8 @@ class AuthService:
             if token_type == "refresh" and self.is_token_revoked(jti):
                 raise SecurityException("Token has been revoked")
 
-            self._check_device_compliance(device_info, current_device_info)
-            self._check_location(location, current_location)
+            AuthService._check_device_compliance(device_info, current_device_info)
+            AuthService._check_location(location, current_location)
 
             return email
         except JWTError:
@@ -96,6 +99,7 @@ class AuthService:
         except JWTError:
             raise InvalidTokenException
 
+    # Token revocation
     def revoke_refresh_token(self, refresh_token: str):
         try:
             payload = jwt.decode(refresh_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
@@ -116,11 +120,52 @@ class AuthService:
         current_time = datetime.now(timezone.utc)
         self.revoked_tokens = {jti: exp for jti, exp in self.revoked_tokens.items() if exp > current_time}
 
-    def _check_device_compliance(self, stored_device_info: dict, current_device_info: dict):
+    # Security checks
+    @staticmethod
+    def _check_device_compliance(stored_device_info: dict, current_device_info: dict):
         if stored_device_info != current_device_info:
             raise SecurityException("Unusual activity")
 
-    def _check_location(self, stored_location: str, current_location: str):
+    @staticmethod
+    def _check_location(stored_location: str, current_location: str):
         if stored_location != current_location:
             raise SecurityException("Unusual activity")
 
+    # Request and response handling
+    @staticmethod
+    def extract_request_localization(request: Request):
+        device_info = {
+            "user_agent": request.headers.get("User-Agent"),
+            "ip_address": request.client.host
+        }
+        location = request.headers.get("X-Forwarded-For", request.client.host)
+        return device_info, location
+
+    @staticmethod
+    def set_auth_cookies(response: Response, access_token: str, refresh_token: str, csrf_protect: CsrfProtect, signed_token: str):
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=False,
+            secure=True,
+            samesite="lax",
+            max_age=timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+        )
+        
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=False,
+            secure=True,
+            samesite="lax",
+            max_age=timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+        )
+        
+        response.set_cookie(
+            key="csrf_token",
+            value=signed_token,
+            httponly=False,
+            secure=True,
+            samesite="lax",
+            max_age=timedelta(minutes=CSRF_TOKEN_EXPIRE_MINUTES)
+        )
