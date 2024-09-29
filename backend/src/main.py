@@ -3,24 +3,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_csrf_protect import CsrfProtect
 
-from services import DataExtractorFacade
 from api.auth import router as auth_router
-from exceptions.handlers import register_exception_handlers
-from db.sync import sync_database
 from config import csrf_config
+from db.sync import sync_database
+from exceptions.handlers import register_exception_handlers
+from services import DataExtractorFacade
 
 app = FastAPI()
 
-@app.on_event("startup")
-async def startup_event():
-    await sync_database()
-
-app.include_router(auth_router)
-
-# Register custom exception handlers
-register_exception_handlers(app)
-
-# CORS middleware setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -29,9 +19,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load CSRF config
 CsrfProtect.load_config(csrf_config)
 
+# Routers
+app.include_router(auth_router)
+
+register_exception_handlers(app)
+
+# Startup Event
+@app.on_event("startup")
+async def startup_event():
+    await sync_database()
+
+# Routes
 @app.get("/")
 def read_root():
     return {"Hello": "World"}

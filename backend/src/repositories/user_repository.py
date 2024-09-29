@@ -1,8 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from models.user import User
-from validation_models import UserCreate
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
+
+from models.user import User
+from validation_models import UserCreate
 from exceptions import UserAlreadyExistsException
 
 class UserRepository:
@@ -14,13 +15,19 @@ class UserRepository:
         result = await self.db_session.execute(query)
         return result.scalar_one_or_none()
 
+    async def get_by_id(self, user_id: int) -> User:
+        query = select(User).where(User.id == user_id)
+        result = await self.db_session.execute(query)
+        return result.scalar_one_or_none()
+
     async def create(self, user_create: UserCreate) -> User:
         new_user = User(
             email=user_create.email,
-            full_name=user_create.username, 
+            full_name=user_create.username,
             hashed_password=user_create.password
         )
         self.db_session.add(new_user)
+        
         try:
             await self.db_session.commit()
             await self.db_session.refresh(new_user)
@@ -29,8 +36,3 @@ class UserRepository:
             raise UserAlreadyExistsException
         
         return new_user
-
-    async def get_by_id(self, user_id: int) -> User:
-        query = select(User).where(User.id == user_id)
-        result = await self.db_session.execute(query)
-        return result.scalar_one_or_none()
