@@ -15,7 +15,7 @@ class DataExtractorJira(DataExtractor):
 
 
   def get_all_projects(self):
-    api_route = urljoin(self.base_api_url, "/project")  # Changed from url_join to urljoin
+    api_route = urljoin(self.base_api_url, "/project")
     response = self.session.get(api_route)
 
     if response.status_code == 200:
@@ -25,7 +25,7 @@ class DataExtractorJira(DataExtractor):
 
 
   def get_all_tickets(self, project_key: str):
-    api_route = urljoin(self.base_api_url, "/search")  # Changed from url_join to urljoin
+    api_route = urljoin(self.base_api_url, "/search")
     query_params = {
       'jql': f'project={project_key}',
       'maxResults': 50
