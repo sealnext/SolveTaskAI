@@ -4,7 +4,7 @@ import logging
 
 from repositories import UserRepository
 from exceptions import UserAlreadyExistsException, ValidationErrorException, InvalidCredentialsException
-from schemas import UserCreate
+from validation_models import UserCreate
 from models import User
 from utils.security import hash_password, verify_password
 

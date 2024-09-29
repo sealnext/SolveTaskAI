@@ -4,10 +4,19 @@ from config import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_ACCESS_TOKEN_EXPIRE_MINUTE
 from exceptions import InvalidTokenException, SecurityException
 import uuid
 from typing import Tuple, Dict
+from fastapi import Request
 
 class AuthService:
     def __init__(self):
         self.revoked_tokens: Dict[str, datetime] = {}
+
+    def extract_request_localization(self, request: Request):
+        device_info = {
+            "user_agent": request.headers.get("User-Agent"),
+            "ip_address": request.client.host
+        }
+        location = request.headers.get("X-Forwarded-For", request.client.host)
+        return device_info, location
 
     def create_token_pair(self, email: str, device_info: dict, location: str) -> Tuple[str, str]:
         access_token = self._create_access_token(email, device_info, location)
@@ -81,10 +90,8 @@ class AuthService:
             self._check_device_compliance(payload.get("device"), device_info)
             self._check_location(payload.get("location"), location)
             
-            # Revoke the old refresh token
             self.revoke_refresh_token(refresh_token)
             
-            # Create new token pair
             return self.create_token_pair(email, device_info, location)
         except JWTError:
             raise InvalidTokenException
@@ -99,7 +106,7 @@ class AuthService:
                 self.revoked_tokens[jti] = expiration
                 self._clean_expired_tokens()
         except JWTError:
-            pass  # If the token is invalid, we don't need to revoke it
+            pass
 
     def is_token_revoked(self, jti: str) -> bool:
         self._clean_expired_tokens()

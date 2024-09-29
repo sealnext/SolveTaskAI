@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from .custom_exceptions import BaseCustomException
+from fastapi_csrf_protect.exceptions import CsrfProtectError
 
 def register_exception_handlers(app: FastAPI):
     @app.exception_handler(BaseCustomException)
@@ -27,3 +28,7 @@ def register_exception_handlers(app: FastAPI):
             "errors": exc.errors()
         }
     )
+
+    @app.exception_handler(CsrfProtectError)
+    async def csrf_protect_exception_handler(request, exc):
+        return JSONResponse(status_code=exc.status_code, content={'detail': exc.message})

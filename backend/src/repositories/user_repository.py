@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.user import User
-from schemas import UserCreate
+from validation_models import UserCreate
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 from exceptions import UserAlreadyExistsException
