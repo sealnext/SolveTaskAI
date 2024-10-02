@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useSession, signIn } from 'next-auth/react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { LockIcon, MailIcon, UserIcon } from 'lucide-react'
+import { LockIcon, MailIcon, UserIcon, AlertCircle } from 'lucide-react'
 
 export default function SignupPage() {
   const [name, setName] = useState('')
@@ -14,21 +16,61 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [agreeTerms, setAgreeTerms] = useState(false)
+  const [errorMessage, setErrorMessage] = useState(null)
+  const [pending, setPending] = useState(false)
+  const router = useRouter()
+  const { data: session, status } = useSession()
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.push('/dashboard')
+    }
+  }, [status, router])
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    // Handle signup logic here
-    console.log('Signup submitted', { name, email, password, confirmPassword, agreeTerms })
+    setPending(true)
+    setErrorMessage(null)
+
+    if (password !== confirmPassword) {
+      setErrorMessage("Passwords do not match")
+      setPending(false)
+      return
+    }
+
+    try {
+      // Aici ar trebui să fie logica de înregistrare
+      // Pentru exemplu, vom folosi signIn ca și cum ar fi o înregistrare
+      const res = await signIn('credentials', {
+        redirect: false,
+        username: email,
+        password,
+        name,
+      })
+
+      if (res?.error) {
+        setErrorMessage(res.error)
+      } else {
+        router.push("/dashboard")
+      }
+    } catch (error) {
+      console.error("Signup error:", error)
+      setErrorMessage("An error occurred during signup")
+    } finally {
+      setPending(false)
+    }
   }
 
   const handleGoogleSignup = () => {
-    // Handle Google signup logic here
-    console.log('Google signup initiated')
+    signIn('google', { callbackUrl: '/dashboard' })
   }
 
   const handleGithubSignup = () => {
-    // Handle GitHub signup logic here
-    console.log('GitHub signup initiated')
+    signIn('github', { callbackUrl: '/dashboard' })
+  }
+
+  if (status === 'loading' || status === 'authenticated') {
+    return null
   }
 
   return (
@@ -117,7 +159,15 @@ export default function SignupPage() {
                 </Button>
               </Label>
             </div>
-            <Button type="submit" className="w-full">Sign Up</Button>
+            <Button type="submit" className="w-full" disabled={pending}>
+              {pending ? 'Signing Up...' : 'Sign Up'}
+            </Button>
+            {errorMessage && (
+              <div className="flex items-center space-x-2 text-red-500">
+                <AlertCircle size={18} />
+                <p className="text-sm">{errorMessage}</p>
+              </div>
+            )}
           </form>
           <div className="mt-6 space-y-4">
             <div className="relative">
@@ -165,7 +215,7 @@ export default function SignupPage() {
         <CardFooter className="justify-center">
           <p className="text-sm text-muted-foreground">
             Already have an account?{' '}
-            <Button variant="link" className="p-0 text-primary">
+            <Button variant="link" className="p-0 text-primary" onClick={() => router.push('/login')}>
               Sign in
             </Button>
           </p>

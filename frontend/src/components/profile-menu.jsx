@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { CreditCard, LogOut, Settings, Star } from "lucide-react"
 import { LogoutButton } from "@/components/LogoutButton"
+import { cn } from "@/lib/utils" // Asigurați-vă că aveți această funcție de utilitate
 
 export function ProfileMenuComponent() {
   const [isPremium, setIsPremium] = useState(false)
@@ -33,20 +34,29 @@ export function ProfileMenuComponent() {
           </div>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
+      <DropdownMenuContent 
+        className={cn(
+          "w-56",
+          "data-[side=bottom]:translate-x-[5rem]",
+          "data-[side=top]:translate-x-[5rem]"
+        )}
+        align="end"
+        sideOffset={5}
+        forceMount
+      >
         {!isPremium && (
           <>
-            <DropdownMenuItem className="flex-col items-start">
+            <div className="px-2 py-1.5 text-sm cursor-default">
               <p className="text-xs text-muted-foreground">Running out of messages?</p>
               <Button
                 variant="outline"
                 size="sm"
-                className="mt-2"
+                className="mt-2 w-full"
                 onClick={() => setIsPremium(true)}>
                 <Star className="mr-2 h-4 w-4 text-yellow-400" />
                 Upgrade to Premium
               </Button>
-            </DropdownMenuItem>
+            </div>
             <DropdownMenuSeparator />
           </>
         )}

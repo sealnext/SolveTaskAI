@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from jose import jwt, JWTError
-from fastapi import Request, Response
-from fastapi_csrf_protect import CsrfProtect
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from typing import Tuple, Dict
 import uuid
 
@@ -70,7 +70,7 @@ class AuthService:
             token_type: str = payload.get("type")
             jti: str = payload.get("jti")
 
-            if token_type == "refresh" and self.is_token_revoked(jti):
+            if token_type == "refresh" and AuthService.is_token_revoked(jti):
                 raise SecurityException("Token has been revoked")
 
             AuthService._check_device_compliance(device_info, current_device_info)
@@ -93,14 +93,14 @@ class AuthService:
             self._check_device_compliance(payload.get("device"), device_info)
             self._check_location(payload.get("location"), location)
             
-            self.revoke_refresh_token(refresh_token)
+            self.revoke_token(refresh_token)
             
             return self.create_token_pair(email, device_info, location)
         except JWTError:
             raise InvalidTokenException
 
     # Token revocation
-    def revoke_refresh_token(self, refresh_token: str):
+    def revoke_token(self, refresh_token: str):
         try:
             payload = jwt.decode(refresh_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
             jti = payload.get("jti")
@@ -140,32 +140,14 @@ class AuthService:
         }
         location = request.headers.get("X-Forwarded-For", request.client.host)
         return device_info, location
-
+    
+    # Clear session from cookies and headers
     @staticmethod
-    def set_auth_cookies(response: Response, access_token: str, refresh_token: str, csrf_protect: CsrfProtect, signed_token: str):
-        response.set_cookie(
-            key="access_token",
-            value=access_token,
-            httponly=False,
+    def clear_session(response: JSONResponse) -> None:
+        response.delete_cookie(
+            key="next-auth.session-token",
             secure=True,
-            samesite="lax",
-            max_age=timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
-        )
-        
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=False,
-            secure=True,
-            samesite="lax",
-            max_age=timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS)
-        )
-        
-        response.set_cookie(
-            key="csrf_token",
-            value=signed_token,
-            httponly=False,
-            secure=True,
-            samesite="lax",
-            max_age=timedelta(minutes=CSRF_TOKEN_EXPIRE_MINUTES)
-        )
+            httponly=True,
+            samesite="lax"
+            )
+        response.headers["Clear-Site-Data"] = '"cache", "cookies", "storage"'
