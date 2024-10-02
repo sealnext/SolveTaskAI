@@ -1,4 +1,4 @@
-from .token_schema import Token
 from .user_schema import UserCreate, UserRead
+from .cookie_schema import CookieSettings
 
-__all__ = ["Token", "UserCreate", "UserRead"]
+__all__ = ["UserCreate", "UserRead", "CookieSettings"]

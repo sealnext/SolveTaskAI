@@ -6,6 +6,8 @@ from typing import Tuple, Dict
 import uuid
 import logging
 
+from utils.security import decode_next_auth_token
+
 from config import (
     JWT_SECRET_KEY,
     JWT_ALGORITHM,
@@ -15,8 +17,7 @@ from config import (
 )
 from exceptions.custom_exceptions import (
     InvalidTokenException,
-    SecurityException,
-    ValidationErrorException
+    SecurityException
 )
 
 logger = logging.getLogger(__name__)
@@ -26,26 +27,16 @@ class AuthService:
 
     def __init__(self):
         pass
+    
+    def revoke_session_tokens(self, session_data: dict) -> None:
+        refresh_token = session_data.get("refresh_token")
+        if refresh_token:
+            self.revoke_token(refresh_token)
 
-    def set_auth_cookies(self, response: JSONResponse, access_token: str, refresh_token: str) -> None:
-        secure_cookie = True if ENVIRONMENT == "production" else False
-        
-        response.set_cookie(
-            key="access_token",
-            value=access_token,
-            httponly=True,
-            secure=secure_cookie,
-            samesite="lax",
-            max_age=int(timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES).total_seconds())
-        )
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=True,
-            secure=secure_cookie,
-            samesite="lax",
-            max_age=int(timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS).total_seconds())
-        )
+        access_token = session_data.get("access_token")
+        if not access_token:
+            raise SecurityException("No active access token found")
+        self.revoke_token(access_token)
 
     def create_token_pair(self, email: str, request: Request) -> Tuple[str, str]:
         device_info, location = self._extract_request_localization(request)
@@ -111,28 +102,33 @@ class AuthService:
             raise InvalidTokenException("Invalid token")
 
     def refresh_token_pair(self, next_auth_token: str, request: Request) -> Tuple[str, str]:
+        session_data = self._decode_next_auth_token(next_auth_token)
+        old_refresh_token = session_data.get("refresh_token")
+        if not old_refresh_token:
+            logger.info("Refresh token missing in session data")
+            raise InvalidTokenException("Refresh token missing in session")
+
         try:
-            session_data = self._decode_next_auth_token(next_auth_token)
-            old_refresh_token = session_data.get("refresh_token")
-            if not old_refresh_token:
-                raise InvalidTokenException("Refresh token missing in session")
+            payload = jwt.decode(old_refresh_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+            
+            if payload.get("type") != "refresh":
+                logger.info("Invalid token type detected")
+                raise InvalidTokenException("Invalid token type")
+            
+            if payload.get("jti") in self.revoked_tokens:
+                logger.info("Refresh token has been revoked")
+                raise SecurityException("Refresh token has been revoked")
+            
+            email = payload.get("sub")
+            self.revoke_token(old_refresh_token)
+            return self.create_token_pair(email, request)
 
-            try:
-                payload = jwt.decode(old_refresh_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-                if payload.get("type") != "refresh":
-                    raise InvalidTokenException("Invalid token type")
-                
-                if payload.get("jti") in self.revoked_tokens:
-                    raise SecurityException("Refresh token has been revoked")
-                
-                email = payload.get("sub")
-                self.revoke_token(old_refresh_token)
-
-                return self.create_token_pair(email, request)
-            except JWTError:
-                raise InvalidTokenException("Invalid refresh token")
+        except JWTError as e:
+            logger.error(f"JWT decoding failed: {str(e)}")
+            raise InvalidTokenException("Invalid refresh token")
+        
         except Exception as e:
-            logger.error(f"Token refresh failed: {str(e)}")
+            logger.error(f"Unexpected error during token refresh: {str(e)}")
             raise InvalidTokenException("Failed to refresh tokens")
 
     def _decode_next_auth_token(self, next_auth_token: str) -> dict:
@@ -156,7 +152,7 @@ class AuthService:
                 cls._clean_expired_tokens()
         except JWTError:
             logger.warning("Failed to revoke token: Invalid token")
-
+    
     @classmethod
     def is_token_revoked(cls, jti: str) -> bool:
         cls._clean_expired_tokens()
