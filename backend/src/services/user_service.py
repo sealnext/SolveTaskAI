@@ -1,6 +1,6 @@
 import logging
 from pydantic import ValidationError
-from fastapi import Depends, Request, status
+from fastapi import Depends, Request
 from fastapi_csrf_protect import CsrfProtect
 from typing import Optional, Tuple
 
@@ -29,32 +29,37 @@ class UserService:
     @staticmethod
     async def get_current_user(
         request: Request,
-        csrf_protect: CsrfProtect = Depends(),
     ) -> User:
-        try:
-            next_auth_token = request.cookies.get("next-auth.session-token")
-            if not next_auth_token:
-                raise InvalidTokenException("Next-auth token is missing")
+        next_auth_token = request.cookies.get("next-auth.session-token")
+        if not next_auth_token:
+            logger.info("Next-auth token is missing from the request cookies")
+            raise InvalidTokenException("Next-auth token is missing")
 
+        try:
             session_data = decode_next_auth_token(next_auth_token)
-            csrf_protect.validate_csrf(session_data.get("csrf_token"))
             token = session_data.get("access_token")
             if not token:
+                logger.info("Access token is missing in the session data")
                 raise InvalidTokenException("Access token is missing")
 
             device_info, location = AuthService.extract_request_localization(request)
-
             email = AuthService.verify_and_decode_token(token, device_info, location)
+
             user = await UserService.get_user_by_email(email)
             if user is None:
+                logger.info(f"User with email {email} not found")
                 raise UserNotFoundException("User not found")
+
             return user
+
         except (InvalidTokenException, UserNotFoundException, SecurityException) as e:
             logger.error(f"Authorization failed: {str(e)}")
             raise
+
         except Exception as e:
             logger.error(f"Unexpected error during authorization: {str(e)}")
             raise UnexpectedErrorException("An unexpected error occurred during authorization")
+
 
     async def authenticate_user(self, email: str, password: str) -> User:
         user = await self.user_repository.get_by_email(email)
@@ -63,19 +68,20 @@ class UserService:
         return user
 
     async def create_new_user(self, user_create: UserCreate) -> User:
-        try:
-            existing_user = await self.user_repository.get_by_email(user_create.email)
-            if existing_user:
-                raise UserAlreadyExistsException(f"User with email {user_create.email} already exists")
+        existing_user = await self.user_repository.get_by_email(user_create.email)
+        if existing_user:
+            logger.info(f"User creation failed: User with email {user_create.email} already exists")
+            raise UserAlreadyExistsException(f"User already exists")
 
-            hashed_password = hash_password(user_create.password)
-            user_create.password = hashed_password
+        hashed_password = hash_password(user_create.password)
+        user_create.password = hashed_password
+
+        try:
             return await self.user_repository.create(user_create)
+        
         except ValidationError as e:
+            logger.error(f"Validation error during user creation: {e.errors()}")
             raise ValidationErrorException(f"Validation error: {e.errors()}")
-        except Exception as e:
-            logger.error(f"Unexpected error during user creation: {str(e)}")
-            raise UnexpectedErrorException("An unexpected error occurred during user creation")
 
     async def get_user_by_email(self, email: str) -> Optional[User]:
         return await self.user_repository.get_by_email(email)
@@ -85,8 +91,5 @@ class UserService:
             user = await self.authenticate_user(email, password)
             return auth_service.create_token_pair(user.email, request)
         except InvalidCredentialsException as e:
-            logger.warning(f"Authentication failed: {str(e)}")
+            logger.warning(f"Authentication failed for email {email}: {str(e)}")
             raise
-        except Exception as e:
-            logger.error(f"Unexpected error during authentication: {str(e)}")
-            raise UnexpectedErrorException("An unexpected error occurred during authentication")

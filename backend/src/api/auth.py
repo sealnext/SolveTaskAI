@@ -1,22 +1,15 @@
-import json
 import logging
-from datetime import timedelta
 
-from jose import jwt
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi_csrf_protect import CsrfProtect
 
-from config import (
-    JWT_REFRESH_TOKEN_EXPIRE_DAYS,
-    NEXTAUTH_SECRET,
-)
 from dependencies import get_auth_service, get_user_service
 from exceptions import *
 from services import AuthService, UserService
 from utils.security import decode_next_auth_token
 from validation_models import UserCreate
+from utils.cookie_manager import set_auth_cookies
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +31,7 @@ async def login(
         status_code=status.HTTP_200_OK,
         content={"message": "Login successful"}
     )
-    auth_service.set_auth_cookies(response, access_token, refresh_token)
+    set_auth_cookies(response, access_token, refresh_token)
 
     return response
 
@@ -71,14 +64,7 @@ async def logout(
 
     session_data = decode_next_auth_token(next_auth_token)
 
-    refresh_token = session_data.get("refresh_token")
-    if refresh_token:
-        auth_service.revoke_token(refresh_token)
-
-    access_token = session_data.get("access_token")
-    if not access_token:
-        raise SecurityException("No active access token found")
-    auth_service.revoke_token(access_token)
+    auth_service.revoke_session_tokens(session_data)
     
     response = JSONResponse(
         status_code=status.HTTP_200_OK,
