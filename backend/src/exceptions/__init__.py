@@ -4,7 +4,8 @@ from .custom_exceptions import (
     UserNotFoundException,
     InvalidTokenException,
     ValidationErrorException,
-    SecurityException
+    SecurityException,
+    UnexpectedErrorException
 )
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "UserNotFoundException",
     "InvalidTokenException",
     "ValidationErrorException",
-    "SecurityException"
+    "SecurityException",
+    "UnexpectedErrorException"
 ]

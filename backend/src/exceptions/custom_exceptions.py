@@ -35,3 +35,8 @@ class UserNotFoundException(BaseCustomException):
 class ValidationErrorException(BaseCustomException):
     def __init__(self, detail: str = "Validation error"):
         super().__init__(detail, status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+
+class UnexpectedErrorException(BaseCustomException):
+    def __init__(self, detail: str = "An unexpected error occurred"):
+        super().__init__(detail, status.HTTP_500_INTERNAL_SERVER_ERROR)

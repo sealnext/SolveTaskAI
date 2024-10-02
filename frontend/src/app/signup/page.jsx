@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { LockIcon, MailIcon, UserIcon, AlertCircle } from 'lucide-react'
+import ApiClient from '@/lib/apiClient'
 
 export default function SignupPage() {
   const [name, setName] = useState('')
@@ -20,6 +21,8 @@ export default function SignupPage() {
   const [pending, setPending] = useState(false)
   const router = useRouter()
   const { data: session, status } = useSession()
+  const [errors, setErrors] = useState({})
+  const apiClient = ApiClient()
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -27,35 +30,75 @@ export default function SignupPage() {
     }
   }, [status, router])
 
+  const validateForm = () => {
+    const newErrors = {}
+    
+    if (name.length < 3 || name.length > 50 || !/^[a-zA-Z0-9]+$/.test(name)) {
+      newErrors.name = 'Username must be alphanumeric and between 3-50 characters'
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = 'Invalid email format'
+    }
+
+    if (password.length < 8 || password.length > 128) {
+      newErrors.password = 'Password must be between 8-128 characters'
+    }
+
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password) || !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      newErrors.password = 'Password must contain uppercase, lowercase, digit, and special character'
+    }
+
+    if (password !== confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match'
+    }
+
+    setErrors(newErrors)
+    console.log("Validation errors:", newErrors) // Logging pentru depanare
+    return Object.keys(newErrors).length === 0
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    console.log("Signup form submitted")
     setPending(true)
     setErrorMessage(null)
 
-    if (password !== confirmPassword) {
-      setErrorMessage("Passwords do not match")
+    if (!validateForm()) {
+      console.log("Form validation failed")
       setPending(false)
       return
     }
 
     try {
-      // Aici ar trebui să fie logica de înregistrare
-      // Pentru exemplu, vom folosi signIn ca și cum ar fi o înregistrare
-      const res = await signIn('credentials', {
-        redirect: false,
-        username: email,
-        password,
-        name,
+      console.log("Sending signup request")
+      const response = await apiClient.post('/auth/signup', {
+        username: name,
+        email,
+        password
       })
 
-      if (res?.error) {
-        setErrorMessage(res.error)
-      } else {
-        router.push("/dashboard")
+      console.log("Signup response:", response)
+
+      if (response.message === "User created successfully") {
+        console.log("User created successfully, attempting login")
+        const loginRes = await signIn('credentials', {
+          redirect: false,
+          username: email,
+          password,
+        })
+
+        if (loginRes?.error) {
+          console.log("Auto-login failed:", loginRes.error)
+          setErrorMessage("Signup successful, but couldn't log in automatically. Please log in.")
+        } else {
+          console.log("Auto-login successful, redirecting")
+          router.push("/dashboard")
+        }
       }
     } catch (error) {
       console.error("Signup error:", error)
-      setErrorMessage("An error occurred during signup")
+      setErrorMessage(error.message || "An error occurred during signup")
     } finally {
       setPending(false)
     }
@@ -95,6 +138,7 @@ export default function SignupPage() {
                   required 
                 />
               </div>
+              {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -110,6 +154,7 @@ export default function SignupPage() {
                   required 
                 />
               </div>
+              {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -125,6 +170,7 @@ export default function SignupPage() {
                   required 
                 />
               </div>
+              {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
@@ -140,6 +186,7 @@ export default function SignupPage() {
                   required 
                 />
               </div>
+              {errors.confirmPassword && <p className="text-red-500 text-sm">{errors.confirmPassword}</p>}
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox 
@@ -215,7 +262,7 @@ export default function SignupPage() {
         <CardFooter className="justify-center">
           <p className="text-sm text-muted-foreground">
             Already have an account?{' '}
-            <Button variant="link" className="p-0 text-primary" onClick={() => router.push('/login')}>
+            <Button variant="link" className="p-0 text-primary" onClick={() => router.push('/signup')}>
               Sign in
             </Button>
           </p>
