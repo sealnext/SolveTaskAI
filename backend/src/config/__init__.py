@@ -5,9 +5,5 @@ from .config import (
     JWT_REFRESH_TOKEN_EXPIRE_DAYS,
     DATABASE_URL,
     SYNC_DATABASE,
-    CSRF_SECRET_KEY,
-    CSRF_TOKEN_EXPIRE_MINUTES,
     NEXTAUTH_SECRET,
 )
-
-from .csrf_settings import csrf_config

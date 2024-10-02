@@ -4,7 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi_csrf_protect import CsrfProtect
 
 from api.auth import router as auth_router
-from config import csrf_config
 from db.sync import sync_database
 from exceptions.handlers import register_exception_handlers
 from services import DataExtractorFacade
@@ -18,8 +17,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-CsrfProtect.load_config(csrf_config)
 
 # Routers
 app.include_router(auth_router)
