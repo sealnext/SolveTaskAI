@@ -6,7 +6,6 @@ from typing import Tuple, Dict
 import uuid
 
 from config import (
-    CSRF_TOKEN_EXPIRE_MINUTES,
     JWT_SECRET_KEY,
     JWT_ALGORITHM,
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES,

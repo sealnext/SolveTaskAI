@@ -10,7 +10,6 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi_csrf_protect import CsrfProtect
 
 from config import (
-    CSRF_TOKEN_EXPIRE_MINUTES,
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
     JWT_REFRESH_TOKEN_EXPIRE_DAYS,
     NEXTAUTH_SECRET,
@@ -50,7 +49,6 @@ async def login(
 
         response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=int(timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES).total_seconds()))
         response.set_cookie(key="refresh_token", value=refresh_token, httponly=False, secure=False, samesite="lax", max_age=int(timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS).total_seconds()))
-        response.set_cookie(key="csrf_token", value=signed_token, httponly=True, secure=False, samesite="lax", max_age=int(timedelta(minutes=CSRF_TOKEN_EXPIRE_MINUTES).total_seconds()))
 
         return response
     
