@@ -12,3 +12,5 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 SYNC_DATABASE = os.getenv("SYNC_DATABASE", "False").lower() == "true"
 
 NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET")
+
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production")

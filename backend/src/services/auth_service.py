@@ -4,21 +4,51 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from typing import Tuple, Dict
 import uuid
+import logging
 
 from config import (
     JWT_SECRET_KEY,
     JWT_ALGORITHM,
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
-    JWT_REFRESH_TOKEN_EXPIRE_DAYS
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS,
+    ENVIRONMENT
 )
-from exceptions import InvalidTokenException, SecurityException
+from exceptions.custom_exceptions import (
+    InvalidTokenException,
+    SecurityException,
+    ValidationErrorException
+)
+
+logger = logging.getLogger(__name__)
 
 class AuthService:
-    def __init__(self):
-        self.revoked_tokens: Dict[str, datetime] = {}
+    revoked_tokens: Dict[str, datetime] = {}
 
-    # Token creation and management
-    def create_token_pair(self, email: str, device_info: dict, location: str) -> Tuple[str, str]:
+    def __init__(self):
+        pass
+
+    def set_auth_cookies(self, response: JSONResponse, access_token: str, refresh_token: str) -> None:
+        secure_cookie = True if ENVIRONMENT == "production" else False
+        
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=secure_cookie,
+            samesite="lax",
+            max_age=int(timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES).total_seconds())
+        )
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=secure_cookie,
+            samesite="lax",
+            max_age=int(timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS).total_seconds())
+        )
+
+    def create_token_pair(self, email: str, request: Request) -> Tuple[str, str]:
+        device_info, location = self._extract_request_localization(request)
         access_token = self._create_access_token(email, device_info, location)
         refresh_token = self._create_refresh_token(email, device_info, location)
         return access_token, refresh_token
@@ -38,7 +68,8 @@ class AuthService:
             
             return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
         except Exception as e:
-            raise InvalidTokenException(f"Access token creation failed: {str(e)}")
+            logger.error(f"Access token creation failed: {str(e)}")
+            raise InvalidTokenException("Failed to create access token")
 
     def _create_refresh_token(self, email: str, device_info: dict, location: str) -> str:
         try:
@@ -56,11 +87,11 @@ class AuthService:
             
             return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
         except Exception as e:
-            raise InvalidTokenException(f"Refresh token creation failed: {str(e)}")
+            logger.error(f"Refresh token creation failed: {str(e)}")
+            raise InvalidTokenException("Failed to create refresh token")
 
-    # Token verification and refresh
-    @staticmethod
-    def verify_and_decode_token(token: str, current_device_info: dict, current_location: str) -> str:
+    @classmethod
+    def verify_and_decode_token(cls, token: str, current_device_info: dict, current_location: str) -> str:
         try:
             payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
             email: str = payload.get("sub")
@@ -69,70 +100,85 @@ class AuthService:
             token_type: str = payload.get("type")
             jti: str = payload.get("jti")
 
-            if token_type == "refresh" and AuthService.is_token_revoked(jti):
+            if token_type == "refresh" and cls.is_token_revoked(jti):
                 raise SecurityException("Token has been revoked")
 
-            AuthService._check_device_compliance(device_info, current_device_info)
-            AuthService._check_location(location, current_location)
+            cls._check_device_compliance(device_info, current_device_info)
+            cls._check_location(location, current_location)
 
             return email
         except JWTError:
-            raise InvalidTokenException
+            raise InvalidTokenException("Invalid token")
 
-    def refresh_token_pair(self, refresh_token: str, device_info: dict, location: str) -> Tuple[str, str]:
+    def refresh_token_pair(self, next_auth_token: str, request: Request) -> Tuple[str, str]:
         try:
-            payload = jwt.decode(refresh_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-            if payload.get("type") != "refresh":
-                raise InvalidTokenException("Invalid token type")
-            
-            if payload.get("jti") in self.revoked_tokens:
-                raise SecurityException("Refresh token has been revoked")
-            
-            email = payload.get("sub")
-            self._check_device_compliance(payload.get("device"), device_info)
-            self._check_location(payload.get("location"), location)
-            
-            self.revoke_token(refresh_token)
-            
-            return self.create_token_pair(email, device_info, location)
-        except JWTError:
-            raise InvalidTokenException
+            session_data = self._decode_next_auth_token(next_auth_token)
+            old_refresh_token = session_data.get("refresh_token")
+            if not old_refresh_token:
+                raise InvalidTokenException("Refresh token missing in session")
 
-    # Token revocation
-    def revoke_token(self, refresh_token: str):
+            try:
+                payload = jwt.decode(old_refresh_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+                if payload.get("type") != "refresh":
+                    raise InvalidTokenException("Invalid token type")
+                
+                if payload.get("jti") in self.revoked_tokens:
+                    raise SecurityException("Refresh token has been revoked")
+                
+                email = payload.get("sub")
+                self.revoke_token(old_refresh_token)
+
+                return self.create_token_pair(email, request)
+            except JWTError:
+                raise InvalidTokenException("Invalid refresh token")
+        except Exception as e:
+            logger.error(f"Token refresh failed: {str(e)}")
+            raise InvalidTokenException("Failed to refresh tokens")
+
+    def _decode_next_auth_token(self, next_auth_token: str) -> dict:
+        if not next_auth_token:
+            raise InvalidTokenException("Next-auth token missing")
+        try:
+            return decode_next_auth_token(next_auth_token)
+        except Exception as e:
+            logger.error(f"Failed to decode next-auth token: {str(e)}")
+            raise InvalidTokenException("Invalid next-auth token")
+
+    @classmethod
+    def revoke_token(cls, refresh_token: str):
         try:
             payload = jwt.decode(refresh_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
             jti = payload.get("jti")
             exp = payload.get("exp")
             if jti and exp:
                 expiration = datetime.fromtimestamp(exp, tz=timezone.utc)
-                self.revoked_tokens[jti] = expiration
-                self._clean_expired_tokens()
+                cls.revoked_tokens[jti] = expiration
+                cls._clean_expired_tokens()
         except JWTError:
-            pass
+            logger.warning("Failed to revoke token: Invalid token")
 
-    def is_token_revoked(self, jti: str) -> bool:
-        self._clean_expired_tokens()
-        return jti in self.revoked_tokens
+    @classmethod
+    def is_token_revoked(cls, jti: str) -> bool:
+        cls._clean_expired_tokens()
+        return jti in cls.revoked_tokens
 
-    def _clean_expired_tokens(self):
+    @classmethod
+    def _clean_expired_tokens(cls):
         current_time = datetime.now(timezone.utc)
-        self.revoked_tokens = {jti: exp for jti, exp in self.revoked_tokens.items() if exp > current_time}
+        cls.revoked_tokens = {jti: exp for jti, exp in cls.revoked_tokens.items() if exp > current_time}
 
-    # Security checks
     @staticmethod
     def _check_device_compliance(stored_device_info: dict, current_device_info: dict):
         if stored_device_info != current_device_info:
-            raise SecurityException("Unusual activity")
+            raise SecurityException("Unusual activity detected: Device mismatch")
 
     @staticmethod
     def _check_location(stored_location: str, current_location: str):
         if stored_location != current_location:
-            raise SecurityException("Unusual activity")
+            raise SecurityException("Unusual activity detected: Location mismatch")
 
-    # Request and response handling
     @staticmethod
-    def extract_request_localization(request: Request):
+    def _extract_request_localization(request: Request):
         device_info = {
             "user_agent": request.headers.get("User-Agent"),
             "ip_address": request.client.host
@@ -140,7 +186,6 @@ class AuthService:
         location = request.headers.get("X-Forwarded-For", request.client.host)
         return device_info, location
     
-    # Clear session from cookies and headers
     @staticmethod
     def clear_session(response: JSONResponse) -> None:
         response.delete_cookie(
@@ -148,5 +193,5 @@ class AuthService:
             secure=True,
             httponly=True,
             samesite="lax"
-            )
+        )
         response.headers["Clear-Site-Data"] = '"cache", "cookies", "storage"'

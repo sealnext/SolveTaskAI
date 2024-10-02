@@ -3,24 +3,20 @@ import { useSession } from "next-auth/react";
 
 
 export default function ApiClient() {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
   const { data: session } = useSession();
 
   const request = async (endpoint: string, options: RequestInit = {}) => {
-    const csrfToken = session?.user?.csrf_token;
-    
-    const headers = new Headers(options.headers || {});
-    if (csrfToken) headers.append('X-CSRF-Token', csrfToken);
-
     const response = await fetch(`${baseUrl}${endpoint}`, {
       ...options,
-      headers,
       credentials: 'include',
     });
 
     if (!response.ok) {
-      throw new Error(`API call failed: ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      console.error("API Error:", response.status, errorData);
+      throw new Error(errorData.message || errorData.detail || `API call failed: ${response.statusText}`);
     }
 
     return response.json();

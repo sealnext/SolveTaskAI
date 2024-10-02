@@ -6,4 +6,5 @@ from .config import (
     DATABASE_URL,
     SYNC_DATABASE,
     NEXTAUTH_SECRET,
+    ENVIRONMENT,
 )
