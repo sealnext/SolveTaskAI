@@ -1,49 +1,41 @@
-import { getAuthTokens } from './auth';
+import { log } from "console";
+import { useSession } from "next-auth/react";
 
-class ApiClient {
-  private baseUrl: string;
 
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
-  }
+export default function ApiClient() {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-  private async request(endpoint: string, options: RequestInit = {}) {
-    const { accessToken, csrfToken } = getAuthTokens();
-    const headers = new Headers(options.headers || {});
+  const { data: session } = useSession();
+
+  const request = async (endpoint: string, options: RequestInit = {}) => {
+    const csrfToken = session?.user?.csrf_token;
     
-    if (accessToken) headers.append('Authorization', `Bearer ${accessToken}`);
+    const headers = new Headers(options.headers || {});
     if (csrfToken) headers.append('X-CSRF-Token', csrfToken);
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       ...options,
       headers,
       credentials: 'include',
     });
 
     if (!response.ok) {
-      // Handle errors, possibly refresh token if 401
       throw new Error(`API call failed: ${response.statusText}`);
     }
 
     return response.json();
-  }
+  };
 
-  async get(endpoint: string) {
-    return this.request(endpoint);
-  }
-
-  async post(endpoint: string, data: any) {
-    return this.request(endpoint, {
+  const post = async (endpoint: string, data: any) => {
+    return request(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
     });
-  }
+  };
 
-  // Add other methods like put, delete, etc.
+  return { post };
 }
 
-// Create and export an instance
-export const apiClient = new ApiClient('http://localhost:8000');

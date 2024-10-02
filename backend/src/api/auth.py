@@ -1,8 +1,9 @@
 import json
 import logging
 from datetime import timedelta
+from urllib import response
 
-from jose import jwt
+from jose import jwt, JWTError
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -29,7 +30,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 @router.post("/login")
 async def login(
     request: Request,
-    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service),
     user_service: UserService = Depends(get_user_service),
@@ -42,13 +42,18 @@ async def login(
             user.email, device_info=device_info, location=location
         )
         csrf_token, signed_token = csrf_protect.generate_csrf_tokens()
-        AuthService.set_auth_cookies(response, access_token, refresh_token, csrf_protect, signed_token)
-        
-        logger.info(f"User {user.email} logged in successfully")
-        return JSONResponse(
+
+        response = JSONResponse(
             status_code=status.HTTP_200_OK,
             content={"message": "Login successful"}
         )
+
+        response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=int(timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES).total_seconds()))
+        response.set_cookie(key="refresh_token", value=refresh_token, httponly=False, secure=False, samesite="lax", max_age=int(timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS).total_seconds()))
+        response.set_cookie(key="csrf_token", value=signed_token, httponly=True, secure=False, samesite="lax", max_age=int(timedelta(minutes=CSRF_TOKEN_EXPIRE_MINUTES).total_seconds()))
+
+        return response
+    
     except Exception as e:
         logger.error(f"Login failed: {str(e)}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Failed authentication")
@@ -84,7 +89,7 @@ async def refresh_token(
     if not new_access_token or not new_refresh_token:
         raise InvalidTokenException("Failed to generate new tokens")
 
-    auth_service.revoke_refresh_token(old_refresh_token)
+    auth_service.revoke_token(old_refresh_token)
 
     new_session_data = {
         "access_token": new_access_token,
@@ -113,36 +118,33 @@ async def refresh_token(
         },
     )
 
-
 @router.post("/logout")
 async def logout(
     request: Request,
-    response: Response,
     auth_service: AuthService = Depends(get_auth_service),
-    csrf_protect: CsrfProtect = Depends(),
-):
-    try:
-        next_auth_token = request.cookies.get("next-auth.session-token")
+) -> JSONResponse:
+    next_auth_token = request.cookies.get("next-auth.session-token")
+    if not next_auth_token:
+        raise SecurityException("No active session found")
 
-        if next_auth_token:
-            session_data = decode_next_auth_token(next_auth_token)
-            
-            csrf_token = session_data.get("csrf_token")
-            if csrf_token:
-                await csrf_protect.validate_csrf(csrf_token)
+    session_data = decode_next_auth_token(next_auth_token)
 
-            refresh_token = session_data.get("refresh_token")
-            if refresh_token:
-                auth_service.revoke_refresh_token(refresh_token)
+    refresh_token = session_data.get("refresh_token")
+    if refresh_token:
+        auth_service.revoke_token(refresh_token)
 
-        response.delete_cookie("next-auth.session-token")
-        response.headers["Clear-Site-Data"] = '"cache", "cookies", "storage"'
-
-        return JSONResponse(status_code=status.HTTP_200_OK, content={"message": "Logged out successfully"})
-    except Exception as e:
-        logger.error(f"Logout failed: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Logout failed")
-
+    access_token = session_data.get("access_token")
+    if not access_token:
+        raise SecurityException("No active access token found")
+    auth_service.revoke_token(access_token)
+    
+    response = JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"message": "Logged out successfully"}
+    )
+    
+    auth_service.clear_session(response)
+    return response
 
 @router.post("/signup")
 async def signup(

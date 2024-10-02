@@ -1,17 +1,8 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { NextAuthOptions } from "next-auth";
+import { log } from "console";
 
-// Function to convert an object to URL-encoded form data
-function toFormData(obj) {
-  const formBody = [];
-  for (const property in obj) {
-    const encodedKey = encodeURIComponent(property);
-    const encodedValue = encodeURIComponent(obj[property]);
-    formBody.push(`${encodedKey}=${encodedValue}`);
-  }
-  return formBody.join("&");
-}
 
 export const authOptions: NextAuthOptions = {
   
@@ -43,25 +34,19 @@ export const authOptions: NextAuthOptions = {
             credentials: 'include',
           });
 
-          console.log("Response status:", res.status);
-          const data = await res.json();
-          console.log("Response data:", data);
+          const cookies = extractCookies(res.headers.get("Set-Cookie"));
 
-          if (res.ok && data) {
+          if (res.ok) {
             return {
-              id: data.user_id || data.username,
-              name: data.username,
-              email: data.username,
-              access_token: data.access_token,
-              refresh_token: data.refresh_token,
-              csrf_token: data.csrf_token,
+              name: credentials.username,
+              access_token: cookies.access_token,
+              refresh_token: cookies.refresh_token,
+              csrf_token: cookies.csrf_token,
             };
           } else {
-            console.error('Authorization failed:', data);
             return null;
           }
         } catch (error) {
-          console.error('Error during authorization:', error);
           return null;
         }
       }
@@ -83,17 +68,30 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       session.user = {
         ...session.user,
-        // session data to be accessed by the client
+        csrf_token: token.csrf_token as string,
       };
       return session;
     }
   },
   secret: process.env.NEXTAUTH_SECRET,
-  jwt: {
-    encryption: true,
-  },
 };
 
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST }
+
+function extractCookies(setCookieHeader: string) {
+  const cookies: Record<string, string> = {};
+  
+  if (setCookieHeader) {
+    const cookiesArray = setCookieHeader.split(', ');
+
+    cookiesArray.forEach(cookieString => {
+      const [cookieKeyValue] = cookieString.split(';');
+      const [key, value] = cookieKeyValue.split('=');
+      cookies[key] = value;
+    });
+  }
+
+  return cookies;
+}

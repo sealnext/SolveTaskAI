@@ -136,7 +136,7 @@ export default function LoginPage() {
         <CardFooter className="justify-center flex-col">
           <p className="text-sm text-muted-foreground">
             Don't have an account?{' '}
-            <Button variant="link" className="p-0 text-primary">
+            <Button variant="link" className="p-0 text-primary" onClick={() => router.push('/signup')}>
               Sign up
             </Button>
           </p>
