@@ -4,11 +4,10 @@ declare module "next-auth" {
   interface User {
     access_token: string;
     refresh_token: string;
-    csrf_token: string;
+    full_name: string;
   }
 
   interface Session extends DefaultSession {
     user: User;
-    csrf_token: string;
   }
 }

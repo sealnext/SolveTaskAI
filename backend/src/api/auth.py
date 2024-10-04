@@ -26,10 +26,12 @@ async def login(
     access_token, refresh_token = await user_service.authenticate_and_get_tokens(
         form_data.username, form_data.password, request, auth_service
     )
+    user = await user_service.get_user_by_email(form_data.username)
     
     response = JSONResponse(
         status_code=status.HTTP_200_OK,
-        content={"message": "Login successful"}
+        content={"message": "Login successful",
+                 "full_name": user.full_name}
     )
     set_auth_cookies(response, access_token, refresh_token)
 
