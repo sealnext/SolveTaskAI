@@ -1,7 +1,6 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { NextAuthOptions } from "next-auth";
-import { log } from "console";
 
 
 export const authOptions: NextAuthOptions = {
@@ -16,13 +15,12 @@ export const authOptions: NextAuthOptions = {
       
       async authorize(credentials, req) {
         if (!credentials?.username || !credentials?.password) {
-          console.log("Missing credentials");
-          return null;
+          throw new Error("Please enter both the username and password.");
         }
 
         try {
           console.log("Attempting to connect to backend...");
-          const res = await fetch("http://localhost:8000/auth/login", {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
             method: 'POST',
             body: new URLSearchParams({
               username: credentials.username,
@@ -37,17 +35,18 @@ export const authOptions: NextAuthOptions = {
           const cookies = extractCookies(res.headers.get("Set-Cookie"));
 
           if (res.ok) {
+            const data = await res.json();
             return {
-              name: credentials.username,
+              email: credentials.username,
+              full_name: data.full_name,
               access_token: cookies.access_token,
               refresh_token: cookies.refresh_token,
-              csrf_token: cookies.csrf_token,
             };
           } else {
-            return null;
+            throw new Error("Incorrect username or password.");
           }
         } catch (error) {
-          return null;
+          throw new Error(error.message);
         }
       }
     })
@@ -61,14 +60,14 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.access_token = user.access_token;
         token.refresh_token = user.refresh_token;
-        token.csrf_token = user.csrf_token;
+        token.full_name = user.full_name;
       }
       return token;
     },
     async session({ session, token }) {
       session.user = {
         ...session.user,
-        csrf_token: token.csrf_token as string,
+        full_name: token.full_name as string,
       };
       return session;
     }

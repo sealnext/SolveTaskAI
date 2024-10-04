@@ -1,4 +1,4 @@
-'use client'
+"use client"
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -21,13 +21,14 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      router.push('/dashboard')
+      router.push('/chat')
     }
   }, [status, router])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setPending(true)
+    setErrorMessage(null)
 
     try {
       const res = await signIn('credentials', {
@@ -41,11 +42,11 @@ export default function LoginPage() {
         setPending(false)
       } else {
         setPending(false)
-        router.push("/dashboard")
+        router.push("/chat")
       }
     } catch (error) {
       console.error("Login error:", error)
-      setErrorMessage("An error occurred during login")
+      setErrorMessage("A apărut o eroare neașteptată. Vă rugăm să încercați din nou.")
       setPending(false)
     }
   }
@@ -123,7 +124,7 @@ export default function LoginPage() {
               </Button>
             </div>
             <Button type="submit" className="w-full" disabled={pending}>
-              {pending ? 'Signing In...' : 'Sign In'}
+              {pending ? 'Se conectează...' : 'Conectare'}
             </Button>
             {errorMessage && (
               <div className="flex items-center space-x-2 text-red-500">

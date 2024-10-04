@@ -26,7 +26,7 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      router.push('/dashboard')
+      router.push('/chat')
     }
   }, [status, router])
 
@@ -93,7 +93,7 @@ export default function SignupPage() {
           setErrorMessage("Signup successful, but couldn't log in automatically. Please log in.")
         } else {
           console.log("Auto-login successful, redirecting")
-          router.push("/dashboard")
+          router.push("/chat")
         }
       }
     } catch (error) {
@@ -105,11 +105,11 @@ export default function SignupPage() {
   }
 
   const handleGoogleSignup = () => {
-    signIn('google', { callbackUrl: '/dashboard' })
+    signIn('google', { callbackUrl: '/chat' })
   }
 
   const handleGithubSignup = () => {
-    signIn('github', { callbackUrl: '/dashboard' })
+    signIn('github', { callbackUrl: '/chat' })
   }
 
   if (status === 'loading' || status === 'authenticated') {

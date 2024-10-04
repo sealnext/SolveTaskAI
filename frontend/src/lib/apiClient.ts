@@ -1,11 +1,7 @@
-import { log } from "console";
-import { useSession } from "next-auth/react";
 
 
 export default function ApiClient() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-  const { data: session } = useSession();
 
   const request = async (endpoint: string, options: RequestInit = {}) => {
     const response = await fetch(`${baseUrl}${endpoint}`, {
