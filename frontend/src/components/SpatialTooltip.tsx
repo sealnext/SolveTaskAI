@@ -34,11 +34,11 @@ const ChatIcon = () => (
   );
   
   const tooltipItems = [
-    { icon: <ChatIcon />, title: "Chat", href: "/chat" },
-    { icon: <HistoryIcon />, title: "History", href: "/history" },
-    { icon: <SearchIcon />, title: "Search", href: "/search" },
-    { icon: <SettingsIcon />, title: "Settings", href: "/settings" },
-    { icon: <FeedbackIcon />, title: "Feedback", href: "/feedback" },
+    { icon: <ChatIcon />, title: "Chat", href: "/chat", shortcutKey: "meta+c" },
+    { icon: <HistoryIcon />, title: "History", href: "/history", shortcutKey: "meta+h" },
+    { icon: <SearchIcon />, title: "Search", href: "/search", shortcutKey: "meta+f" },
+    { icon: <SettingsIcon />, title: "Settings", href: "/settings", shortcutKey: "meta+s" },
+    { icon: <FeedbackIcon />, title: "Feedback", href: "/feedback"},
   ];
 
 const SpatialTooltip: React.FC = () => {
@@ -47,7 +47,12 @@ const SpatialTooltip: React.FC = () => {
       <div className="fixed left-8 top-1/2 transform -translate-y-1/2 bg-gray-600 text-white rounded-full px-2 py-4 flex flex-col items-center space-y-4 z-50">
         {tooltipItems.map((item, index) => (
           <Link key={index} href={item.href} passHref>
-            <GooeyButton href={item.href} icon={item.icon} title={item.title} />
+            <GooeyButton
+              href={item.href}
+              icon={item.icon}
+              title={item.title}
+              shortcutKey={item.shortcutKey}
+            />
           </Link>
         ))}
       </div>
@@ -61,21 +66,6 @@ const SpatialTooltip: React.FC = () => {
           </filter>
         </defs>
       </svg>
-
-      <style jsx>{`
-        @keyframes pulse {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.05); }
-          100% { transform: scale(1); }
-        }
-        .gooey-button {
-          filter: url('#gooey');
-          transition: all 0.3s ease;
-        }
-        .gooey-button:hover {
-          animation: pulse 1s infinite;
-        }
-      `}</style>
     </>
   );
 };

@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from 'react'
-import { LoadingSpinner } from "@/components/loading-spinner"
+import { LoadingSpinner } from "@/components/LoadingSpinner"
 import SpatialTooltip from "@/components/SpatialTooltip"
 import ChatInput from "@/components/ChatInput"
 import Chat from "@/components/Chat"
