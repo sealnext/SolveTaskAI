@@ -8,6 +8,7 @@ import SpatialTooltip from "@/components/SpatialTooltip"
 import ChatInput from "@/components/ChatInput"
 import Chat from "@/components/Chat"
 import { v4 as uuidv4 } from 'uuid'; // Asigurați-vă că aveți instalat pachetul uuid
+import { ProfileMenuComponent } from "@/components/profile-menu";
 
 interface Message {
   id: string;
@@ -67,6 +68,9 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground relative">
+      <div className="absolute top-4 right-4 z-50">
+        <ProfileMenuComponent />
+      </div>
       <SpatialTooltip />
       
       <div className="flex-grow overflow-hidden">
