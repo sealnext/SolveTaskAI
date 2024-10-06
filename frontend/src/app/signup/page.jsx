@@ -75,7 +75,17 @@ export default function SignupPage() {
       })
 
       if (response.message === "User created successfully") {
-        router.push("/login?signup=success")
+        const loginRes = await signIn('credentials', {
+          redirect: false,
+          username: email,
+          password,
+        })
+
+        if (loginRes?.error) {
+          setErrorMessage("Signup successful, but couldn't log in automatically. Please log in.")
+        } else {
+          router.push("/chat")
+        }
       }
     } catch (error) {
       console.error("Signup error:", error)
