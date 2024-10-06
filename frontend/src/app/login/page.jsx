@@ -68,15 +68,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
-      <Card className="w-full max-w-md bg-white dark:bg-gray-800 shadow-lg">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md bg-backgroundSecondary shadow-lg border-none">
         <CardHeader>
-          <h1 className="text-2xl font-semibold text-center text-gray-900 dark:text-gray-100">Welcome Back</h1>
+          <h1 className="text-2xl font-semibold text-center text-foreground">Welcome Back</h1>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">Email</Label>
+              <Label htmlFor="email" className="text-foreground-secondary">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -88,7 +88,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">Password</Label>
+              <Label htmlFor="password" className="text-foreground-secondary">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -105,26 +105,26 @@ export default function LoginPage() {
                   id="remember"
                   checked={rememberMe}
                   onCheckedChange={(checked) => setRememberMe(checked)}
-                  className="border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:checked:bg-blue-500 dark:checked:border-blue-500" />
+                  className="border-muted bg-background-secondary checked:bg-primary" />
                 <Label
                   htmlFor="remember"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-700 dark:text-gray-300">
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground-secondary">
                   Remember me
                 </Label>
               </div>
-              <Button variant="link" className="text-sm text-primary p-0 dark:text-blue-400 hover:dark:text-blue-300">
+              <Button variant="link" className="text-sm text-primary p-0 hover:text-secondary">
                 Forgot password?
               </Button>
             </div>
             <Button 
               type="submit" 
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600" 
+              className="w-full bg-primary hover:bg-secondary text-foreground" 
               disabled={pending}
             >
               {pending ? 'Connecting...' : 'Login'}
             </Button>
             {errorMessage && (
-              <div className="flex items-center space-x-2 text-red-500">
+              <div className="flex items-center space-x-2 text-accent">
                 <AlertCircle size={18} />
                 <p className="text-sm">{errorMessage}</p>
               </div>
@@ -132,9 +132,9 @@ export default function LoginPage() {
           </form>
         </CardContent>
         <CardFooter className="justify-center flex-col">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-foreground-secondary">
             Don't have an account?{' '}
-            <Button variant="link" className="p-0 text-primary dark:text-blue-400" onClick={() => router.push('/signup')}>
+            <Button variant="link" className="p-0 text-primary hover:text-secondary" onClick={() => router.push('/signup')}>
               Sign up
             </Button>
           </p>
