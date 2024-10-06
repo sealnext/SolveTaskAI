@@ -65,10 +65,10 @@ export const GooeyButton = forwardRef<HTMLButtonElement, GooeyButtonProps>(
         >
           <div className={styles['icon-wrapper']}>
             {React.cloneElement(icon as React.ReactElement, { 
-              className: styles['icon']
+              className: `${styles['icon']} text-muted-foreground`
             })}
           </div>
-          <div className={styles['gooey-blob']}></div>
+          <div className={`${styles['gooey-blob']} bg-accent`}></div>
         </button>
         <span className={`${styles['gooey-text']} ${(isHovered && !isActive) ? styles['visible'] : ''}`}>
           {title} 

@@ -7,12 +7,12 @@
     position: relative;
     width: 50px;
     height: 50px;
-    
     display: flex;
     justify-content: center;
     align-items: center;
     cursor: pointer;
     transition: all 0.3s ease;
+    background-color: transparent;
 }
 
 .gooey-button:hover {
@@ -30,14 +30,13 @@
 }
 
 .icon {
-    color: theme('colors.gray.400');
     font-size: 24px;
     transition: color 0.3s ease;
 }
 
 .gooey-button:hover .icon,
 .gooey-button.active .icon {
-    color: white;
+    color: hsl(var(--background));
 }
 
 .gooey-blob {
@@ -46,7 +45,6 @@
     left: 50%;
     width: 0;
     height: 0;
-    background-color: theme('colors.gray.500');
     border-radius: 50%;
     transition: all 0.3s ease;
     transform: translate(-50%, -50%);
@@ -59,6 +57,25 @@
     width: 100%;
     height: 100%;
     opacity: 1;
+}
+
+.gooey-text {
+    filter: url('#gooey');
+    border-radius: 8px;
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%) scale(0.5);
+    background: rgb(var(--color-muted-lighter));
+    padding: 8px 12px;
+    opacity: 0;
+    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 10;
+    transform-origin: left center;
+    display: flex;
+    align-items: center;
 }
 
 .gooey-button-container:hover .gooey-text.visible {
@@ -99,33 +116,12 @@
     justify-content: center;
     padding: 2px 4px;
     margin: 0 2px;
-    color: rgba(var(--border-color-r, 255), var(--border-color-g, 255), var(--border-color-b, 255), 0.8);
-    --border-color: currentColor;
-    border: 1px solid rgba(var(--border-color-r, 255), var(--border-color-g, 255), var(--border-color-b, 255), 0.2);
+    color: rgb(var(--color-foreground-secondary));
+    border: 1px solid rgba(0, 0, 0, 0.163);
     border-radius: 3px;
     font-size: 0.8em;
     line-height: 1;
     min-width: 16px;
-}
-
-.gooey-text {
-    filter: url('#gooey');
-    border-radius: 8px;
-    position: absolute;
-    left: 100%;
-    top: 50%;
-    transform: translateY(-50%) scale(0.5);
-    background: theme('colors.gray.700');
-    color: white;
-    padding: 8px 12px;
-    opacity: 0;
-    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    pointer-events: none;
-    white-space: nowrap;
-    z-index: 10;
-    transform-origin: left center;
-    display: flex;
-    align-items: center;
 }
 
 .tooltip {

@@ -62,7 +62,7 @@ const Chat: React.FC<ChatProps> = ({ messages }) => {
   return (
     <div className="bg-background fixed inset-0 flex items-center justify-center px-4 pt-6 pb-28">
       <div className="w-3/4 max-w-4xl h-full flex flex-col">
-        <div className="flex-grow border-gray-200 dark:border-gray-700 border-2 overflow-hidden bg-white dark:bg-backgroundSecondary rounded-xl shadow-md">
+        <div className="flex-grow border-muted border-2 overflow-hidden bg-backgroundSecondary rounded-xl shadow-md">
           <div className="h-full overflow-y-auto custom-scrollbar">
             <div className="space-y-2 px-12 py-8">
               {messages.map((message) => (
@@ -74,16 +74,16 @@ const Chat: React.FC<ChatProps> = ({ messages }) => {
                 >
                   {message.sender === 'ai' && (
                     <div className="mr-2 mt-1">
-                      <div className="w-7 h-7 rounded-full border-2 border-gray-700 dark:border-gray-300 flex items-center justify-center">
-                        <MdSupportAgent className="text-gray-700 dark:text-gray-300 text-lg" />
+                      <div className="w-7 h-7 rounded-full border-2 border-muted flex items-center justify-center">
+                        <MdSupportAgent className="text-foreground-secondary text-lg" />
                       </div>
                     </div>
                   )}
                   <div
-                    className={`rounded-lg ${
+                    className={`rounded-xl p-3 ${
                       message.sender === 'user'
-                        ? 'bg-gray-800 dark:bg-gray-700 rounded-xl text-white border border-gray-600 dark:border-gray-500'
-                        : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200'
+                        ? 'bg-accent text-foreground'
+                        : 'bg-backgroundSecondary text-foreground'
                     } max-w-[70%]`}
                   >
                     {message.sender === 'ai' && typingMessage?.id === message.id ? (
