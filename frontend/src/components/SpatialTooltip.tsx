@@ -60,7 +60,7 @@ const SpatialTooltip: React.FC = () => {
       <svg style={{ position: 'fixed', width: 0, height: 0 }}>
         <defs>
           <filter id="gooey">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="0" result="blur" />
             <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="gooey" />
             <feComposite in="SourceGraphic" in2="gooey" operator="atop" />
           </filter>

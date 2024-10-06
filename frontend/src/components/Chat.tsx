@@ -1,4 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
+import DOMPurify from 'dompurify';
+import { MdSupportAgent } from "react-icons/md";
 
 interface Message {
   id: string;
@@ -12,8 +14,8 @@ interface ChatProps {
 
 const Chat: React.FC<ChatProps> = ({ messages }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
   const [typingMessage, setTypingMessage] = useState<Message | null>(null);
+  const [lastMessageId, setLastMessageId] = useState<string | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -22,10 +24,20 @@ const Chat: React.FC<ChatProps> = ({ messages }) => {
   useEffect(scrollToBottom, [messages]);
 
   useEffect(() => {
-    if (messages.length > 0 && messages[messages.length - 1].sender === 'ai') {
-      setTypingMessage(messages[messages.length - 1]);
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      setLastMessageId(lastMessage.id);
+      if (lastMessage.sender === 'ai') {
+        setTypingMessage(lastMessage);
+      }
     }
   }, [messages]);
+
+  const formatJiraTickets = (text: string) => {
+    return text.replace(/JIRA-\d+/g, (match) => 
+      `<span class="text-blue-500 cursor-pointer">${match}</span>`
+    );
+  };
 
   const TypewriterEffect: React.FC<{ message: Message }> = ({ message }) => {
     const [displayText, setDisplayText] = useState('');
@@ -34,7 +46,7 @@ const Chat: React.FC<ChatProps> = ({ messages }) => {
     useEffect(() => {
       if (currentIndex < message.text.length) {
         const timer = setTimeout(() => {
-          setDisplayText(prev => prev + message.text[currentIndex]);
+          setDisplayText(prev => formatJiraTickets(prev + message.text[currentIndex]));
           setCurrentIndex(prevIndex => prevIndex + 1);
         }, 20);
 
@@ -44,25 +56,31 @@ const Chat: React.FC<ChatProps> = ({ messages }) => {
       }
     }, [currentIndex, message.text]);
 
-    return <p className="text-sm">{displayText}</p>;
+    return <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displayText) }} />;
   };
 
   return (
     <div className="bg-[#f4f4f4] fixed inset-0 flex items-center justify-center px-4 pt-6 pb-28">
       <div className="w-3/4 max-w-4xl h-full flex flex-col">
         <div className="flex-grow border-gray-200 border-2 overflow-hidden bg-white rounded-xl shadow-md">
-          <div 
-            ref={chatContainerRef}
-            className="h-full overflow-y-auto custom-scrollbar"
-          >
+          <div className="h-full overflow-y-auto custom-scrollbar">
             <div className="space-y-2 px-12 py-8">
               {messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} message-appear px-8`}
+                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start items-start'} px-8 ${
+                    message.id === lastMessageId ? 'animate-fade-in' : ''
+                  }`}
                 >
+                  {message.sender === 'ai' && (
+                    <div className="mr-2 mt-1">
+                      <div className="w-7 h-7 rounded-full border-2 border-gray-700 flex items-center justify-center">
+                        <MdSupportAgent className="text-gray-700 text-lg" />
+                      </div>
+                    </div>
+                  )}
                   <div
-                    className={`p-2 rounded-lg ${
+                    className={`rounded-lg ${
                       message.sender === 'user'
                         ? 'bg-gray-800 rounded-xl text-white border border-gray-600'
                         : 'text-gray-800'
@@ -71,7 +89,9 @@ const Chat: React.FC<ChatProps> = ({ messages }) => {
                     {message.sender === 'ai' && typingMessage?.id === message.id ? (
                       <TypewriterEffect message={message} />
                     ) : (
-                      <p className="text-sm">{message.text}</p>
+                      <div dangerouslySetInnerHTML={{ 
+                        __html: DOMPurify.sanitize(formatJiraTickets(message.text)) 
+                      }} />
                     )}
                   </div>
                 </div>

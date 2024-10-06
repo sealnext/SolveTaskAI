@@ -7,7 +7,7 @@
     position: relative;
     width: 50px;
     height: 50px;
-    border-radius: 50%;
+    
     display: flex;
     justify-content: center;
     align-items: center;
@@ -85,7 +85,6 @@
     width: 20px;
     height: 100%;
     background: theme('colors.gray.800');
-    border-radius: 50% 0 0 50%;
 }
 
 .shortcut-container {
@@ -100,8 +99,9 @@
     justify-content: center;
     padding: 2px 4px;
     margin: 0 2px;
+    color: rgba(var(--border-color-r, 255), var(--border-color-g, 255), var(--border-color-b, 255), 0.8);
     --border-color: currentColor;
-    border: 1px solid rgba(var(--border-color-r, 255), var(--border-color-g, 255), var(--border-color-b, 255), 0.3);
+    border: 1px solid rgba(var(--border-color-r, 255), var(--border-color-g, 255), var(--border-color-b, 255), 0.2);
     border-radius: 3px;
     font-size: 0.8em;
     line-height: 1;
@@ -110,6 +110,7 @@
 
 .gooey-text {
     filter: url('#gooey');
+    border-radius: 8px;
     position: absolute;
     left: 100%;
     top: 50%;
@@ -135,7 +136,6 @@
     background-color: theme('colors.gray.800');
     color: white;
     padding: 0.5rem 1rem;
-    border-radius: 0.25rem;
     font-size: 0.875rem;
     white-space: nowrap;
     opacity: 0;
