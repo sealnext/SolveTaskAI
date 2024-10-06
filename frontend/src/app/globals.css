@@ -12,28 +12,28 @@ body {
   }
 }
 
-@layer base {
+@layer base { 
   :root {
-    --color-primary: #3490dc;
-    --color-secondary: #718096;
-    --color-background: #f7fafc;
-    --color-foreground: #0f131a;
-    --color-background-secondary: #edf2f7;
-    --color-foreground-secondary: #4a5568;
-    --color-accent: #ed8936;
-    --color-muted: #a0aec0;
+    --color-primary: #d6776f;
+    --color-secondary: #6b7b93;
+    --color-background: #f8fafc;
+    --color-foreground: #1e293b;
+    --color-background-secondary: #e2e8f0;
+    --color-foreground-secondary: #475569;
+    --color-accent: #f59e0b;
+    --color-muted: #94a3b8;
   }
-
+  
   .dark {
-    --color-primary: #4299e1;
-    --color-secondary: #a0aec0;
-    --color-background: #11151c;
-    --color-foreground: #f7fafc;
-    --color-background-secondary: #2d3748;
-    --color-foreground-secondary: #e2e8f0;
-    --color-accent: #ed8936;
-    --color-muted: #718096;
-  }
+    --color-primary: #613733;
+    --color-secondary: #94a3b8;
+    --color-background: #1f1f1f;
+    --color-foreground: #fff9f9;
+    --color-background-secondary: #171717;
+    --color-foreground-secondary: #cbd5e1;
+    --color-accent: #f59e0b;
+    --color-muted: #2C2C2C;
+  }  
 }
 
 @layer base {
@@ -44,28 +44,4 @@ body {
   body {
     @apply bg-background text-foreground;
   }
-}
-
-/* Adăugați aceste stiluri la sfârșitul fișierului */
-
-/* Stiluri pentru autofill în modul întunecat */
-.dark input:-webkit-autofill,
-.dark input:-webkit-autofill:hover,
-.dark input:-webkit-autofill:focus,
-.dark input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 30px #374151 inset !important;
-  /* Culoarea de fundal pentru modul întunecat */
-  -webkit-text-fill-color: #fff !important;
-  /* Culoarea textului pentru modul întunecat */
-}
-
-/* Stiluri pentru autofill în modul luminos */
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus,
-input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 30px #fff inset !important;
-  /* Culoarea de fundal pentru modul luminos */
-  -webkit-text-fill-color: #000 !important;
-  /* Culoarea textului pentru modul luminos */
 }

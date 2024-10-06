@@ -60,9 +60,9 @@ const Chat: React.FC<ChatProps> = ({ messages }) => {
   };
 
   return (
-    <div className="bg-[#f4f4f4] dark:bg-gray-900 fixed inset-0 flex items-center justify-center px-4 pt-6 pb-28">
+    <div className="bg-background fixed inset-0 flex items-center justify-center px-4 pt-6 pb-28">
       <div className="w-3/4 max-w-4xl h-full flex flex-col">
-        <div className="flex-grow border-gray-200 dark:border-gray-700 border-2 overflow-hidden bg-white dark:bg-gray-800 rounded-xl shadow-md">
+        <div className="flex-grow border-gray-200 dark:border-gray-700 border-2 overflow-hidden bg-white dark:bg-backgroundSecondary rounded-xl shadow-md">
           <div className="h-full overflow-y-auto custom-scrollbar">
             <div className="space-y-2 px-12 py-8">
               {messages.map((message) => (
