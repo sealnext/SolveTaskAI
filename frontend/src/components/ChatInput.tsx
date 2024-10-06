@@ -34,8 +34,9 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
     }
   };
 
-  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
       handleSubmit();
     }
   };
@@ -43,7 +44,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (inputRef.current && !inputRef.current.contains(event.target as Node)) {
-        resetComponentState();
+        handleBlur();
       }
     };
 
@@ -54,7 +55,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
   }, []);
 
   return (
-    <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 w-3/4 max-w-4xl bg-white bg-opacity-80 backdrop-filter backdrop-blur-md text-gray-800 rounded-2xl px-6 ${isExpanded ? 'py-4' : 'py-2'} flex items-center space-x-4 shadow-lg ${isExpanded ? 'border-gray-400' : 'border-gray-200'} border-2 transition-all duration-300`}>
+    <form onSubmit={handleSubmit} className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 w-3/4 max-w-4xl bg-white dark:bg-gray-800 bg-opacity-80 dark:bg-opacity-80 backdrop-filter backdrop-blur-md text-gray-800 dark:text-gray-200 rounded-2xl px-6 ${isExpanded ? 'py-4' : 'py-2'} flex items-center space-x-4 shadow-lg ${isExpanded ? 'border-gray-400 dark:border-gray-600' : 'border-gray-200 dark:border-gray-700'} border-2 transition-all duration-300`}>
       <input
         ref={inputRef}
         type="text"
@@ -62,15 +63,15 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
         onChange={(e) => setMessage(e.target.value)}
         onFocus={handleFocus}
         onBlur={handleBlur}
-        onKeyPress={handleKeyPress}
+        onKeyDown={handleKeyDown}
         placeholder="Type your message here..."
-        className="bg-transparent border-none focus:outline-none flex-grow text-sm"
+        className="bg-transparent border-none focus:outline-none flex-grow text-sm dark:text-gray-200"
         disabled={isLoading}
       />
       <button
-        onClick={handleSubmit}
-        disabled={isLoading}
-        className={`gooey-button bg-gray-500 text-white rounded-full hover:bg-gray-900 focus:outline-none transition-all duration-300 p-2 relative overflow-hidden ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+        type="submit"
+        disabled={isLoading || !message.trim()}
+        className={`gooey-button bg-gray-500 dark:bg-gray-600 text-white rounded-full hover:bg-gray-900 dark:hover:bg-gray-700 focus:outline-none transition-all duration-300 p-2 relative overflow-hidden ${(isLoading || !message.trim()) ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         {isLoading ? (
           <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -83,7 +84,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
           </svg>
         )}
       </button>
-    </div>
+    </form>
   );
 };
 
