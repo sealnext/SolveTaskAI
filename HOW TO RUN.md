@@ -1,0 +1,2 @@
+- open one terminal in the frontend folder and run "npm run dev"
+- open one terminal in ./ and run "docker compose -f compose-dev.yaml up --build
