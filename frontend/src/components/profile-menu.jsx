@@ -3,14 +3,12 @@
 import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { LogOut } from "lucide-react"
+import { LogOut, Moon, Sun, Command, ChevronRight, User, CreditCard, LifeBuoy, Settings } from "lucide-react"
 import { LogoutButton } from "@/components/LogoutButton"
 import { cn } from "@/lib/utils"
 import { useSession } from "next-auth/react"
-import { Moon, Sun } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import * as SwitchPrimitives from "@radix-ui/react-switch"
-import { Command } from "lucide-react"
 import { useTheme } from "@/contexts/ThemeContext"
 
 const ThemeSwitch = ({ checked, onCheckedChange }) => (
@@ -19,38 +17,38 @@ const ThemeSwitch = ({ checked, onCheckedChange }) => (
     onCheckedChange={onCheckedChange}
     className={cn(
       "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
-      checked ? "bg-gray-700 dark:bg-gray-300" : "bg-gray-300 dark:bg-gray-600"
+      checked ? "bg-primary" : "bg-muted"
     )}
   >
     <SwitchPrimitives.Thumb className={cn(
-      "pointer-events-none block h-5 w-5 rounded-full shadow-lg ring-0 transition-transform",
-      checked ? "translate-x-5 bg-gray-800" : "translate-x-0 bg-white"
+      "pointer-events-none flex items-center justify-center h-5 w-5 rounded-full shadow-lg ring-0 transition-transform",
+      checked ? "translate-x-5 bg-white" : "translate-x-0 bg-white"
     )}>
-      <div className="flex items-center justify-center h-full w-full">
-        {checked ? (
-          <Moon className="h-3 w-3 text-white" />
-        ) : (
-          <Sun className="h-3 w-3 text-gray-800" />
-        )}
-      </div>
+      {checked ? (
+        <Moon className="h-3 w-3 text-primary" />
+      ) : (
+        <Sun className="h-3 w-3 text-primary" />
+      )}
     </SwitchPrimitives.Thumb>
   </SwitchPrimitives.Root>
 )
 
 const MenuItem = ({ icon: Icon, children, onClick, shortcut }) => (
   <button
-    className="w-full text-left px-4 py-2 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-200"
+    className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-muted-20 active:bg-muted transition-colors text-sm font-medium text-foreground rounded-lg cursor-pointer"
     onClick={onClick}
   >
     <div className="flex items-center">
-      {Icon && <Icon className="mr-2 h-4 w-4 text-gray-500 dark:text-gray-400" />}
+      {Icon && <Icon className="mr-3 h-4 w-4 text-primary" />}
       <span>{children}</span>
     </div>
-    {shortcut && (
-      <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+    {shortcut ? (
+      <span className="text-xs text-muted-foreground flex items-center">
         <Command className="h-3 w-3 mr-1" />
-        S
+        {shortcut}
       </span>
+    ) : (
+      <ChevronRight className="h-4 w-4 text-muted-foreground" />
     )}
   </button>
 )
@@ -100,7 +98,7 @@ export function ProfileMenuComponent() {
   return (
     <div className="relative">
       <Avatar 
-        className="h-10 w-10 cursor-pointer bg-blue-500 text-white"
+        className="h-10 w-10 cursor-pointer bg-primary text-foreground ring-2 ring-offset-2 ring-offset-background ring-primary transition-all hover:ring-secondary"
         onClick={() => setIsOpen(!isOpen)}
       >
         <AvatarImage src={userImage} alt={userName} />
@@ -110,44 +108,48 @@ export function ProfileMenuComponent() {
         <div
           data-dropdown-content
           className={cn(
-            "absolute right-0 mt-2 w-64 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 z-10 text-sm",
-            "transition-opacity duration-200 ease-in-out",
-            isOpen ? "opacity-100" : "opacity-0"
+            "absolute right-0 mt-3 w-72 rounded-xl shadow-lg border border-muted bg-backgroundSecondary z-10 text-sm overflow-hidden",
+            "transition-all duration-200 ease-in-out",
+            isOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
           )}
         >
-          <div className="p-4">
-            <p className="text-gray-700 dark:text-gray-200 font-medium">{userEmail}</p>
+          <div className="p-4 bg-primary/10">
+            <p className="text-foreground font-semibold">{userName}</p>
+            <p className="text-muted-foreground text-xs mt-1">{userEmail}</p>
           </div>
-          <Separator className="bg-gray-200 dark:bg-gray-700" />
-          <div className="py-1">
-            <MenuItem>Dashboard</MenuItem>
-            <MenuItem>Billing</MenuItem>
-            <MenuItem>Support</MenuItem>
+          <div className="p-2 space-y-1">
+            <MenuItem icon={User}>Dashboard</MenuItem>
+            <MenuItem icon={CreditCard}>Billing</MenuItem>
+            <MenuItem icon={LifeBuoy}>Support</MenuItem>
           </div>
-          <Separator className="bg-gray-200 dark:bg-gray-700" />
-          <div className="px-4 py-2 flex justify-between items-center">
-            <span className="text-gray-700 dark:text-gray-200 font-medium">Theme</span>
+          <Separator className="my-2 bg-muted" />
+          <div className="px-4 py-3 flex justify-between items-center">
+            <span className="text-foreground font-medium">Dark Mode</span>
             <ThemeSwitch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
           </div>
-          <div className="py-1">
-            <MenuItem shortcut="S">Account Settings</MenuItem>
+          <div className="p-2 space-y-1">
+            <MenuItem icon={Settings} shortcut="S">Account Settings</MenuItem>
           </div>
-          <Separator className="bg-gray-200 dark:bg-gray-700" />
+          <Separator className="my-2 bg-muted" />
           <div className="p-2">
-            <LogoutButton className="w-full justify-between text-left px-2 flex items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200 font-medium">
+            <LogoutButton className="w-full justify-between text-left px-4 py-3 flex items-center hover:bg-muted-20 transition-colors text-foreground font-medium rounded-lg">
               {({ logout, isLoading }) => (
                 <>
-                  <span>{isLoading ? 'Logging out...' : 'Log out'}</span>
-                  <LogOut className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                  <span className="flex items-center">
+                    <LogOut className="h-4 w-4 mr-3 text-primary" />
+                    {isLoading ? 'Logging out...' : 'Log out'}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </>
               )}
             </LogoutButton>
           </div>
+          <Separator className="my-2 bg-muted" />
           <div className="p-2">
             <Button
               variant="default"
               size="sm"
-              className="w-full rounded bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 font-medium"
+              className="w-full rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium py-3 cursor-pointer"
               onClick={() => setIsPremium(true)}>
               Upgrade to Pro
             </Button>

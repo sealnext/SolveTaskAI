@@ -55,7 +55,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
   }, []);
 
   return (
-    <form onSubmit={handleSubmit} className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 w-3/4 max-w-4xl bg-white dark:bg-gray-800 bg-opacity-80 dark:bg-opacity-80 backdrop-filter backdrop-blur-md text-gray-800 dark:text-gray-200 rounded-2xl px-6 ${isExpanded ? 'py-4' : 'py-2'} flex items-center space-x-4 shadow-lg ${isExpanded ? 'border-gray-400 dark:border-gray-600' : 'border-gray-200 dark:border-gray-700'} border-2 transition-all duration-300`}>
+    <form onSubmit={handleSubmit} className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 w-3/4 max-w-4xl bg-backgroundSecondary bg-opacity-80 backdrop-filter backdrop-blur-md text-foreground rounded-2xl px-6 ${isExpanded ? 'py-4' : 'py-2'} flex items-center space-x-4 shadow-lg ${isExpanded ? 'border-muted' : 'border-muted'} border-2 transition-all duration-300`}>
       <input
         ref={inputRef}
         type="text"
@@ -65,16 +65,23 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         placeholder="Type your message here..."
-        className="bg-transparent border-none focus:outline-none flex-grow text-sm dark:text-gray-200"
+        className="bg-transparent border-none focus:outline-none flex-grow text-sm text-foreground placeholder-foreground-secondary"
         disabled={isLoading}
       />
       <button
         type="submit"
         disabled={isLoading || !message.trim()}
-        className={`gooey-button bg-gray-500 dark:bg-gray-600 text-white rounded-full hover:bg-gray-900 dark:hover:bg-gray-700 focus:outline-none transition-all duration-300 p-2 relative overflow-hidden ${(isLoading || !message.trim()) ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`
+          gooey-button bg-primary text-foreground rounded-full
+          focus:outline-none transition-all duration-300 p-2 relative overflow-hidden
+          ${isLoading || !message.trim()
+            ? 'opacity-0 cursor-default pointer-events-none'
+            : 'hover:bg-primaryAccent'
+          }
+        `}
       >
         {isLoading ? (
-          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <svg className="animate-spin h-4 w-4 text-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>

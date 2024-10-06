@@ -30,13 +30,19 @@ module.exports = {
   				foreground: 'var(--color-secondary-foreground)'
   			},
   			muted: {
-  				DEFAULT: 'var(--color-muted)',
-  				foreground: 'var(--color-muted-foreground)'
+  				DEFAULT: 'rgb(var(--color-muted))',
+  				foreground: 'rgb(var(--color-muted-foreground))',
+  				10: 'rgb(var(--color-muted) / 0.1)',
+  				20: 'rgb(var(--color-muted) / 0.2)',
   			},
   			accent: {
   				DEFAULT: 'var(--color-accent)',
   				foreground: 'var(--color-accent-foreground)'
   			},
+			primaryAccent: {
+				DEFAULT: 'var(--color-primary-accent)',
+				foreground: 'var(--color-primary-accent-foreground)'
+			},
   			destructive: {
   				DEFAULT: 'var(--color-destructive)',
   				foreground: 'var(--color-destructive-foreground)'

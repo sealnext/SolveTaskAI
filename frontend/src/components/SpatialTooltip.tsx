@@ -44,7 +44,7 @@ const ChatIcon = () => (
 const SpatialTooltip: React.FC = () => {
   return (
     <>
-      <div className="fixed left-8 top-1/2 transform -translate-y-1/2 bg-gray-600 text-white rounded-full px-2 py-4 flex flex-col items-center space-y-4 z-50">
+      <div className="fixed left-8 top-1/2 transform -translate-y-1/2 bg-backgroundSecondary text-muted-foreground rounded-full px-2 py-4 flex flex-col items-center space-y-4 z-50 shadow-md shadow-black/10">
         {tooltipItems.map((item, index) => (
           <Link key={index} href={item.href} passHref>
             <GooeyButton
