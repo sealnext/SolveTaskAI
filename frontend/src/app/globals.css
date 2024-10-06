@@ -14,13 +14,13 @@ body {
 
 @layer base { 
   :root {
-    --color-primary: #d6776f;
+    --color-primary: #eca6a0;
     --color-secondary: #6b7b93;
-    --color-background: #f8fafc;
+    --color-background: #EDEEEE;
     --color-foreground: #1e293b;
-    --color-background-secondary: #e2e8f0;
+    --color-background-secondary: #F9F9F9;
     --color-foreground-secondary: #475569;
-    --color-accent: #f59e0b;
+    --color-accent: #ff000019;
     --color-muted: #94a3b8;
   }
   
@@ -31,7 +31,7 @@ body {
     --color-foreground: #fff9f9;
     --color-background-secondary: #171717;
     --color-foreground-secondary: #cbd5e1;
-    --color-accent: #f59e0b;
+    --color-accent: #ff5c5c19;
     --color-muted: #2C2C2C;
   }  
 }
