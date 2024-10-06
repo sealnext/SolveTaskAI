@@ -14,6 +14,7 @@ interface Message {
   id: string;
   text: string;
   sender: 'user' | 'ai';
+  isHtml?: boolean;
 }
 
 export default function ChatPage() {
@@ -45,8 +46,9 @@ export default function ChatPage() {
       await new Promise(resolve => setTimeout(resolve, 2500));
       const aiResponse: Message = {
         id: uuidv4(),
-        text: `AI response to: "${message}"`,
-        sender: 'ai'
+        text: `The User Registration Bug (JIRA-3005) is being fixed, expected by October 10, 2024. The Payment Gateway Integration (JIRA-3010) is complete as of October 3, 2024.`,
+        sender: 'ai',
+        isHtml: true
       };
 
       setMessages(prevMessages => [...prevMessages, aiResponse]);

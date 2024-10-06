@@ -46,7 +46,7 @@ export default function LoginPage() {
       }
     } catch (error) {
       console.error("Login error:", error)
-      setErrorMessage("A apărut o eroare neașteptată. Vă rugăm să încercați din nou.")
+      setErrorMessage("An unexpected error occurred. Please try again.")
       setPending(false)
     }
   }
@@ -124,7 +124,7 @@ export default function LoginPage() {
               </Button>
             </div>
             <Button type="submit" className="w-full" disabled={pending}>
-              {pending ? 'Se conectează...' : 'Conectare'}
+              {pending ? 'Connecting...' : 'Login'}
             </Button>
             {errorMessage && (
               <div className="flex items-center space-x-2 text-red-500">

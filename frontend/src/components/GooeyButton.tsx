@@ -10,7 +10,7 @@ interface GooeyButtonProps {
   title: string;
   href: string;
   shortcutKey?: string;
-  onClick?: (event: React.MouseEvent) => void; // Adăugăm acest prop
+  onClick?: (event: React.MouseEvent) => void;
 }
 
 const isMac = typeof window !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -71,7 +71,8 @@ export const GooeyButton = forwardRef<HTMLButtonElement, GooeyButtonProps>(
           <div className={styles['gooey-blob']}></div>
         </button>
         <span className={`${styles['gooey-text']} ${(isHovered && !isActive) ? styles['visible'] : ''}`}>
-          {title} {formattedShortcut && (
+          {title} 
+          {formattedShortcut && (
             <span className={styles['shortcut-container']}>
               {formattedShortcut}
             </span>
