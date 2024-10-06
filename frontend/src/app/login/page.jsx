@@ -68,62 +68,59 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
+      <Card className="w-full max-w-md bg-white dark:bg-gray-800 shadow-lg">
         <CardHeader>
-          <h1 className="text-2xl font-semibold text-center">Welcome Back</h1>
+          <h1 className="text-2xl font-semibold text-center text-gray-900 dark:text-gray-100">Welcome Back</h1>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <MailIcon
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
-                  size={18} />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  className="pl-10"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required />
-              </div>
+              <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                icon={MailIcon}
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <LockIcon
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
-                  size={18} />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  className="pl-10"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required />
-              </div>
+              <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                icon={LockIcon}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="remember"
                   checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked)} />
+                  onCheckedChange={(checked) => setRememberMe(checked)}
+                  className="border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:checked:bg-blue-500 dark:checked:border-blue-500" />
                 <Label
                   htmlFor="remember"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-700 dark:text-gray-300">
                   Remember me
                 </Label>
               </div>
-              <Button variant="link" className="text-sm text-primary p-0">
+              <Button variant="link" className="text-sm text-primary p-0 dark:text-blue-400 hover:dark:text-blue-300">
                 Forgot password?
               </Button>
             </div>
-            <Button type="submit" className="w-full" disabled={pending}>
+            <Button 
+              type="submit" 
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600" 
+              disabled={pending}
+            >
               {pending ? 'Connecting...' : 'Login'}
             </Button>
             {errorMessage && (
@@ -135,9 +132,9 @@ export default function LoginPage() {
           </form>
         </CardContent>
         <CardFooter className="justify-center flex-col">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             Don't have an account?{' '}
-            <Button variant="link" className="p-0 text-primary" onClick={() => router.push('/signup')}>
+            <Button variant="link" className="p-0 text-primary dark:text-blue-400" onClick={() => router.push('/signup')}>
               Sign up
             </Button>
           </p>
