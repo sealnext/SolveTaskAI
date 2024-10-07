@@ -12,3 +12,6 @@
     - change the login/register hover color to be more subtle
     - make the send button from chat, to dont hide when is loading 
     - the dark mode options is not aligned with the other options
+    - delete full names restriction, it was a username before but now is a full name.
+    maybe try to sanitize it, escape it, and be carefull in the backend to be parameterized query, not
+    sure if its by default, just need to check that so we wont allow any sql injection or script execution
