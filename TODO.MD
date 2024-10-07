@@ -11,3 +11,4 @@
     - test if the token expires the user will be redirected to the login page or can still access the app
     - change the login/register hover color to be more subtle
     - make the send button from chat, to dont hide when is loading 
+    - the dark mode options is not aligned with the other options
