@@ -14,3 +14,5 @@ SYNC_DATABASE = os.getenv("SYNC_DATABASE", "False").lower() == "true"
 NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET")
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
+
+VECTOR_DIMENSION = os.getenv("VECTOR_DIMENSION", 1536)

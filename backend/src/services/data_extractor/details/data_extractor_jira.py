@@ -1,5 +1,6 @@
 from ..data_extractor import DataExtractor
-import requests
+from models.apikey import APIKey
+import aiohttp
 from urllib.parse import urljoin
 
 
@@ -8,32 +9,30 @@ class DataExtractorJira(DataExtractor):
   Implementation class for Attlasian Jira platform.
   """
 
-  def __init__(self, base_api_url: str, username: str, access_token: str):
-    self.base_api_url = base_api_url
-    self.session = requests.Session()
-    self.session.auth = requests.auth.HTTPBasicAuth(username, access_token)
+  def __init__(self, api_key: APIKey):
+    super().__init__(api_key)
+    self.base_api_url = urljoin(api_key.project.jira_url, "/rest/api/3")
+    self.auth = aiohttp.BasicAuth(api_key.user.email, api_key.api_key)
 
-
-  def get_all_projects(self):
+  async def get_all_projects(self):
     api_route = urljoin(self.base_api_url, "/project")
-    response = self.session.get(api_route)
+    async with aiohttp.ClientSession(auth=self.auth) as session:
+      async with session.get(api_route) as response:
+        if response.status == 200:
+          return await response.json()
+        else:
+          raise Exception(f"Failed to fetch projects: {response.status}, {await response.text()}")
 
-    if response.status_code == 200:
-      return response.json()
-    else:
-      raise Exception(f"Failed to fetch projects: {response.status_code}, {response.text}")
-
-
-  def get_all_tickets(self, project_key: str):
+  async def get_all_tickets(self, project_key: str):
     api_route = urljoin(self.base_api_url, "/search")
     query_params = {
       'jql': f'project={project_key}',
       'maxResults': 50
     }
-    response = self.session.get(api_route, params=query_params)
-
-    if response.status_code == 200:
-      return response.json()
-    else:
-      raise Exception(f"Failed to fetch tickets: {response.status_code}, {response.text}")
+    async with aiohttp.ClientSession(auth=self.auth) as session:
+      async with session.get(api_route, params=query_params) as response:
+        if response.status == 200:
+          return await response.json()
+        else:
+          raise Exception(f"Failed to fetch tickets: {response.status}, {await response.text()}")
 
