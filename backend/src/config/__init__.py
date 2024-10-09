@@ -7,4 +7,5 @@ from .config import (
     SYNC_DATABASE,
     NEXTAUTH_SECRET,
     ENVIRONMENT,
+    VECTOR_DIMENSION,
 )
