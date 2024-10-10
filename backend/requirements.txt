@@ -9,3 +9,4 @@ fastapi-csrf-protect==0.3.5
 pydantic-settings==2.5.2
 pycryptodome==3.20.0
 pgvector==0.3.5
+aiohttp==3.10.9

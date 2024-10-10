@@ -6,7 +6,8 @@ from typing import Tuple, Dict
 import uuid
 import logging
 
-from utils.security import decode_next_auth_token
+from models import User
+from utils.security import decode_next_auth_token, verify_password
 
 from config import (
     JWT_SECRET_KEY,
@@ -15,7 +16,8 @@ from config import (
     JWT_REFRESH_TOKEN_EXPIRE_DAYS,
     ENVIRONMENT
 )
-from exceptions.custom_exceptions import (
+from exceptions import (
+    InvalidCredentialsException,
     InvalidTokenException,
     SecurityException
 )
@@ -37,6 +39,13 @@ class AuthService:
         if not access_token:
             raise SecurityException("No active access token found")
         self.revoke_token(access_token)
+    
+    async def authenticate(self, email: str, password: str, user: User, request: Request) -> Tuple[str, str]:
+        if not user or not verify_password(password, user.hashed_password):
+            raise InvalidCredentialsException("Invalid email or password")
+        
+        return self.create_token_pair(user.email, request)
+
 
     def create_token_pair(self, email: str, request: Request) -> Tuple[str, str]:
         device_info, location = self._extract_request_localization(request)

@@ -15,3 +15,7 @@
     - delete full names restriction, it was a username before but now is a full name.
     maybe try to sanitize it, escape it, and be carefull in the backend to be parameterized query, not
     sure if its by default, just need to check that so we wont allow any sql injection or script execution
+    - make login and signup  errors more contrastful
+
+- backend
+    - make a table for revoked tokens, don't save them in memory

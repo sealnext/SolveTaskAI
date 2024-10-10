@@ -25,6 +25,7 @@ class Project(Base):
     # Relationships
     company = relationship("Company", back_populates="projects")
     api_keys = relationship("APIKey", back_populates="project")
+    embeddings = relationship("Embedding", back_populates="project")  # Add this line
 
     __table_args__ = (
         Index('ix_projects_company_service', 'company_id', 'service_type'),

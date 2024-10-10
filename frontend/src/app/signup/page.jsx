@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { LockIcon, MailIcon, UserIcon, AlertCircle } from 'lucide-react'
 import ApiClient from '@/lib/apiClient'
-
+import { signIn } from 'next-auth/react'
 export default function SignupPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
