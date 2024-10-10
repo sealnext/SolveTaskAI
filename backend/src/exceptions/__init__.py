@@ -5,7 +5,9 @@ from .custom_exceptions import (
     InvalidTokenException,
     ValidationErrorException,
     SecurityException,
-    UnexpectedErrorException
+    UnexpectedErrorException,
+    APIKeyNotFoundException,
+    APIKeyExpiredException
 )
 
 __all__ = [
@@ -15,5 +17,7 @@ __all__ = [
     "InvalidTokenException",
     "ValidationErrorException",
     "SecurityException",
-    "UnexpectedErrorException"
+    "UnexpectedErrorException",
+    "APIKeyNotFoundException",
+    "APIKeyExpiredException"
 ]

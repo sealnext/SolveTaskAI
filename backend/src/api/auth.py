@@ -23,10 +23,11 @@ async def login(
     auth_service: AuthService = Depends(get_auth_service),
     user_service: UserService = Depends(get_user_service),
 ):
-    access_token, refresh_token = await user_service.authenticate_and_get_tokens(
-        form_data.username, form_data.password, request, auth_service
-    )
     user = await user_service.get_user_by_email(form_data.username)
+    
+    access_token, refresh_token = await auth_service.authenticate(
+        form_data.username, form_data.password, user, request
+    )
     
     response = JSONResponse(
         status_code=status.HTTP_200_OK,
