@@ -46,14 +46,13 @@ class AuthService:
         
         return self.create_token_pair(user.email, request)
 
-
     def create_token_pair(self, email: str, request: Request) -> Tuple[str, str]:
-        device_info, location = self._extract_request_localization(request)
-        access_token = self._create_access_token(email, device_info, location)
-        refresh_token = self._create_refresh_token(email, device_info, location)
+        location = self._extract_request_localization(request)
+        access_token = self._create_access_token(email, location)
+        refresh_token = self._create_refresh_token(email, location)
         return access_token, refresh_token
 
-    def _create_access_token(self, email: str, device_info: dict, location: str) -> str:
+    def _create_access_token(self, email: str, location: str) -> str:
         try:
             expires_delta = timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
             expire = datetime.now(timezone.utc) + expires_delta
@@ -61,7 +60,6 @@ class AuthService:
             to_encode = {
                 "sub": email,
                 "exp": expire,
-                "device": device_info,
                 "location": location,
                 "type": "access"
             }
@@ -71,7 +69,7 @@ class AuthService:
             logger.error(f"Access token creation failed: {str(e)}")
             raise InvalidTokenException("Failed to create access token")
 
-    def _create_refresh_token(self, email: str, device_info: dict, location: str) -> str:
+    def _create_refresh_token(self, email: str, location: str) -> str:
         try:
             expires_delta = timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS)
             expire = datetime.now(timezone.utc) + expires_delta
@@ -79,7 +77,6 @@ class AuthService:
             to_encode = {
                 "sub": email,
                 "exp": expire,
-                "device": device_info,
                 "location": location,
                 "type": "refresh",
                 "jti": str(uuid.uuid4())
@@ -91,11 +88,10 @@ class AuthService:
             raise InvalidTokenException("Failed to create refresh token")
 
     @classmethod
-    def verify_and_decode_token(cls, token: str, current_device_info: dict, current_location: str) -> str:
+    def verify_and_decode_token(cls, token: str, current_location: str) -> str:
         try:
             payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
             email: str = payload.get("sub")
-            device_info: dict = payload.get("device")
             location: str = payload.get("location")
             token_type: str = payload.get("type")
             jti: str = payload.get("jti")
@@ -103,7 +99,9 @@ class AuthService:
             if token_type == "refresh" and cls.is_token_revoked(jti):
                 raise SecurityException("Token has been revoked")
 
-            cls._check_device_compliance(device_info, current_device_info)
+            print("location", location)
+            print("current_location", current_location)
+            print('--------------------------------')
             cls._check_location(location, current_location)
 
             return email
@@ -173,23 +171,13 @@ class AuthService:
         cls.revoked_tokens = {jti: exp for jti, exp in cls.revoked_tokens.items() if exp > current_time}
 
     @staticmethod
-    def _check_device_compliance(stored_device_info: dict, current_device_info: dict):
-        if stored_device_info != current_device_info:
-            raise SecurityException("Unusual activity detected: Device mismatch")
-
-    @staticmethod
     def _check_location(stored_location: str, current_location: str):
         if stored_location != current_location:
             raise SecurityException("Unusual activity detected: Location mismatch")
 
     @staticmethod
     def _extract_request_localization(request: Request):
-        device_info = {
-            "user_agent": request.headers.get("User-Agent"),
-            "ip_address": request.client.host
-        }
-        location = request.headers.get("X-Forwarded-For", request.client.host)
-        return device_info, location
+        return request.headers.get("X-Forwarded-For", request.client.host)
     
     @staticmethod
     def clear_session(response: JSONResponse) -> None:

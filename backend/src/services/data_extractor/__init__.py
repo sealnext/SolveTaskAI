@@ -1,2 +1,1 @@
-from .data_extractor import DataExtractor, TicketingSystemType
-from .data_extractor_factory import DataExtractorFactory
+from .data_extractor_factory import create_data_extractor

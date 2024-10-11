@@ -7,8 +7,9 @@ import { LoadingSpinner } from "@/components/LoadingSpinner"
 import SpatialTooltip from "@/components/SpatialTooltip"
 import ChatInput from "@/components/ChatInput"
 import Chat from "@/components/Chat"
-import { v4 as uuidv4 } from 'uuid'; // Asigurați-vă că aveți instalat pachetul uuid
+import { v4 as uuidv4 } from 'uuid';
 import { ProfileMenuComponent } from "@/components/profile-menu";
+import ApiClient from "@/lib/apiClient";
 
 interface Message {
   id: string;
@@ -22,6 +23,7 @@ export default function ChatPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const apiclient = ApiClient();
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -41,7 +43,10 @@ export default function ChatPage() {
     try {
       // Aici ar trebui să fie apelul real către API
       // const data = await response.json();
-
+     
+      const response = await apiclient.get('/projects/all');
+      console.log(response);
+      
       // Simulăm un răspuns de la AI pentru demonstrație
       await new Promise(resolve => setTimeout(resolve, 2500));
       const aiResponse: Message = {

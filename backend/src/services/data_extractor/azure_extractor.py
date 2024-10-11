@@ -1,4 +1,4 @@
-from ..data_extractor import DataExtractor
+from .interfaces.data_extractor_interface import DataExtractor
 
 
 class DataExtractorAzure(DataExtractor):

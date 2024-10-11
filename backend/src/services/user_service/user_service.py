@@ -2,10 +2,9 @@ from datetime import datetime, UTC
 import logging
 from pydantic import ValidationError
 from fastapi import Depends, Request
-from fastapi_csrf_protect import CsrfProtect
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
-from repositories import UserRepository
+from repositories import UserRepository, APIKeyRepository
 from exceptions import (
     UserAlreadyExistsException,
     ValidationErrorException,
@@ -22,14 +21,21 @@ from models import User
 from utils.security import hash_password, verify_password
 from services import AuthService
 from utils.security import decode_next_auth_token
+from models import APIKey
 
-from repositories.apikey_repository import get_api_key_by_user_and_project
 
 logger = logging.getLogger(__name__)
 
 class UserService:
-    def __init__(self, user_repository: UserRepository):
+    def __init__(self, user_repository: UserRepository, api_key_repository: APIKeyRepository):
         self.user_repository = user_repository
+        self.api_key_repository = api_key_repository
+
+    async def get_api_keys_by_user(self, user: User) -> List[APIKey]:
+        api_keys = await self.api_key_repository.get_api_keys_by_user(user.id)
+        if not api_keys:
+            raise APIKeyNotFoundException
+        return api_keys
 
     async def get_current_user(self, request: Request) -> User:
         next_auth_token = request.cookies.get("next-auth.session-token")
@@ -44,8 +50,8 @@ class UserService:
                 logger.info("Access token is missing in the session data")
                 raise InvalidTokenException("Access token is missing")
 
-            device_info, location = AuthService.extract_request_localization(request)
-            email = AuthService.verify_and_decode_token(token, device_info, location)
+            location = AuthService._extract_request_localization(request)
+            email = AuthService.verify_and_decode_token(token, location)
 
             user = await self.user_repository.get_by_email(email)
             if user is None:

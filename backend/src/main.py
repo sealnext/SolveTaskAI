@@ -2,7 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_csrf_protect import CsrfProtect
 
+from api.projects import router as projects_router
 from api.auth import router as auth_router
+
 from db import sync_database, init_db
 from exceptions.handlers import register_exception_handlers
 
@@ -18,6 +20,7 @@ app.add_middleware(
 
 # Routers
 app.include_router(auth_router)
+app.include_router(projects_router)
 
 # Exception Handlers
 register_exception_handlers(app)

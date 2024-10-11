@@ -1,9 +1,9 @@
 from .user_repository import UserRepository as _UserRepository
-from .apikey_repository import get_api_key_by_user_and_project as _get_api_key_by_user_and_project
+from .apikey_repository import APIKeyRepository
 
 UserRepository = _UserRepository
 
 __all__ = [
+    "APIKeyRepository",
     "UserRepository",
-    "get_api_key_by_user_and_project"
 ]
