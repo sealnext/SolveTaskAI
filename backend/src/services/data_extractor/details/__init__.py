@@ -1,2 +1,0 @@
-from .data_extractor_jira import DataExtractorJira
-from .data_extractor_azure import DataExtractorAzure

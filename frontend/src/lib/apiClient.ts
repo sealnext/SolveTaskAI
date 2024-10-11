@@ -1,5 +1,3 @@
-
-
 export default function ApiClient() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -18,6 +16,15 @@ export default function ApiClient() {
     return response.json();
   };
 
+  const get = async (endpoint: string) => {
+    return request(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  };
+
   const post = async (endpoint: string, data: any) => {
     return request(endpoint, {
       method: 'POST',
@@ -28,6 +35,6 @@ export default function ApiClient() {
     });
   };
 
-  return { post };
+  return { post, get };
 }
 
