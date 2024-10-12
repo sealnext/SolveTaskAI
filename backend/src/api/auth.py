@@ -7,9 +7,9 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from dependencies import get_auth_service, get_user_service
 from exceptions import *
 from services import AuthService, UserService
-from utils.security import decode_next_auth_token
 from validation_models import UserCreate
 from utils.cookie_manager import set_auth_cookies
+from utils.security import decode_next_auth_token
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ async def login(
     user = await user_service.get_user_by_email(form_data.username)
     
     access_token, refresh_token = await auth_service.authenticate(
-        form_data.username, form_data.password, user, request
+        form_data.password, user, request
     )
     
     response = JSONResponse(
@@ -66,7 +66,7 @@ async def logout(
         raise SecurityException("No active session found")
 
     session_data = decode_next_auth_token(next_auth_token)
-
+    
     auth_service.revoke_session_tokens(session_data)
     
     response = JSONResponse(
