@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi_csrf_protect.exceptions import CsrfProtectError
 from .custom_exceptions import BaseCustomException
+from fastapi import HTTPException
 
 def register_exception_handlers(app: FastAPI):
     @app.exception_handler(BaseCustomException)

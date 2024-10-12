@@ -2,7 +2,6 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { NextAuthOptions } from "next-auth";
 
-
 export const authOptions: NextAuthOptions = {
   
   providers: [
@@ -61,7 +60,23 @@ export const authOptions: NextAuthOptions = {
         token.access_token = user.access_token;
         token.refresh_token = user.refresh_token;
         token.full_name = user.full_name;
+        const decodedToken = decodeJwt(user.access_token);
+        token.accessTokenExpires = decodedToken.exp;
       }
+      // Check if the token needs to be refreshed
+      const currentTime = Math.floor(Date.now() / 1000);
+      console.log("wait more " + ((token.accessTokenExpires as number) - currentTime) + " seconds");
+      if ((token.accessTokenExpires as number) < currentTime) {
+        try {
+          const refreshedToken = await refreshAccessToken(token.refresh_token as string);
+          token.access_token = refreshedToken.access_token;
+          const decodedNewToken = decodeJwt(refreshedToken.access_token);
+          token.accessTokenExpires = decodedNewToken.exp;
+        } catch (error) {
+          console.error("Error refreshing token:", error);
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -78,6 +93,44 @@ export const authOptions: NextAuthOptions = {
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST }
+
+function hasTokenExpired(expirationTimestamp: number) {
+  const currentTime = Math.floor(Date.now() / 1000);
+  return expirationTimestamp < currentTime;
+}
+
+async function refreshAccessToken(refreshToken: string) {
+  try {
+    console.log("================= Refreshing access token...");
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Cookie': `refresh-token=${refreshToken}`
+      },
+    });
+    
+    if (!res.ok) {
+      throw new Error('Failed to refresh token');
+    }
+    const cookies = extractCookies(res.headers.get("Set-Cookie"));
+    return cookies;
+  } catch (error) {
+    console.error("Error refreshing token:", error);
+    throw error;
+  }
+}
+
+function decodeJwt(token: string) {
+  const base64Url = token.split('.')[1];
+  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  const jsonPayload = decodeURIComponent(
+    atob(base64)
+      .split('')
+      .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+      .join('')
+  );
+  return JSON.parse(jsonPayload);
+}
 
 function extractCookies(setCookieHeader: string) {
   const cookies: Record<string, string> = {};

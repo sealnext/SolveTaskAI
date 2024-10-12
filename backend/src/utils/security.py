@@ -23,14 +23,9 @@ def get_derived_encryption_key(secret: str) -> bytes:
 # Decode and decrypt the NextAuth token
 def decode_next_auth_token(token: str) -> dict:
     try:
-        print(f"Token received: {token}")
-        print("NEXTAUTH_SECRET", NEXTAUTH_SECRET)
         encryption_key = get_derived_encryption_key(NEXTAUTH_SECRET)
-        print("encryption_key", encryption_key)
         decrypted_payload = jwe.decrypt(token, encryption_key).decode()
-        print("decrypted_payload", decrypted_payload)
         payload = json.loads(decrypted_payload)
-        print("payload", payload)
         return payload
 
     except Exception as e:

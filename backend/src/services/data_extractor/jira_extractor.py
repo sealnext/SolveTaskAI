@@ -1,7 +1,10 @@
 from .interfaces.data_extractor_interface import DataExtractor
 from models.apikey import APIKey
+from validation_models import ExternalProjectSchema, APIKeySchema
 import aiohttp
 from urllib.parse import urljoin
+from typing import List, Dict, Any
+from .interfaces.data_extractor_interface import DataExtractor
 
 
 class DataExtractorJira(DataExtractor):
@@ -9,14 +12,14 @@ class DataExtractorJira(DataExtractor):
   Implementation class for Attlasian Jira platform.
   """
 
-  def __init__(self, api_key: APIKey):
+  def __init__(self, api_key: APIKeySchema):
     super().__init__(api_key)
+    self.api_key = api_key
     self.base_api_url = urljoin(api_key.domain, "/rest/api/2/")
     self.auth = aiohttp.BasicAuth(api_key.domain_email, api_key.api_key)
 
-  async def get_all_projects(self):
+  async def get_all_projects(self) -> List[ExternalProjectSchema]:
     api_route = urljoin(self.base_api_url, "project/search")
-    print("api_route", api_route)
     all_projects = []
     start_at = 0
     max_results = 50
@@ -32,7 +35,7 @@ class DataExtractorJira(DataExtractor):
             raise Exception(f"Failed to fetch projects: {response.status}, {await response.text()}")
           
           data = await response.json()
-          all_projects.extend(data['values'])
+          all_projects.extend(self._standardize_project_data(data['values']))
           
           if data['isLast']:
             break
@@ -40,6 +43,19 @@ class DataExtractorJira(DataExtractor):
         start_at += max_results
 
     return all_projects
+
+  def _standardize_project_data(self, projects: List[Dict[str, Any]]) -> List[ExternalProjectSchema]:
+    return [
+      ExternalProjectSchema(
+        name=project.get("name"),
+        key=project.get("key"),
+        id=project.get("id"),
+        avatarUrl=project.get("avatarUrls", {}).get("48x48"),
+        projectTypeKey=project.get("projectTypeKey"),
+        style=project.get("style")
+      )
+      for project in projects
+    ]
 
   async def get_all_tickets(self, project_key: str):
     api_route = urljoin(self.base_api_url, "/search")
@@ -67,4 +83,3 @@ class DataExtractorJira(DataExtractor):
         start_at += max_results
 
     return all_tickets
-

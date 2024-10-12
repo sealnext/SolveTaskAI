@@ -3,6 +3,8 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from sqlalchemy.orm import relationship, declarative_base
 
 from .base import Base
+from .associations import user_project_association
+
 class User(Base):
     __tablename__ = 'users'
 
@@ -16,6 +18,9 @@ class User(Base):
 
     # Relationship to APIKeys (One-to-many)
     api_keys = relationship("APIKey", back_populates="user")
+
+    # Relația many-to-many cu proiectele
+    projects = relationship("Project", secondary=user_project_association, back_populates="users")
 
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email}, full_name={self.full_name})>"

@@ -1,37 +1,38 @@
 import logging
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse
+from typing import List
 
-from models import APIKey
-from services import UserService, AuthService
 from services.data_extractor import create_data_extractor
-from dependencies import get_user_service, get_auth_service
+from validation_models import ExternalProjectSchema, APIKeySchema, InternalProjectSchema
+from middleware.auth_middleware import auth_middleware
+from services import ProjectService
+from dependencies import get_project_service
+from exceptions import InvalidCredentialsException
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/projects", tags=["projects"])
+router = APIRouter(
+    prefix="/projects",
+    tags=["projects"],
+    dependencies=[Depends(auth_middleware)]
+)
 
-@router.get("/all")
-async def get_all_projects(
-    request: Request,
-    user_service: UserService = Depends(get_user_service),
-    auth_service: AuthService = Depends(get_auth_service)
+@router.post("/external", response_model=List[ExternalProjectSchema])
+async def get_all_external_projects(
+    api_key: APIKeySchema,
 ):
-    user = await auth_service.get_current_user(request)
-    api_keys = await user_service.get_api_keys_by_user(user)
-    data_extractor = create_data_extractor(api_keys[0])
-    data = await data_extractor.get_all_projects()
+    data_extractor = create_data_extractor(api_key)
+    projects = await data_extractor.get_all_projects()
+    if not projects or projects == []:
+        print("No projects found")
+        raise InvalidCredentialsException
+    return projects
 
-    projects = [
-        {
-            "name": project.get("name"),
-            "key": project.get("key"),
-            "id": project.get("id"),
-            "avatarUrl": project.get("avatarUrls", {}).get("48x48"),  # Fallback to empty dict if avatarUrls is missing
-            "projectTypeKey": project.get("projectTypeKey"),
-            "style": project.get("style")
-        }
-        for project in data
-    ]
-
+@router.get("/internal", response_model=List[InternalProjectSchema])
+async def get_all_internal_projects(
+    request: Request,
+    project_service: ProjectService = Depends(get_project_service)
+):
+    user_id = request.state.user.id
+    projects = await project_service.get_all_for_user(user_id)
     return projects
