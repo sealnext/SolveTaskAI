@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from .base import Base
-from .associations import api_key_project
+from .associations import api_key_project_association
 from config.enums import TicketingSystemType
 
 class APIKey(Base):
@@ -20,7 +20,7 @@ class APIKey(Base):
 
     # Relationships
     user = relationship("User", back_populates="api_keys")
-    projects = relationship("Project", secondary=api_key_project, back_populates="api_keys")
+    projects = relationship("Project", secondary=api_key_project_association, back_populates="api_keys")
 
     def __repr__(self):
         return f"<APIKey(id={self.id}, user_id={self.user_id}, api_key={self.api_key})>"

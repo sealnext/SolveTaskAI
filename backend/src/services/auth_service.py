@@ -99,10 +99,8 @@ class AuthService:
             raise SecurityException("No active session found")
 
         try:
-            print("next-auth.session-token in get_current_user", next_auth_token)
             location = self.extract_request_localization(request)
             session_data = self.verify_and_decode_token(next_auth_token, location)
-            print("--------- session_data in get_current_user", session_data)
             token = session_data.get("access_token")
             if not token:
                 logger.info("Access token is missing in the session data")
@@ -151,15 +149,14 @@ class AuthService:
             logger.error(f"Token verification failed: {str(e)}")
             raise InvalidTokenException("Failed to verify token")
 
-    def refresh_token_pair(self, next_auth_token: str, request: Request) -> Tuple[str, str]:
-        session_data = self._decode_next_auth_token(next_auth_token)
-        old_refresh_token = session_data.get("refresh_token")
-        if not old_refresh_token:
+    def refresh_token_pair(self, expired_refresh_token: str, request: Request) -> Tuple[str, str]:
+        print("refresh_token_pair called")
+        if not expired_refresh_token:
             logger.info("Refresh token missing in session data")
             raise InvalidTokenException("Refresh token missing in session")
 
         try:
-            payload = jwt.decode(old_refresh_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+            payload = jwt.decode(expired_refresh_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
             
             if payload.get("type") != "refresh":
                 logger.info("Invalid token type detected")
@@ -170,7 +167,6 @@ class AuthService:
                 raise SecurityException("Refresh token has been revoked")
             
             email = payload.get("sub")
-            self.revoke_token(old_refresh_token)
             return self.create_token_pair(email, request)
 
         except JWTError as e:

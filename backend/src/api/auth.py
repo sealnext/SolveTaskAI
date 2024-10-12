@@ -44,14 +44,14 @@ async def refresh_token(
     request: Request,
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    next_auth_token = request.cookies.get("next-auth.session-token")
-    new_access_token, new_refresh_token = auth_service.refresh_token_pair(next_auth_token, request)
+    expired_refresh_token = request.cookies.get("refresh-token")
+    new_access_token, new_refresh_token = auth_service.refresh_token_pair(expired_refresh_token, request)
     
     response = JSONResponse(
         status_code=status.HTTP_200_OK,
         content={"message": "Tokens refreshed successfully"}
     )
-    auth_service.set_auth_cookies(response, new_access_token, new_refresh_token)
+    set_auth_cookies(response, new_access_token, new_refresh_token)
 
     return response
 
