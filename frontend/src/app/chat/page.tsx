@@ -8,7 +8,7 @@ import SpatialTooltip from "@/components/SpatialTooltip"
 import ChatInput from "@/components/ChatInput"
 import Chat from "@/components/Chat"
 import { v4 as uuidv4 } from 'uuid';
-import { ProfileMenuComponent } from "@/components/profile-menu";
+import { ProfileMenuComponent } from "@/components/ProfileMenu";
 import ApiClient from "@/lib/apiClient";
 import ProjectSelector from "@/components/ProjectSelector";
 
