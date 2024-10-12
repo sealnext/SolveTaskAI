@@ -1,34 +1,40 @@
-from datetime import datetime, timezone, timedelta
-from jose import jwt, JWTError
+# Standard library imports
+import logging
+import uuid
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Tuple
+
+# Third-party imports
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from typing import Tuple, Dict
-import uuid
-import logging
+from jose import JWTError, jwt
 
-from models import User
-from utils.security import decode_next_auth_token, verify_password
-
+# Local imports
 from config import (
-    JWT_SECRET_KEY,
-    JWT_ALGORITHM,
+    ENVIRONMENT,
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
+    JWT_ALGORITHM,
     JWT_REFRESH_TOKEN_EXPIRE_DAYS,
-    ENVIRONMENT
+    JWT_SECRET_KEY,
 )
 from exceptions import (
     InvalidCredentialsException,
     InvalidTokenException,
-    SecurityException
+    SecurityException,
+    UnexpectedErrorException,
+    UserNotFoundException,
 )
+from models import User
+from repositories import UserRepository
+from utils.security import decode_next_auth_token, verify_password
 
 logger = logging.getLogger(__name__)
 
 class AuthService:
     revoked_tokens: Dict[str, datetime] = {}
 
-    def __init__(self):
-        pass
+    def __init__(self, user_repository: UserRepository):
+        self.user_repository = user_repository
     
     def revoke_session_tokens(self, session_data: dict) -> None:
         refresh_token = session_data.get("refresh_token")
@@ -40,14 +46,14 @@ class AuthService:
             raise SecurityException("No active access token found")
         self.revoke_token(access_token)
     
-    async def authenticate(self, email: str, password: str, user: User, request: Request) -> Tuple[str, str]:
+    async def authenticate(self, password: str, user: User, request: Request) -> Tuple[str, str]:
         if not user or not verify_password(password, user.hashed_password):
             raise InvalidCredentialsException("Invalid email or password")
         
         return self.create_token_pair(user.email, request)
 
     def create_token_pair(self, email: str, request: Request) -> Tuple[str, str]:
-        location = self._extract_request_localization(request)
+        location = self.extract_request_localization(request)
         access_token = self._create_access_token(email, location)
         refresh_token = self._create_refresh_token(email, location)
         return access_token, refresh_token
@@ -86,27 +92,64 @@ class AuthService:
         except Exception as e:
             logger.error(f"Refresh token creation failed: {str(e)}")
             raise InvalidTokenException("Failed to create refresh token")
+        
+    async def get_current_user(self, request: Request) -> User:
+        next_auth_token = request.cookies.get("next-auth.session-token")
+        if not next_auth_token:
+            raise SecurityException("No active session found")
 
-    @classmethod
-    def verify_and_decode_token(cls, token: str, current_location: str) -> str:
         try:
-            payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-            email: str = payload.get("sub")
+            print("next-auth.session-token in get_current_user", next_auth_token)
+            location = self.extract_request_localization(request)
+            session_data = self.verify_and_decode_token(next_auth_token, location)
+            print("--------- session_data in get_current_user", session_data)
+            token = session_data.get("access_token")
+            if not token:
+                logger.info("Access token is missing in the session data")
+                raise InvalidTokenException("Access token is missing")
+
+            email = session_data.get("email")
+
+            user = await self.user_repository.get_by_email(email)
+            if user is None:
+                logger.info(f"User with email {email} not found")
+                raise UserNotFoundException("User not found")
+
+            return user
+
+        except (InvalidTokenException, UserNotFoundException, SecurityException) as e:
+            logger.error(f"Authorization failed: {str(e)}")
+            raise
+
+        except Exception as e:
+            logger.error(f"Unexpected error during authorization: {str(e)}")
+            raise UnexpectedErrorException("An unexpected error occurred during authorization")
+
+    def verify_and_decode_token(self, token: str, current_location: str) -> str:
+        try:
+            session_data = decode_next_auth_token(token)
+            actual_token = session_data.get("access_token")
+
+            if not actual_token:
+                raise InvalidTokenException("Access token missing in session data")
+
+            payload = jwt.decode(actual_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
             location: str = payload.get("location")
             token_type: str = payload.get("type")
             jti: str = payload.get("jti")
 
-            if token_type == "refresh" and cls.is_token_revoked(jti):
+            if token_type == "refresh" and self.is_token_revoked(jti):
                 raise SecurityException("Token has been revoked")
 
-            print("location", location)
-            print("current_location", current_location)
-            print('--------------------------------')
-            cls._check_location(location, current_location)
+            self._check_location(location, current_location)
 
-            return email
-        except JWTError:
+            return session_data
+        except JWTError as e:
+            logger.error(f"JWT decoding failed: {str(e)}")
             raise InvalidTokenException("Invalid token")
+        except Exception as e:
+            logger.error(f"Token verification failed: {str(e)}")
+            raise InvalidTokenException("Failed to verify token")
 
     def refresh_token_pair(self, next_auth_token: str, request: Request) -> Tuple[str, str]:
         session_data = self._decode_next_auth_token(next_auth_token)
@@ -175,8 +218,7 @@ class AuthService:
         if stored_location != current_location:
             raise SecurityException("Unusual activity detected: Location mismatch")
 
-    @staticmethod
-    def _extract_request_localization(request: Request):
+    def extract_request_localization(self, request: Request):
         return request.headers.get("X-Forwarded-For", request.client.host)
     
     @staticmethod

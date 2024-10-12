@@ -20,7 +20,6 @@ from validation_models import UserCreate
 from models import User
 from utils.security import hash_password, verify_password
 from services import AuthService
-from utils.security import decode_next_auth_token
 from models import APIKey
 
 
@@ -36,37 +35,6 @@ class UserService:
         if not api_keys:
             raise APIKeyNotFoundException
         return api_keys
-
-    async def get_current_user(self, request: Request) -> User:
-        next_auth_token = request.cookies.get("next-auth.session-token")
-        if not next_auth_token:
-            logger.info("Next-auth token is missing from the request cookies")
-            raise InvalidTokenException("Next-auth token is missing")
-
-        try:
-            session_data = decode_next_auth_token(next_auth_token)
-            token = session_data.get("access_token")
-            if not token:
-                logger.info("Access token is missing in the session data")
-                raise InvalidTokenException("Access token is missing")
-
-            location = AuthService._extract_request_localization(request)
-            email = AuthService.verify_and_decode_token(token, location)
-
-            user = await self.user_repository.get_by_email(email)
-            if user is None:
-                logger.info(f"User with email {email} not found")
-                raise UserNotFoundException("User not found")
-
-            return user
-
-        except (InvalidTokenException, UserNotFoundException, SecurityException) as e:
-            logger.error(f"Authorization failed: {str(e)}")
-            raise
-
-        except Exception as e:
-            logger.error(f"Unexpected error during authorization: {str(e)}")
-            raise UnexpectedErrorException("An unexpected error occurred during authorization")
 
     async def create_new_user(self, user_create: UserCreate) -> User:
         existing_user = await self.user_repository.get_by_email(user_create.email)
