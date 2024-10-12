@@ -65,7 +65,6 @@ export const authOptions: NextAuthOptions = {
       }
       // Check if the token needs to be refreshed
       const currentTime = Math.floor(Date.now() / 1000);
-      console.log("wait more " + ((token.accessTokenExpires as number) - currentTime) + " seconds");
       if ((token.accessTokenExpires as number) < currentTime) {
         try {
           const refreshedToken = await refreshAccessToken(token.refresh_token as string);
@@ -93,11 +92,6 @@ export const authOptions: NextAuthOptions = {
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST }
-
-function hasTokenExpired(expirationTimestamp: number) {
-  const currentTime = Math.floor(Date.now() / 1000);
-  return expirationTimestamp < currentTime;
-}
 
 async function refreshAccessToken(refreshToken: string) {
   try {

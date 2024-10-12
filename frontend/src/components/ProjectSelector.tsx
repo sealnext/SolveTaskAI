@@ -48,7 +48,10 @@ export default function ProjectSelector({ projects, selectedProjectId, onSelectP
           <ChevronDown className="h-4 w-4 flex-shrink-0 transition-transform duration-200 data-[state=open]:rotate-180" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[200px] bg-backgroundSecondary bg-opacity-90 backdrop-filter backdrop-blur-md border-muted border-2 rounded-xl shadow-lg">
+      <DropdownMenuContent 
+        className="w-[200px] bg-backgroundSecondary bg-opacity-90 backdrop-filter backdrop-blur-md border-muted border-2 rounded-xl shadow-lg"
+        align="end"
+      >
         <DropdownMenuLabel className="text-foreground">Projects</DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-muted" />
         {projects.map((project) => (
