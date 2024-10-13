@@ -7,7 +7,8 @@ from .custom_exceptions import (
     SecurityException,
     UnexpectedErrorException,
     APIKeyNotFoundException,
-    APIKeyExpiredException
+    APIKeyExpiredException,
+    APIKeyAlreadyExistsError
 )
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "SecurityException",
     "UnexpectedErrorException",
     "APIKeyNotFoundException",
-    "APIKeyExpiredException"
+    "APIKeyExpiredException",
+    "APIKeyAlreadyExistsError"
 ]

@@ -27,3 +27,15 @@ class APIKeySchema(BaseModel):
 
     def model_post_init(self, __context):
         self.domain = self.validate_domain(self.domain)
+
+class APIKeyResponse(BaseModel):
+    id: int
+    service_type: TicketingSystemType
+    domain: str
+    domain_email: EmailStr
+
+    class Config:
+        from_attributes = True
+        
+class APIKeyCreate(APIKeySchema):
+    pass
