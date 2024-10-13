@@ -27,9 +27,6 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <Head>
-        <script src="http://localhost:8097"></script>
-      </Head>
       <body className={`${inter.className} ${geistSans.variable} ${geistMono.variable} min-h-screen bg-background`}>
         <Provider>
           <ThemeProvider>{children}</ThemeProvider>

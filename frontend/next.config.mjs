@@ -10,6 +10,11 @@ const nextConfig = {
         config.resolve.alias['@'] = path.resolve(__dirname, 'src');
         return config;
     },
+    reactStrictMode: true,
+    images: {
+      loader: 'custom',
+      loaderFile: './src/lib/imageLoader.ts',
+    },
 };
 
 export default nextConfig;

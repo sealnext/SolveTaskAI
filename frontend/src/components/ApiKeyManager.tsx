@@ -6,7 +6,9 @@ import ApiClient from "@/lib/apiClient";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RefreshCw, Loader2, Plus } from 'lucide-react';
+import { RefreshCw, Loader2, Plus, Trash2 } from 'lucide-react';
+import SafeImage from '@/components/SafeImage';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface ApiKey {
   id: number;
@@ -79,44 +81,14 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage('');
-
-    if (serviceType === 'jira') {
-      try {
-        const response = await apiClient.post('/projects/external', {
-          service_type: serviceType,
-          api_key: apiKey,
-          domain,
-          domain_email: email
-        });
-
-        const newProjects = response.filter((newProject: Project) => 
-          !projects.some(existingProject => existingProject.key === newProject.key)
-        );
-
-        if (newProjects.length > 0) {
-          onProjectsUpdate([...projects, ...newProjects]);
-          setMessage('New projects added successfully!');
-        } else {
-          setMessage('All projects are already added.');
-        }
-      } catch (error) {
-        console.error('Error adding projects:', error);
-        setMessage('Error adding projects. Please try again.');
-      }
-    } else {
-      setMessage('Azure integration is not implemented yet.');
-    }
-  };
-
-  const fetchExternalProjects = async () => {
-    if (!selectedApiKeyId) return;
+  const fetchExternalProjects = async (id?: number) => {
+    const keyId = id || selectedApiKeyId;
+    if (!keyId) return;
 
     setIsLoading(true);
     try {
-      const fetchedProjects = await apiClient.post<ExternalProjectSchema[]>(`/projects/external/id/${selectedApiKeyId}`);
+      // Ensure we're passing a number, not an object
+      const fetchedProjects = await apiClient.post<ExternalProjectSchema[]>(`/projects/external/id/${keyId}`);
       setExternalProjects(fetchedProjects);
       
       if (fetchedProjects.length > 0) {
@@ -126,7 +98,46 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
       }
     } catch (error) {
       console.error('Error fetching external projects:', error);
-      setMessage('Error fetching external projects. Please try again.');
+      if (error.message.includes('No projects found in external service')) {
+        setMessage('No projects found in external service. Please check your API Key.');
+      } else {
+        setMessage(`Error fetching projects: ${error.message}`);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage('');
+    setIsLoading(true);
+
+    try {
+      const response = await apiClient.post('/api-keys/add', {
+        service_type: serviceType,
+        api_key: apiKey,
+        domain,
+        domain_email: email
+      });
+      
+      if (response.data && response.data.id) {
+        setMessage('API Key added successfully!');
+        await fetchExistingApiKeys();
+        setApiKeySource('existing');
+        setSelectedApiKeyId(response.data.id);
+        // Automatically fetch external projects after adding the key
+        await fetchExternalProjects(response.data.id);
+      } else {
+        setMessage('API Key added, but no ID was returned. Please try refreshing.');
+      }
+    } catch (error) {
+      console.error('Error adding API key:', error);
+      if (error.response && error.response.data && error.response.data.message) {
+        setMessage(`Error: ${error.response.data.message}`);
+      } else {
+        setMessage(`Error adding API key: ${error.message}`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -153,8 +164,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
           setMessage('No external projects found.');
         }
       } catch (error) {
-        console.error('Error fetching external projects:', error);
-        setMessage('Error fetching external projects. Please try again.');
+        setMessage(error.message);
       } finally {
         setIsLoading(false);
       }
@@ -295,12 +305,34 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
       setIsLoading(false);
     }
   };
+  
 
   const isProjectAlreadyAdded = (externalProject: ExternalProjectSchema) => {
     return projects.some(internalProject => 
       internalProject.key === externalProject.key || 
       internalProject.name === externalProject.name
     );
+  };
+
+  const handleRemoveApiKey = async (keyId: number) => {
+    setIsLoading(true);
+    try {
+      await apiClient.delete(`/api-keys/${keyId}`);
+      setExistingApiKeys(prevKeys => prevKeys.filter(key => key.id !== keyId));
+      setMessage('API Key removed successfully.');
+      if (selectedApiKeyId === keyId) {
+        setSelectedApiKeyId(null);
+        setExternalProjects([]);
+      }
+      // Notificăm componenta părinte despre ștergerea API key-ului
+      // Aceasta ar putea fi necesară dacă gestionați proiectele la un nivel superior
+      onProjectsUpdate(projects.filter(project => project.id !== keyId));
+    } catch (error) {
+      console.error('Error removing API key:', error);
+      setMessage(`Error removing API key: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isInitialLoading) {
@@ -345,17 +377,50 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
           {apiKeySource === 'existing' && existingApiKeys.length > 0 && (
             <div className="mt-4 flex justify-between items-center">
               {renderApiKeySelector()}
-              {selectedApiKeyId && (
-                <Button
-                  onClick={fetchExternalProjects}
-                  disabled={isLoading}
-                  className="ml-2 p-2 rounded-full hover:bg-accent transition-colors duration-200"
-                  variant="ghost"
-                  size="icon"
-                >
-                  <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-                </Button>
-              )}
+              <div className="flex space-x-2">
+                {selectedApiKeyId && (
+                  <>
+                    <Button
+                      onClick={() => fetchExternalProjects(selectedApiKeyId)}
+                      disabled={isLoading}
+                      className="p-2 rounded-full hover:bg-accent transition-colors duration-200"
+                      variant="ghost"
+                      size="icon"
+                    >
+                      <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          className="p-2 rounded-full hover:bg-destructive/90 transition-colors duration-200"
+                          variant="destructive"
+                          size="icon"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the API key
+                            and remove its data from our servers.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => selectedApiKeyId && handleRemoveApiKey(selectedApiKeyId)}
+                            className="text-destructive-foreground hover:bg-primaryAccent"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                )}
+              </div>
             </div>
           )}
 
@@ -424,13 +489,16 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
             </div>
           )}
           {apiKeySource === 'new' && (
-            <Button type="submit">
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Add API Key
             </Button>
           )}
         </form>
-        {message && apiKeySource === 'existing' && (
-          <p className="mt-4 text-sm text-foreground">{message}</p>
+        {message && (
+          <p className={`mt-4 text-sm ${message.includes('Error') ? 'text-destructive' : 'text-foreground'}`}>
+            {message}
+          </p>
         )}
         {externalProjects.length > 0 && apiKeySource === 'existing' && (
           <div className="mt-4">
@@ -447,13 +515,13 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
                     >
                       <div className="flex items-center space-x-2">
                         <div className="flex-shrink-0">
-                          <img 
+                          <SafeImage 
                             src={project.avatarUrl} 
                             alt={project.name} 
-                            className="w-8 h-8 rounded-full"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/default-avatar.png';
-                            }}
+                            width={32}
+                            height={32}
+                            className="rounded-full"
+                            fallbackSrc="/default-avatar.png"
                           />
                         </div>
                         <div className="flex flex-col">

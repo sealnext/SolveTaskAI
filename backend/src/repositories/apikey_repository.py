@@ -1,16 +1,28 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
 from models.apikey import APIKey
-from typing import List
+from typing import List, Optional
+from config.enums import TicketingSystemType
+from sqlalchemy.exc import IntegrityError
 
 class APIKeyRepository:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
 
     async def create_api_key(self, api_key: APIKey) -> APIKey:
-        self.db_session.add(api_key)
-        await self.db_session.commit()
-        return api_key
+        try:
+            self.db_session.add(api_key)
+            await self.db_session.flush()
+            await self.db_session.refresh(api_key)
+            await self.db_session.commit()
+            return api_key
+        except IntegrityError as e:
+            if "duplicate key value violates unique constraint" in str(e):
+                await self.db_session.rollback()
+                await self.db_session.execute(text("SELECT setval('api_keys_id_seq', (SELECT MAX(id) FROM api_keys))"))
+                api_key.id = None  # Reset the ID to let the database assign a new one
+                return await self.create_api_key(api_key)
+            raise
 
     async def delete_api_key(self, api_key: APIKey) -> None:
         await self.db_session.delete(api_key)
@@ -35,5 +47,19 @@ class APIKeyRepository:
             select(APIKey).where(
                 (APIKey.user_id == user_id) & (APIKey.project_id == project_id)
             )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_api_key_by_user_and_service(self, user_id: int, service_type: TicketingSystemType) -> APIKey | None:
+        result = await self.db_session.execute(
+            select(APIKey).where(
+                (APIKey.user_id == user_id) & (APIKey.service_type == service_type)
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_api_key_by_value(self, api_key_value: str) -> Optional[APIKey]:
+        result = await self.db_session.execute(
+            select(APIKey).where(APIKey.api_key == api_key_value)
         )
         return result.scalar_one_or_none()

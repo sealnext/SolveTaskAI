@@ -48,3 +48,7 @@ class APIKeyNotFoundException(BaseCustomException):
 class APIKeyExpiredException(BaseCustomException):
     def __init__(self, detail: str = "API Key has expired"):
         super().__init__(detail, status.HTTP_403_FORBIDDEN)
+
+class APIKeyAlreadyExistsError(BaseCustomException):
+    def __init__(self, detail: str = "An API key with this value already exists"):
+        super().__init__(detail, status.HTTP_403_FORBIDDEN)
