@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 import SpatialTooltip from "@/components/SpatialTooltip"
 import ChatInput from "@/components/ChatInput"
@@ -34,8 +34,10 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  const apiclient = ApiClient();
   const [showApiKeyManager, setShowApiKeyManager] = useState(false);
+
+  // Memoize the API client to prevent it from being recreated on each render
+  const apiclient = useMemo(() => ApiClient(), []);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -43,22 +45,18 @@ export default function ChatPage() {
     }
   }, [status, router]);
 
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const response = await apiclient.get('/projects/internal');
-        setProjects(response);
-        console.log(projects);
-        if (response.length === 1) {
-          setSelectedProjectId(response[0].id);
-        }
-      } catch (error) {
-        console.error('Error fetching projects:', error);
-      }
-    };
+  const fetchInternalProjects = useCallback(async () => {
+    try {
+      const response = await apiclient.get('/projects/internal');
+      setProjects(response);
+    } catch (error) {
+      console.error('Error fetching internal projects:', error);
+    }
+  }, []); // Remove apiclient from the dependency array
 
-    fetchProjects();
-  }, []);
+  useEffect(() => {
+    fetchInternalProjects();
+  }, [fetchInternalProjects]);
 
   const handleProjectSelect = (projectId: number) => {
     setSelectedProjectId(projectId);
@@ -130,18 +128,13 @@ export default function ChatPage() {
     }
   }, []);
 
-  const handleAddNewProject = () => {
-    setShowApiKeyManager(true);
-  };
-
   const handleCloseApiKeyManager = () => {
     setShowApiKeyManager(false);
   };
 
-  const handleProjectsUpdate = (newProjects: Project[]) => {
+  const handleProjectsUpdate = useCallback((newProjects: Project[]) => {
     setProjects(newProjects);
-    setShowApiKeyManager(false);
-  };
+  }, []);
 
   if (status === "loading") {
     return <LoadingSpinner />;
@@ -169,17 +162,15 @@ export default function ChatPage() {
       </div>
 
       <div className="fixed bottom-8 right-4 w-1/8 h-14">
-        {projects.length > 0 && (
-          <ProjectSelector 
-            projects={projects}
-            selectedProjectId={selectedProjectId}
-            onSelectProject={handleProjectSelect}
-            onAddNewProject={handleAddNewProject}
-          />
-        )}
+        <ProjectSelector 
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={handleProjectSelect}
+          onAddNewProject={() => setShowApiKeyManager(true)}
+        />
       </div>
 
-      {(showApiKeyManager || projects.length === 0) && (
+      {showApiKeyManager && (
         <ApiKeyManager 
           projects={projects} 
           onProjectsUpdate={handleProjectsUpdate}

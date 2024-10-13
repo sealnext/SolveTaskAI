@@ -19,3 +19,4 @@
 
 - backend
     - make a table for revoked tokens, don't save them in memory
+    - scoate "created_at", si "permissions" din APIKey

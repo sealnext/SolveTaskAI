@@ -32,9 +32,22 @@ class UserService:
 
     async def get_api_keys_by_user(self, user: User) -> List[APIKey]:
         api_keys = await self.api_key_repository.get_api_keys_by_user(user.id)
+        # decrypt api keys, for the moment we dont store them encrypted
+        # TODO: encrypt them
+        
+        # TODO: add caching
+        
+        # show only the first 5 characters of the api key
+        for api_key in api_keys:
+            api_key.api_key = api_key.api_key[:5] + '*****'
+        
         if not api_keys:
             raise APIKeyNotFoundException
         return api_keys
+
+    async def get_api_key_by_id(self, api_key_id: int, user_id: int) -> APIKey:
+        api_key = await self.api_key_repository.get_by_id(api_key_id, user_id)
+        return api_key
 
     async def create_new_user(self, user_create: UserCreate) -> User:
         existing_user = await self.user_repository.get_by_email(user_create.email)

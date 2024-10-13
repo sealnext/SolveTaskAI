@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Provider from "./Provider";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import Head from "next/head";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -26,6 +27,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <Head>
+        <script src="http://localhost:8097"></script>
+      </Head>
       <body className={`${inter.className} ${geistSans.variable} ${geistMono.variable} min-h-screen bg-background`}>
         <Provider>
           <ThemeProvider>{children}</ThemeProvider>

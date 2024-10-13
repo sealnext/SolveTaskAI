@@ -23,7 +23,7 @@ const Input = React.forwardRef(({ className, type, icon: Icon, label, ...props }
             "flex h-12 w-full rounded-[10px] border border-muted bg-background px-3 py-2 text-sm shadow-sm transition-colors",
             "text-foreground",
             "file:border-0 file:bg-transparent file:text-sm file:font-medium",
-            "placeholder:text-muted-foreground",
+            "placeholder:text-muted-foreground placeholder:opacity-50",
             "focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary",
             "disabled:cursor-not-allowed disabled:opacity-50",
             "autofill-fix",

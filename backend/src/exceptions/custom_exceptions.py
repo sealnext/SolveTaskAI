@@ -42,8 +42,8 @@ class UnexpectedErrorException(BaseCustomException):
         super().__init__(detail, status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class APIKeyNotFoundException(BaseCustomException):
-    def __init__(self, detail: str = "API Key not found"):
-        super().__init__(detail, status.HTTP_404_NOT_FOUND)
+    def __init__(self, detail: str = "No API keys found"):
+        super().__init__({"message": "No API keys found", "data": []}, status.HTTP_200_OK)
 
 class APIKeyExpiredException(BaseCustomException):
     def __init__(self, detail: str = "API Key has expired"):
