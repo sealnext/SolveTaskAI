@@ -1,0 +1,390 @@
+import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import ApiClient from "@/lib/apiClient";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { RefreshCw } from 'lucide-react';
+
+interface ApiKey {
+  id: number;
+  service_type: string;
+  domain: string;
+  domain_email: string;
+  api_key: string;
+}
+
+interface ExternalProjectSchema {
+  name: string;
+  key: string;
+  id: string;
+  avatarUrl: string;
+  project_type_key: string;
+  style: string;
+}
+
+interface Project {
+  id: number;
+  name: string;
+  key: string;
+}
+
+interface ApiKeyManagerProps {
+  projects: Project[];
+  onProjectsUpdate: (newProjects: Project[]) => void;
+  onClose: () => void;
+}
+
+const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdate, onClose }) => {
+  const [apiKeySource, setApiKeySource] = useState<'new' | 'existing'>('new');
+  const [serviceType, setServiceType] = useState<'jira' | 'azure'>('jira');
+  const [apiKey, setApiKey] = useState('');
+  const [domain, setDomain] = useState('');
+  const [email, setEmail] = useState('');
+  const [existingApiKeys, setExistingApiKeys] = useState<ApiKey[]>([]);
+  const [selectedApiKeyId, setSelectedApiKeyId] = useState<number | null>(null);
+  const [message, setMessage] = useState('');
+  const [externalProjects, setExternalProjects] = useState<ExternalProjectSchema[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const apiClient = ApiClient();
+
+  useEffect(() => {
+    fetchExistingApiKeys();
+  }, []);
+
+  const fetchExistingApiKeys = async () => {
+    try {
+      const keys = await apiClient.get('/api-keys');
+      setExistingApiKeys(keys);
+      if (keys.length > 0) {
+        setApiKeySource('existing');
+        // Removed auto-selection of the first API key
+      }
+    } catch (error) {
+      console.error('Error fetching API keys:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage('');
+
+    if (serviceType === 'jira') {
+      try {
+        const response = await apiClient.post('/projects/external', {
+          service_type: serviceType,
+          api_key: apiKey,
+          domain,
+          domain_email: email
+        });
+
+        const newProjects = response.filter((newProject: Project) => 
+          !projects.some(existingProject => existingProject.key === newProject.key)
+        );
+
+        if (newProjects.length > 0) {
+          onProjectsUpdate([...projects, ...newProjects]);
+          setMessage('New projects added successfully!');
+        } else {
+          setMessage('All projects are already added.');
+        }
+      } catch (error) {
+        console.error('Error adding projects:', error);
+        setMessage('Error adding projects. Please try again.');
+      }
+    } else {
+      setMessage('Azure integration is not implemented yet.');
+    }
+  };
+
+  const fetchExternalProjects = async () => {
+    if (!selectedApiKeyId) return;
+
+    setIsLoading(true);
+    try {
+      const fetchedProjects = await apiClient.post<ExternalProjectSchema[]>(`/projects/external/id/${selectedApiKeyId}`);
+      setExternalProjects(fetchedProjects);
+      
+      if (fetchedProjects.length > 0) {
+        setMessage(`${fetchedProjects.length} external projects found.`);
+      } else {
+        setMessage('No external projects found.');
+      }
+    } catch (error) {
+      console.error('Error fetching external projects:', error);
+      setMessage('Error fetching external projects. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleApiKeySelect = async (keyId: string) => {
+    const id = parseInt(keyId);
+    setSelectedApiKeyId(id);
+    setIsLoading(true);
+    
+    const selectedKey = existingApiKeys.find(key => key.id === id);
+    if (selectedKey) {
+      setServiceType(selectedKey.service_type as 'jira' | 'azure');
+      setDomain(selectedKey.domain);
+      setEmail(selectedKey.domain_email);
+      
+      try {
+        const fetchedProjects = await apiClient.post<ExternalProjectSchema[]>(`/projects/external/id/${id}`);
+        setExternalProjects(fetchedProjects);
+        
+        if (fetchedProjects.length > 0) {
+          setMessage(`${fetchedProjects.length} external projects found.`);
+        } else {
+          setMessage('No external projects found.');
+        }
+      } catch (error) {
+        console.error('Error fetching external projects:', error);
+        setMessage('Error fetching external projects. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const getServiceTypeColor = (serviceType: string) => {
+    switch (serviceType.toLowerCase()) {
+      case 'jira':
+        return 'bg-primary text-primary-foreground';
+      case 'azure':
+        return 'bg-secondary text-secondary-foreground';
+      default:
+        return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const formatDomain = (domain?: string) => {
+    if (!domain) return '';
+    return domain.replace(/^https?:\/\//, '').replace(/\/$/, '').split('/')[0];
+  };
+
+  const renderApiKeySelector = () => {
+    return (
+      <Select onValueChange={handleApiKeySelect} value={selectedApiKeyId?.toString()}>
+        <SelectTrigger>
+          <SelectValue placeholder="Select existing API Key">
+            {selectedApiKeyId !== null && renderSelectedApiKey()}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {existingApiKeys.map(key => (
+            <SelectItem key={key.id} value={key.id.toString()} className="py-2">
+              <div className="flex flex-col space-y-1">
+                <div className="flex items-center space-x-2">
+                  <Badge className={getServiceTypeColor(key.service_type)}>
+                    {key.service_type}
+                  </Badge>
+                  <span className="font-medium text-foreground">{formatDomain(key.domain)}</span>
+                </div>
+                <div className="text-sm text-muted-foreground">{key.domain_email}</div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="text-xs text-muted-foreground truncate w-48 cursor-pointer">
+                        {key.api_key.substring(0, 20)}...
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="text-xs">{key.api_key}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  };
+
+  const renderSelectedApiKey = () => {
+    if (selectedApiKeyId === null) return null;
+    const selectedKey = existingApiKeys.find(key => key.id === selectedApiKeyId);
+    if (!selectedKey) return null;
+
+    return (
+      <div className="flex items-center space-x-2">
+        <Badge className={getServiceTypeColor(selectedKey.service_type)}>
+          {selectedKey.service_type}
+        </Badge>
+        <span className="font-medium">{formatDomain(selectedKey.domain)}</span>
+      </div>
+    );
+  };
+
+  const handleApiKeySourceChange = (value: 'new' | 'existing') => {
+    setApiKeySource(value);
+    if (value === 'new') {
+      // Clear external projects, related data, and messages when switching to 'Add New API Key'
+      setExternalProjects([]);
+      setMessage('');
+      setSelectedApiKeyId(null);
+      // Reset other form fields
+      setApiKey('');
+      setDomain('');
+      setEmail('');
+    }
+  };
+
+  const handleAddInternalProject = async (project: ExternalProjectSchema) => {
+    if (!selectedApiKeyId) return;
+
+    const selectedKey = existingApiKeys.find(key => key.id === selectedApiKeyId);
+    if (!selectedKey) return;
+
+    try {
+      const response = await apiClient.post('/projects/internal/add', {
+        name: project.name,
+        domain: selectedKey.domain,
+        service_type: selectedKey.service_type,
+        internal_id: project.id
+      });
+
+      if (response.success) {
+        // Assuming the response includes the newly added project
+        const newProject: Project = {
+          id: response.project.id,
+          name: response.project.name,
+          key: project.key
+        };
+        onProjectsUpdate([...projects, newProject]);
+        setMessage(`Project "${project.name}" added successfully!`);
+      } else {
+        setMessage(`Failed to add project "${project.name}". ${response.message}`);
+      }
+    } catch (error) {
+      console.error('Error adding internal project:', error);
+      setMessage(`Error adding project "${project.name}". Please try again.`);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+      <div className="bg-background p-6 rounded-2xl shadow-xl max-w-md w-full">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">API Key Manager</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {existingApiKeys.length > 0 && (
+            <Select onValueChange={handleApiKeySourceChange} defaultValue={apiKeySource}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose API Key Source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="new">Add New API Key</SelectItem>
+                <SelectItem value="existing">Use Existing API Key</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+
+          {apiKeySource === 'existing' && existingApiKeys.length > 0 && (
+            <div className="mt-4 flex justify-between items-center">
+              {renderApiKeySelector()}
+              {selectedApiKeyId && (
+                <Button
+                  onClick={fetchExternalProjects}
+                  disabled={isLoading}
+                  className="ml-2 p-2 rounded-full hover:bg-accent transition-colors duration-200"
+                  variant="ghost"
+                  size="icon"
+                >
+                  <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                </Button>
+              )}
+            </div>
+          )}
+
+          {apiKeySource === 'new' && (
+            <>
+              <Select onValueChange={(value) => setServiceType(value as 'jira' | 'azure')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select service type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="jira">Jira</SelectItem>
+                  <SelectItem value="azure">Azure (Not implemented)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Input
+                type="text"
+                placeholder="API Key"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                required
+              />
+              <Input
+                type="url"
+                placeholder="Domain (e.g., https://sealnext.atlassian.net)"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                required
+              />
+              <Input
+                type="email"
+                placeholder="Domain email (e.g., john.doe@sealnext.com)"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </>
+          )}
+          {apiKeySource === 'new' && (
+            <Button type="submit">
+              Add API Key
+            </Button>
+          )}
+        </form>
+        {message && apiKeySource === 'existing' && (
+          <p className="mt-4 text-sm text-foreground">{message}</p>
+        )}
+        {externalProjects.length > 0 && apiKeySource === 'existing' && (
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold mb-2">External Projects:</h3>
+            <ScrollArea className="h-[200px]">
+              <ul className="space-y-2">
+                {externalProjects.map(project => (
+                  <li 
+                    key={project.id} 
+                    className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent cursor-pointer"
+                    onClick={() => handleAddInternalProject(project)}
+                  >
+                    <div className="flex-shrink-0">
+                      <img 
+                        src={project.avatarUrl} 
+                        alt={project.name} 
+                        className="w-8 h-8 rounded-full"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/default-avatar.png';
+                        }}
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{project.name}</span>
+                      <span className="text-sm text-muted-foreground">{project.key}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </ScrollArea>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ApiKeyManager;
