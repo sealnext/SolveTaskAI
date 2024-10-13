@@ -7,6 +7,7 @@ from services import AuthService
 from repositories import APIKeyRepository
 from repositories import ProjectRepository
 from services import ProjectService
+from db.session import get_db
 
 # User dependencies
 
@@ -24,8 +25,7 @@ async def get_auth_service(user_repo: UserRepository = Depends(get_user_reposito
 
 # Project dependencies
 async def get_project_repository(db: AsyncSession = Depends(get_db)):
-    return ProjectRepository(db_session=db)
+    return ProjectRepository(db)
 
 async def get_project_service(project_repo: ProjectRepository = Depends(get_project_repository)):
     return ProjectService(project_repo)
-

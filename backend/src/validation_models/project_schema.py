@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from config.enums import TicketingSystemType
+
 class ExternalProjectSchema(BaseModel):
     name: str
     key: str
@@ -16,8 +17,9 @@ class InternalProjectSchema(BaseModel):
     id: int
     name: str
     domain: str
-    company_id: int
     service_type: TicketingSystemType
+    key: str
+    internal_id: str
 
     class Config:
         from_attributes = True
@@ -25,9 +27,6 @@ class InternalProjectSchema(BaseModel):
 class ProjectBase(BaseModel):
     name: str
     domain: str
-
-class ProjectCreate(ProjectBase):
-    company_id: int
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
@@ -37,5 +36,12 @@ class ProjectInDB(ExternalProjectSchema):
     api_keys: List[str] = []
     embeddings: List[int] = []
 
-class ProjectWithRelated(ProjectInDB):
-    company: dict
+class InternalProjectCreate(BaseModel):
+    name: str
+    domain: str
+    service_type: TicketingSystemType
+    key: str
+    internal_id: str
+
+    class Config:
+        from_attributes = True

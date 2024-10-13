@@ -6,14 +6,17 @@ import ApiClient from "@/lib/apiClient";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Loader2, Plus } from 'lucide-react';
 
 interface ApiKey {
   id: number;
-  service_type: string;
+  api_key: string;
+  created_at: Date | null;
   domain: string;
   domain_email: string;
-  api_key: string;
+  expires_at: Date | null;
+  permissions: string | null;
+  service_type: string;
 }
 
 interface ExternalProjectSchema {
@@ -29,6 +32,8 @@ interface Project {
   id: number;
   name: string;
   key: string;
+  domain: string;
+  service_type: string;
 }
 
 interface ApiKeyManagerProps {
@@ -48,6 +53,8 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
   const [message, setMessage] = useState('');
   const [externalProjects, setExternalProjects] = useState<ExternalProjectSchema[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [newlyAddedProjects, setNewlyAddedProjects] = useState<Set<string>>(new Set());
 
   const apiClient = ApiClient();
 
@@ -56,15 +63,19 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
   }, []);
 
   const fetchExistingApiKeys = async () => {
+    setIsInitialLoading(true);
     try {
-      const keys = await apiClient.get('/api-keys');
+      const response = await apiClient.get('/api-keys');
+      const keys: ApiKey[] = response.data;
+    
       setExistingApiKeys(keys);
       if (keys.length > 0) {
         setApiKeySource('existing');
-        // Removed auto-selection of the first API key
       }
     } catch (error) {
       console.error('Error fetching API keys:', error);
+    } finally {
+      setIsInitialLoading(false);
     }
   };
 
@@ -240,38 +251,79 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
     const selectedKey = existingApiKeys.find(key => key.id === selectedApiKeyId);
     if (!selectedKey) return;
 
+    setIsLoading(true);
     try {
       const response = await apiClient.post('/projects/internal/add', {
         name: project.name,
         domain: selectedKey.domain,
         service_type: selectedKey.service_type,
-        internal_id: project.id
+        internal_id: project.id,
+        key: project.key
       });
 
-      if (response.success) {
-        // Assuming the response includes the newly added project
+      if (response && response.id) {
         const newProject: Project = {
-          id: response.project.id,
-          name: response.project.name,
-          key: project.key
+          id: response.id,
+          name: response.name,
+          key: response.key,
+          domain: response.domain,
+          service_type: response.service_type
         };
         onProjectsUpdate([...projects, newProject]);
         setMessage(`Project "${project.name}" added successfully!`);
+        setNewlyAddedProjects(prev => new Set(prev).add(project.id));
       } else {
-        setMessage(`Failed to add project "${project.name}". ${response.message}`);
+        setMessage(`Failed to add project "${project.name}". ${response.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error adding internal project:', error);
       setMessage(`Error adding project "${project.name}". Please try again.`);
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  const handleReloadEmbeddings = async (project: ExternalProjectSchema) => {
+    setIsLoading(true);
+    try {
+      await apiClient.post('/projects/reload-embeddings', { projectKey: project.key });
+      setMessage(`Embeddings reloaded for project "${project.name}"`);
+    } catch (error) {
+      console.error('Error reloading embeddings:', error);
+      setMessage(`Error reloading embeddings for "${project.name}". Please try again.`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isProjectAlreadyAdded = (externalProject: ExternalProjectSchema) => {
+    return projects.some(internalProject => 
+      internalProject.key === externalProject.key || 
+      internalProject.name === externalProject.name
+    );
+  };
+
+  if (isInitialLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+        <div className="bg-background p-6 rounded-2xl shadow-xl max-w-md w-full flex flex-col items-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="mt-2 text-sm text-muted-foreground">Loading API Keys...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
       <div className="bg-background p-6 rounded-2xl shadow-xl max-w-md w-full">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">API Key Manager</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          <button 
+            onClick={onClose} 
+            className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
+            aria-label="Close"
+          >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -308,39 +360,68 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
           )}
 
           {apiKeySource === 'new' && (
-            <>
-              <Select onValueChange={(value) => setServiceType(value as 'jira' | 'azure')}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select service type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="jira">Jira</SelectItem>
-                  <SelectItem value="azure">Azure (Not implemented)</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label htmlFor="serviceType" className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  Project Management Platform
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Choose the platform you use for project tracking and documentation</p>
+                <Select onValueChange={(value) => setServiceType(value as 'jira' | 'azure')} id="serviceType">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your platform" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="jira">Jira (Atlassian)</SelectItem>
+                    <SelectItem value="azure">Azure DevOps (Microsoft)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <Input
-                type="text"
-                placeholder="API Key"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                required
-              />
-              <Input
-                type="url"
-                placeholder="Domain (e.g., https://sealnext.atlassian.net)"
-                value={domain}
-                onChange={(e) => setDomain(e.target.value)}
-                required
-              />
-              <Input
-                type="email"
-                placeholder="Domain email (e.g., john.doe@sealnext.com)"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </>
+              <div className="space-y-2">
+                <label htmlFor="apiKey" className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  API Token / Personal Access Token
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Your secure key to access the platform's API (found in your account settings)</p>
+                <Input
+                  id="apiKey"
+                  type="text"
+                  placeholder="e.g., ATAtt3xFx1...K9_1e8mXNBpxatqBFxt1"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="domain" className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  Organization URL
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400">The web address of your organization's project management space</p>
+                <Input
+                  id="domain"
+                  type="url"
+                  placeholder="e.g., https://your-company.atlassian.net"
+                  value={domain}
+                  onChange={(e) => setDomain(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="email" className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  Account Email
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400">The email address associated with your platform account</p>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="e.g., john.doe@your-company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
           )}
           {apiKeySource === 'new' && (
             <Button type="submit">
@@ -356,28 +437,74 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
             <h3 className="text-sm font-semibold mb-2">External Projects:</h3>
             <ScrollArea className="h-[200px]">
               <ul className="space-y-2">
-                {externalProjects.map(project => (
-                  <li 
-                    key={project.id} 
-                    className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent cursor-pointer"
-                    onClick={() => handleAddInternalProject(project)}
-                  >
-                    <div className="flex-shrink-0">
-                      <img 
-                        src={project.avatarUrl} 
-                        alt={project.name} 
-                        className="w-8 h-8 rounded-full"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/default-avatar.png';
-                        }}
-                      />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{project.name}</span>
-                      <span className="text-sm text-muted-foreground">{project.key}</span>
-                    </div>
-                  </li>
-                ))}
+                {externalProjects.map(project => {
+                  const isAdded = isProjectAlreadyAdded(project);
+                  const isNewlyAdded = newlyAddedProjects.has(project.id);
+                  return (
+                    <li 
+                      key={project.id} 
+                      className={`flex items-center justify-between p-2 rounded-md ${isAdded || isNewlyAdded ? 'bg-muted' : 'bg-card'}`}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <div className="flex-shrink-0">
+                          <img 
+                            src={project.avatarUrl} 
+                            alt={project.name} 
+                            className="w-8 h-8 rounded-full"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/default-avatar.png';
+                            }}
+                          />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{project.name}</span>
+                          <span className="text-sm text-muted-foreground">{project.key}</span>
+                        </div>
+                      </div>
+                      {isNewlyAdded ? (
+                        <Button
+                          disabled
+                          size="sm"
+                          className="bg-muted text-muted-foreground"
+                        >
+                          Added
+                        </Button>
+                      ) : isAdded ? (
+                        <Button
+                          onClick={() => handleReloadEmbeddings(project)}
+                          size="sm"
+                          className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-1" />
+                              Reload
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => handleAddInternalProject(project)}
+                          size="sm"
+                          className="bg-primary text-primary-foreground hover:bg-primary/90"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Plus className="w-4 h-4 mr-1" />
+                              Add Project
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </ScrollArea>
           </div>

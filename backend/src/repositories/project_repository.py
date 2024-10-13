@@ -1,10 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, and_
+from sqlalchemy import select, update, delete, and_, text
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
-
+from sqlalchemy.exc import IntegrityError
 from models import Project, User, user_project_association
-from validation_models import ProjectCreate, ProjectUpdate
+from validation_models import ProjectUpdate, InternalProjectCreate
 
 async def get_project_repository(db_session: AsyncSession):
     return ProjectRepository(db_session)
@@ -13,17 +13,26 @@ class ProjectRepository:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
 
-    async def create(self, user_id: int, project: ProjectCreate) -> Project:
-        db_project = Project(**project.model_dump())
-        self.db_session.add(db_project)
-        
-        # Adăugăm relația user-project
-        user = await self.db_session.get(User, user_id)
-        user.projects.append(db_project)
-        
-        await self.db_session.commit()
-        await self.db_session.refresh(db_project)
-        return db_project
+    async def create(self, user_id: int, project: InternalProjectCreate) -> Project:
+        try:
+            db_project = Project(**project.model_dump())
+            self.db_session.add(db_project)
+            await self.db_session.flush()
+
+            stmt = select(User).where(User.id == user_id).options(selectinload(User.projects))
+            result = await self.db_session.execute(stmt)
+            user = result.scalar_one()
+
+            user.projects.append(db_project)
+            await self.db_session.commit()
+            await self.db_session.refresh(db_project)
+            return db_project
+        except IntegrityError as e:
+            if "duplicate key value violates unique constraint" in str(e):
+                await self.db_session.execute(text("SELECT setval('projects_id_seq', (SELECT MAX(id) FROM projects))"))
+                await self.db_session.rollback()
+                return await self.create(user_id, project)
+            raise
 
     async def get_by_id(self, user_id: int, project_id: int) -> Optional[Project]:
         query = (
@@ -48,7 +57,7 @@ class ProjectRepository:
         if project:
             for key, value in project_update.model_dump(exclude_unset=True).items():
                 setattr(project, key, value)
-            await self.db_session.commit()
+            await self.db_session.flush()
             await self.db_session.refresh(project)
         return project
 
@@ -56,7 +65,7 @@ class ProjectRepository:
         project = await self.get_by_id(user_id, project_id)
         if project:
             await self.db_session.delete(project)
-            await self.db_session.commit()
+            await self.db_session.flush()
             return True
         return False
 

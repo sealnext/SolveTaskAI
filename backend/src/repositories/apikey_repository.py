@@ -21,6 +21,14 @@ class APIKeyRepository:
             select(APIKey).where(APIKey.user_id == user_id)
         )
         return result.scalars().all()
+    
+    async def get_by_id(self, api_key_id: int, user_id: int) -> APIKey | None:
+        result = await self.db_session.execute(
+            select(APIKey).where(
+                (APIKey.id == api_key_id) & (APIKey.user_id == user_id)
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def get_api_key_by_user_and_project(self, user_id: int, project_id: int) -> APIKey | None:
         result = await self.db_session.execute(
