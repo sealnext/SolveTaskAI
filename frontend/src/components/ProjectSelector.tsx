@@ -15,7 +15,6 @@ interface Project {
   id: number;
   name: string;
   service_type: string;
-  company_id: number;
   domain: string;
 }
 
@@ -23,9 +22,15 @@ interface ProjectSelectorProps {
   projects: Project[];
   selectedProjectId: number | null;
   onSelectProject: (projectId: number) => void;
+  onAddNewProject: () => void;
 }
 
-export default function ProjectSelector({ projects, selectedProjectId, onSelectProject }: ProjectSelectorProps) {
+export default function ProjectSelector({ 
+  projects, 
+  selectedProjectId, 
+  onSelectProject, 
+  onAddNewProject
+}: ProjectSelectorProps) {
   const selectedProject = projects.find(project => project.id === selectedProjectId);
 
   const handleSelectProject = (projectId: number) => {
@@ -33,9 +38,7 @@ export default function ProjectSelector({ projects, selectedProjectId, onSelectP
   }
 
   const handleAddNewProject = () => {
-    // Implement the logic to add a new project here
-    console.log(projects)
-    console.log("Add new project");
+    onAddNewProject();
   }
 
   return (

@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ProfileMenuComponent } from "@/components/ProfileMenu";
 import ApiClient from "@/lib/apiClient";
 import ProjectSelector from "@/components/ProjectSelector";
+import ApiKeyManager from "@/components/ApiKeyManager";
 
 interface Message {
   id: string;
@@ -23,7 +24,6 @@ interface Project {
   id: number;
   name: string;
   service_type: string;
-  company_id: number;
   domain: string;
 }
 
@@ -35,6 +35,7 @@ export default function ChatPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const apiclient = ApiClient();
+  const [showApiKeyManager, setShowApiKeyManager] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -47,6 +48,7 @@ export default function ChatPage() {
       try {
         const response = await apiclient.get('/projects/internal');
         setProjects(response);
+        console.log(projects);
         if (response.length === 1) {
           setSelectedProjectId(response[0].id);
         }
@@ -128,6 +130,19 @@ export default function ChatPage() {
     }
   }, []);
 
+  const handleAddNewProject = () => {
+    setShowApiKeyManager(true);
+  };
+
+  const handleCloseApiKeyManager = () => {
+    setShowApiKeyManager(false);
+  };
+
+  const handleProjectsUpdate = (newProjects: Project[]) => {
+    setProjects(newProjects);
+    setShowApiKeyManager(false);
+  };
+
   if (status === "loading") {
     return <LoadingSpinner />;
   }
@@ -154,12 +169,23 @@ export default function ChatPage() {
       </div>
 
       <div className="fixed bottom-8 right-4 w-1/8 h-14">
+        {projects.length > 0 && (
           <ProjectSelector 
             projects={projects}
             selectedProjectId={selectedProjectId}
-          onSelectProject={handleProjectSelect}
-        />
+            onSelectProject={handleProjectSelect}
+            onAddNewProject={handleAddNewProject}
+          />
+        )}
       </div>
+
+      {(showApiKeyManager || projects.length === 0) && (
+        <ApiKeyManager 
+          projects={projects} 
+          onProjectsUpdate={handleProjectsUpdate}
+          onClose={handleCloseApiKeyManager}
+        />
+      )}
     </div>
   )
 }
