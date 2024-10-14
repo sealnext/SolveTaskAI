@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ProfileMenuComponent } from "@/components/ProfileMenu";
 import ApiClient from "@/lib/apiClient";
 import ProjectSelector from "@/components/ProjectSelector";
-import ApiKeyManager from "@/components/ApiKeyManager";
+import ProjectManager from "@/components/ProjectManagerPopup/ProjectManager";
 
 interface Message {
   id: string;
@@ -34,7 +34,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  const [showApiKeyManager, setShowApiKeyManager] = useState(false);
+  const [showProjectManager, setShowProjectManager] = useState(false);
 
   // Memoize the API client to prevent it from being recreated on each render
   const apiclient = useMemo(() => ApiClient(), []);
@@ -129,7 +129,7 @@ export default function ChatPage() {
   }, []);
 
   const handleCloseApiKeyManager = () => {
-    setShowApiKeyManager(false);
+    setShowProjectManager(false);
   };
 
   const handleProjectsUpdate = useCallback((newProjects: Project[]) => {
@@ -175,12 +175,12 @@ export default function ChatPage() {
           projects={projects}
           selectedProjectId={selectedProjectId}
           onSelectProject={handleProjectSelect}
-          onAddNewProject={() => setShowApiKeyManager(true)}
+          onAddNewProject={() => setShowProjectManager(true)}
         />
       </div>
 
-      {showApiKeyManager && (
-        <ApiKeyManager 
+      {showProjectManager && (
+        <ProjectManager 
           projects={projects} 
           onProjectsUpdate={handleProjectsUpdate}
           onClose={handleCloseApiKeyManager}
