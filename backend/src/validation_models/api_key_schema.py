@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, EmailStr, AnyHttpUrl
 from config.enums import TicketingSystemType
 
 class APIKeySchema(BaseModel):
-    service_type: TicketingSystemType
+    service_type: TicketingSystemType = Field(..., description="Type of the ticketing system")
     api_key: str = Field(..., min_length=1, description="API key for the ticketing system")
     domain: str = Field(..., description="Domain URL for the ticketing system")
     domain_email: EmailStr = Field(..., description="Email address associated with the domain")

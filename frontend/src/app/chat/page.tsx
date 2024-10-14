@@ -136,6 +136,15 @@ export default function ChatPage() {
     setProjects(newProjects);
   }, []);
 
+  const refreshInternalProjects = useCallback(async () => {
+    try {
+      const response = await apiclient.get('/projects/internal');
+      setProjects(response);
+    } catch (error) {
+      console.error('Error fetching internal projects:', error);
+    }
+  }, [apiclient]);
+
   if (status === "loading") {
     return <LoadingSpinner />;
   }
@@ -175,6 +184,7 @@ export default function ChatPage() {
           projects={projects} 
           onProjectsUpdate={handleProjectsUpdate}
           onClose={handleCloseApiKeyManager}
+          refreshInternalProjects={refreshInternalProjects}
         />
       )}
     </div>

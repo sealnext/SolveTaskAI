@@ -26,3 +26,6 @@ class APIKeyService:
     async def get_api_keys_by_user(self, user_id: int) -> list[APIKeyResponse]:
         api_keys = await self.apikey_repository.get_api_keys_by_user(user_id)
         return [APIKeyResponse.model_validate(key) for key in api_keys]
+
+    async def delete_api_key(self, user_id: int, api_key_id: int):
+        await self.apikey_repository.delete_api_key(user_id, api_key_id)

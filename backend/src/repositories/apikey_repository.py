@@ -23,10 +23,12 @@ class APIKeyRepository:
                 api_key.id = None  # Reset the ID to let the database assign a new one
                 return await self.create_api_key(api_key)
             raise
-
-    async def delete_api_key(self, api_key: APIKey) -> None:
-        await self.db_session.delete(api_key)
-        await self.db_session.commit()
+        
+    async def delete_api_key(self, user_id: int, api_key_id: int) -> None:
+        api_key = await self.get_by_id(api_key_id, user_id)
+        if api_key:
+            await self.db_session.delete(api_key)
+            await self.db_session.commit()
 
     async def get_api_keys_by_user(self, user_id: int) -> List[APIKey]:
         result = await self.db_session.execute(
