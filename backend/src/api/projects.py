@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, Response
 from typing import List
 
 from services.data_extractor import create_data_extractor
@@ -44,7 +44,7 @@ async def get_external_project_by_id(
     data_extractor = create_data_extractor(api_key)
     projects = await data_extractor.get_all_projects()
     if not projects:
-        raise HTTPException(status_code=404, detail="No projects found in external service")
+        raise HTTPException(status_code=404, detail="No projects found in external service. Check your API Key.")
     return projects
 
 @router.post("/internal/add", response_model=InternalProjectSchema)
@@ -65,3 +65,13 @@ async def get_all_internal_projects(
     user_id = request.state.user.id
     projects = await project_service.get_all_for_user(user_id)
     return projects
+
+@router.delete("/internal/{external_project_id}", status_code=204)
+async def delete_internal_project(
+    external_project_id: int,
+    request: Request,
+    project_service: ProjectService = Depends(get_project_service)
+):
+    user_id = request.state.user.id
+    await project_service.delete_project_by_external_id(user_id, external_project_id)
+    return Response(status_code=204, content="Project deleted successfully")

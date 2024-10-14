@@ -42,6 +42,7 @@ class InternalProjectCreate(BaseModel):
     service_type: TicketingSystemType
     key: str
     internal_id: str
+    api_key_id: int
 
     class Config:
         from_attributes = True

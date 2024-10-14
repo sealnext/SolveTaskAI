@@ -1,9 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, and_, text
+from sqlalchemy import select, update, delete, and_, text, cast, String, insert
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from sqlalchemy.exc import IntegrityError
-from models import Project, User, user_project_association
+from models import Project, User, APIKey, user_project_association, api_key_project_association
 from validation_models import ProjectUpdate, InternalProjectCreate
 
 async def get_project_repository(db_session: AsyncSession):
@@ -15,23 +15,58 @@ class ProjectRepository:
 
     async def create(self, user_id: int, project: InternalProjectCreate) -> Project:
         try:
-            db_project = Project(**project.model_dump())
+            api_key_id = project.api_key_id
+            project_data = project.model_dump(exclude={'api_key_id'})
+            
+            db_project = Project(**project_data)
             self.db_session.add(db_project)
             await self.db_session.flush()
 
-            stmt = select(User).where(User.id == user_id).options(selectinload(User.projects))
-            result = await self.db_session.execute(stmt)
-            user = result.scalar_one()
+            # Add user-project association
+            await self.db_session.execute(
+                insert(user_project_association).values(
+                    user_id=user_id, project_id=db_project.id
+                )
+            )
 
-            user.projects.append(db_project)
+            # Add api-key-project association
+            await self.db_session.execute(
+                insert(api_key_project_association).values(
+                    api_key_id=api_key_id, project_id=db_project.id
+                )
+            )
+
+            await self.db_session.flush()
+            
+            # Reîncărcăm proiectul cu toate relațiile sale
+            stmt = select(Project).options(
+                selectinload(Project.api_keys),
+                selectinload(Project.users)
+            ).where(Project.id == db_project.id)
+            result = await self.db_session.execute(stmt)
+            db_project = result.scalar_one()
+
+            # Adăugăm commit explicit aici
             await self.db_session.commit()
-            await self.db_session.refresh(db_project)
+
             return db_project
         except IntegrityError as e:
+            await self.db_session.rollback()
             if "duplicate key value violates unique constraint" in str(e):
+                # Reajustăm secvența ID-ului
                 await self.db_session.execute(text("SELECT setval('projects_id_seq', (SELECT MAX(id) FROM projects))"))
-                await self.db_session.rollback()
+                # Reîncercăm crearea
                 return await self.create(user_id, project)
+            raise
+
+    # Metoda separată pentru a gestiona duplicatele
+    async def create_with_retry(self, user_id: int, project: InternalProjectCreate) -> Project:
+        try:
+            return await self.create(user_id, project)
+        except IntegrityError as e:
+            if "duplicate key value violates unique constraint" in str(e):
+                await self.db_session.rollback()
+                return await self.create_with_retry(user_id, project)
             raise
 
     async def get_by_id(self, user_id: int, project_id: int) -> Optional[Project]:
@@ -64,8 +99,22 @@ class ProjectRepository:
     async def delete(self, user_id: int, project_id: int) -> bool:
         project = await self.get_by_id(user_id, project_id)
         if project:
+            # Remove the user-project association
+            user_project_delete_stmt = delete(user_project_association).where(
+                (user_project_association.c.user_id == user_id) &
+                (user_project_association.c.project_id == project_id)
+            )
+            await self.db_session.execute(user_project_delete_stmt)
+
+            # Remove the api-key-project associations
+            api_key_project_delete_stmt = delete(api_key_project_association).where(
+                api_key_project_association.c.project_id == project_id
+            )
+            await self.db_session.execute(api_key_project_delete_stmt)
+
+            # Delete the project
             await self.db_session.delete(project)
-            await self.db_session.flush()
+            await self.db_session.commit()
             return True
         return False
 
@@ -109,3 +158,14 @@ class ProjectRepository:
             await self.db_session.commit()
             return True
         return False
+
+    async def get_project_id_by_external_id(self, external_project_id: int) -> Optional[int]:
+        # should be renamed external_id instead of internal_id, and be an integer not a string
+        query = select(Project.id).where(Project.internal_id == cast(str(external_project_id), String))
+        result = await self.db_session.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_user_projects(self, user_id: int) -> List[Project]:
+        query = select(Project).join(user_project_association).where(user_project_association.c.user_id == user_id)
+        result = await self.db_session.execute(query)
+        return result.scalars().all()

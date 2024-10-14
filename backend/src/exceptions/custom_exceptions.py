@@ -52,3 +52,7 @@ class APIKeyExpiredException(BaseCustomException):
 class APIKeyAlreadyExistsError(BaseCustomException):
     def __init__(self, detail: str = "An API key with this value already exists"):
         super().__init__(detail, status.HTTP_403_FORBIDDEN)
+        
+class ProjectNotFoundError(BaseCustomException):
+    def __init__(self, detail: str = "Project not found"):
+        super().__init__(detail, status.HTTP_404_NOT_FOUND)

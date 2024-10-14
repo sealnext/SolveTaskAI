@@ -8,12 +8,21 @@ export default function ApiClient() {
     });
 
     if (!response.ok) {
+      if (response.status === 204) {
+        return { status: response.status };
+      }
       const errorData = await response.json().catch(() => ({}));
       console.error("API Error:", response.status, errorData);
       throw new Error(errorData.message || errorData.detail || `API call failed: ${response.statusText}`);
     }
 
-    return response.json();
+    // Verifică dacă răspunsul are conținut înainte de a încerca să-l parseze ca JSON
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.indexOf("application/json") !== -1 && response.status !== 204) {
+      return response.json();
+    } else {
+      return { status: response.status };
+    }
   };
 
   const get = async (endpoint: string) => {
@@ -35,6 +44,11 @@ export default function ApiClient() {
     });
   };
 
-  return { post, get };
-}
+  const remove = async (endpoint: string) => {
+    return request(endpoint, {
+      method: 'DELETE',
+    });
+  };
 
+  return { post, get, remove };
+}

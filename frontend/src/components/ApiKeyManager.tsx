@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { RefreshCw, Loader2, Plus, Trash2 } from 'lucide-react';
 import SafeImage from '@/components/SafeImage';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast"
 
 interface ApiKey {
   id: number;
@@ -28,6 +29,7 @@ interface ExternalProjectSchema {
   avatarUrl: string;
   project_type_key: string;
   style: string;
+  isDeleted?: boolean;  // Adăugați această linie
 }
 
 interface Project {
@@ -42,9 +44,10 @@ interface ApiKeyManagerProps {
   projects: Project[];
   onProjectsUpdate: (newProjects: Project[]) => void;
   onClose: () => void;
+  refreshInternalProjects: () => Promise<void>; // Adăugăm această nouă proprietate
 }
 
-const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdate, onClose }) => {
+const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdate, onClose, refreshInternalProjects }) => {
   const [apiKeySource, setApiKeySource] = useState<'new' | 'existing'>('new');
   const [serviceType, setServiceType] = useState<'jira' | 'azure'>('jira');
   const [apiKey, setApiKey] = useState('');
@@ -57,6 +60,8 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [newlyAddedProjects, setNewlyAddedProjects] = useState<Set<string>>(new Set());
+  const [deletedProjects, setDeletedProjects] = useState<Set<string>>(new Set());
+  const { toast } = useToast()
 
   const apiClient = ApiClient();
 
@@ -187,57 +192,47 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
     return domain.replace(/^https?:\/\//, '').replace(/\/$/, '').split('/')[0];
   };
 
-  const renderApiKeySelector = () => {
+  const renderCompactApiKeyInfo = (key: ApiKey) => {
     return (
-      <Select onValueChange={handleApiKeySelect} value={selectedApiKeyId?.toString()}>
-        <SelectTrigger>
+      <div className="flex items-center space-x-2 truncate">
+        <Badge className={getServiceTypeColor(key.service_type)}>
+          {key.service_type}
+        </Badge>
+        <span className="font-medium truncate">{formatDomain(key.domain)}</span>
+      </div>
+    );
+  };
+
+  const renderApiKeySelector = () => {
+    const selectedKey = selectedApiKeyId 
+      ? existingApiKeys.find(key => key.id === selectedApiKeyId) 
+      : null;
+
+    return (
+      <Select 
+        onValueChange={handleApiKeySelect} 
+        value={selectedApiKeyId?.toString() || "default"}
+      >
+        <SelectTrigger className="w-full">
           <SelectValue placeholder="Select existing API Key">
-            {selectedApiKeyId !== null && renderSelectedApiKey()}
+            {selectedKey ? renderCompactApiKeyInfo(selectedKey) : "Select existing API Key"}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="default" disabled>Select existing API Key</SelectItem>
           {existingApiKeys.map(key => (
             <SelectItem key={key.id} value={key.id.toString()} className="py-2">
               <div className="flex flex-col space-y-1">
-                <div className="flex items-center space-x-2">
-                  <Badge className={getServiceTypeColor(key.service_type)}>
-                    {key.service_type}
-                  </Badge>
-                  <span className="font-medium text-foreground">{formatDomain(key.domain)}</span>
-                </div>
+                {renderCompactApiKeyInfo(key)}
                 <div className="text-sm text-muted-foreground">{key.domain_email}</div>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="text-xs text-muted-foreground truncate w-48 cursor-pointer">
-                        {key.api_key.substring(0, 20)}...
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p className="text-xs">{key.api_key}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <div className="text-xs text-muted-foreground">
+                  {key.api_key.substring(0, 20)}...
+                </div>
               </div>
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-    );
-  };
-
-  const renderSelectedApiKey = () => {
-    if (selectedApiKeyId === null) return null;
-    const selectedKey = existingApiKeys.find(key => key.id === selectedApiKeyId);
-    if (!selectedKey) return null;
-
-    return (
-      <div className="flex items-center space-x-2">
-        <Badge className={getServiceTypeColor(selectedKey.service_type)}>
-          {selectedKey.service_type}
-        </Badge>
-        <span className="font-medium">{formatDomain(selectedKey.domain)}</span>
-      </div>
     );
   };
 
@@ -268,7 +263,8 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
         domain: selectedKey.domain,
         service_type: selectedKey.service_type,
         internal_id: project.id,
-        key: project.key
+        key: project.key,
+        api_key_id: selectedKey.id
       });
 
       if (response && response.id) {
@@ -317,15 +313,11 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
   const handleRemoveApiKey = async (keyId: number) => {
     setIsLoading(true);
     try {
-      await apiClient.delete(`/api-keys/${keyId}`);
+      await apiClient.remove(`/api-keys/${keyId}`);
       setExistingApiKeys(prevKeys => prevKeys.filter(key => key.id !== keyId));
       setMessage('API Key removed successfully.');
-      if (selectedApiKeyId === keyId) {
-        setSelectedApiKeyId(null);
-        setExternalProjects([]);
-      }
-      // Notificăm componenta părinte despre ștergerea API key-ului
-      // Aceasta ar putea fi necesară dacă gestionați proiectele la un nivel superior
+      setSelectedApiKeyId(null);
+      setExternalProjects([]);
       onProjectsUpdate(projects.filter(project => project.id !== keyId));
     } catch (error) {
       console.error('Error removing API key:', error);
@@ -333,6 +325,128 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDeleteProject = async (project: ExternalProjectSchema) => {
+    setIsLoading(true);
+    try {
+      const response = await apiClient.remove(`/projects/internal/${project.id}`);
+      if (response.status === 204) {
+        setMessage(`Project "${project.name}" deleted successfully.`);
+        // Actualizează lista de proiecte externe
+        setExternalProjects(prevProjects => 
+          prevProjects.map(p => 
+            p.id === project.id ? { ...p, isDeleted: true } : p
+          )
+        );
+        
+        // Apelăm funcția de reîmprospătare a proiectelor interne
+        await refreshInternalProjects();
+        
+        toast({
+          title: "Project Deleted",
+          description: `Project "${project.name}" has been deleted successfully.`,
+        });
+      } else {
+        setMessage(`Failed to delete project "${project.name}".`);
+      }
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      setMessage(`Error deleting project "${project.name}". Please try again.`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Modifică renderizarea proiectelor pentru a include badge-ul "Deleted" și a simplifica butoanele
+  const renderProjectItem = (project: ExternalProjectSchema) => {
+    const isAdded = isProjectAlreadyAdded(project);
+    const isNewlyAdded = newlyAddedProjects.has(project.id);
+    return (
+      <li 
+        key={project.id} 
+        className={`flex items-center justify-between p-2 rounded-md ${
+          isAdded || isNewlyAdded || project.isDeleted ? 'bg-muted' : 'bg-card'
+        }`}
+      >
+        <div className="flex items-center space-x-2">
+          <SafeImage 
+            src={project.avatarUrl} 
+            alt={project.name} 
+            width={24}
+            height={24} 
+            className="w-6 h-6 rounded" 
+          />
+          <span>{project.name}</span>
+          <span className="text-sm text-muted-foreground">({project.key})</span>
+        </div>
+        {project.isDeleted ? (
+          <Badge variant="destructive">Deleted</Badge>
+        ) : isNewlyAdded ? (
+          <Badge variant="secondary">Added</Badge>
+        ) : isAdded ? (
+          <div className="flex space-x-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => handleReloadEmbeddings(project)}
+                    disabled={isLoading}
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Reload Embeddings</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <AlertDialog>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertDialogTrigger asChild>
+                      <Button size="icon" variant="ghost">
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </AlertDialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Delete Project</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the project
+                    and remove all associated data.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleDeleteProject(project)}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        ) : (
+          <Button
+            size="sm"
+            onClick={() => handleAddInternalProject(project)}
+            disabled={isLoading}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add
+          </Button>
+        )}
+      </li>
+    );
   };
 
   if (isInitialLoading) {
@@ -350,7 +464,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
       <div className="bg-background p-6 rounded-2xl shadow-xl max-w-md w-full">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">API Key Manager</h2>
+          <h2 className="text-lg font-semibold">Project Manager</h2>
           <button 
             onClick={onClose} 
             className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
@@ -375,8 +489,10 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
           )}
 
           {apiKeySource === 'existing' && existingApiKeys.length > 0 && (
-            <div className="mt-4 flex justify-between items-center">
-              {renderApiKeySelector()}
+            <div className="mt-4 flex items-center space-x-4">
+              <div className="flex-grow">
+                {renderApiKeySelector()}
+              </div>
               <div className="flex space-x-2">
                 {selectedApiKeyId && (
                   <>
@@ -428,10 +544,14 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
             <div className="space-y-6">
               <div className="space-y-2">
                 <label htmlFor="serviceType" className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
-                  Project Management Platform
+                  Project Management Platform <span className="text-destructive">*</span>
                 </label>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Choose the platform you use for project tracking and documentation</p>
-                <Select onValueChange={(value) => setServiceType(value as 'jira' | 'azure')} id="serviceType">
+                <Select 
+                  onValueChange={(value) => setServiceType(value as 'jira' | 'azure')} 
+                  id="serviceType"
+                  required
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select your platform" />
                   </SelectTrigger>
@@ -444,7 +564,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
 
               <div className="space-y-2">
                 <label htmlFor="apiKey" className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
-                  API Token / Personal Access Token
+                  API Token / Personal Access Token <span className="text-destructive">*</span>
                 </label>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Your secure key to access the platform's API (found in your account settings)</p>
                 <Input
@@ -459,7 +579,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
 
               <div className="space-y-2">
                 <label htmlFor="domain" className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
-                  Organization URL
+                  Organization URL <span className="text-destructive">*</span>
                 </label>
                 <p className="text-xs text-gray-500 dark:text-gray-400">The web address of your organization's project management space</p>
                 <Input
@@ -474,7 +594,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
 
               <div className="space-y-2">
                 <label htmlFor="email" className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
-                  Account Email
+                  Account Email <span className="text-destructive">*</span>
                 </label>
                 <p className="text-xs text-gray-500 dark:text-gray-400">The email address associated with your platform account</p>
                 <Input
@@ -489,7 +609,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
             </div>
           )}
           {apiKeySource === 'new' && (
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading || !serviceType || !apiKey || !domain || !email}>
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Add API Key
             </Button>
@@ -505,74 +625,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
             <h3 className="text-sm font-semibold mb-2">External Projects:</h3>
             <ScrollArea className="h-[200px]">
               <ul className="space-y-2">
-                {externalProjects.map(project => {
-                  const isAdded = isProjectAlreadyAdded(project);
-                  const isNewlyAdded = newlyAddedProjects.has(project.id);
-                  return (
-                    <li 
-                      key={project.id} 
-                      className={`flex items-center justify-between p-2 rounded-md ${isAdded || isNewlyAdded ? 'bg-muted' : 'bg-card'}`}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <div className="flex-shrink-0">
-                          <SafeImage 
-                            src={project.avatarUrl} 
-                            alt={project.name} 
-                            width={32}
-                            height={32}
-                            className="rounded-full"
-                            fallbackSrc="/default-avatar.png"
-                          />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{project.name}</span>
-                          <span className="text-sm text-muted-foreground">{project.key}</span>
-                        </div>
-                      </div>
-                      {isNewlyAdded ? (
-                        <Button
-                          disabled
-                          size="sm"
-                          className="bg-muted text-muted-foreground"
-                        >
-                          Added
-                        </Button>
-                      ) : isAdded ? (
-                        <Button
-                          onClick={() => handleReloadEmbeddings(project)}
-                          size="sm"
-                          className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
-                          disabled={isLoading}
-                        >
-                          {isLoading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <RefreshCw className="w-4 h-4 mr-1" />
-                              Reload
-                            </>
-                          )}
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={() => handleAddInternalProject(project)}
-                          size="sm"
-                          className="bg-primary text-primary-foreground hover:bg-primary/90"
-                          disabled={isLoading}
-                        >
-                          {isLoading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Plus className="w-4 h-4 mr-1" />
-                              Add Project
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </li>
-                  );
-                })}
+                {externalProjects.map(renderProjectItem)}
               </ul>
             </ScrollArea>
           </div>

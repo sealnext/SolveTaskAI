@@ -29,3 +29,13 @@ async def add_api_key(
     user = request.state.user
     new_api_key = await apikey_service.create_api_key(user.id, api_key_data)
     return {"message": "API key added successfully", "data": new_api_key}
+
+@router.delete("/{api_key_id}")
+async def delete_api_key(
+    api_key_id: int,
+    request: Request,
+    apikey_service: APIKeyService = Depends(get_apikey_service)
+):
+    user = request.state.user
+    await apikey_service.delete_api_key(user.id, api_key_id)
+    return {"message": "API key deleted successfully"}
