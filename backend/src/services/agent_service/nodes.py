@@ -6,15 +6,24 @@ from typing import List
 from services.data_extractor.data_extractor_factory import create_data_extractor
 from fastapi import HTTPException
 from .state import AgentState
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.orm import sessionmaker
 import re
+from sqlalchemy import text
 
 import logging
-import json
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
 embeddings_model = OpenAIEmbeddings(model=OPENAI_EMBEDDING_MODEL)
+
+# Create a SQLAlchemy engine
+engine = create_async_engine(DATABASE_URL)
+
+# Create a session factory
+AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 def create_vector_store(unique_identifier_project: str):
     return PGVector(
@@ -22,6 +31,7 @@ def create_vector_store(unique_identifier_project: str):
         collection_name=unique_identifier_project,
         connection=DATABASE_URL,
         pre_delete_collection=False,
+        async_mode=True
     )
 
 async def access_documents_with_api_key(state: AgentState) -> AgentState:
@@ -39,36 +49,48 @@ async def access_documents_with_api_key(state: AgentState) -> AgentState:
     state["tickets"] = tickets
     return state
 
-async def generate_embeddings(state):
+async def generate_embeddings(state: dict) -> dict:
     tickets = state["tickets"]
     project = state["project"]
     
-    # ex: "sealnext.atlassian.net/PZ/10001"
-    unique_identifier_project = re.sub(r'^https?://|/$', '', project.domain) + "/" + project.key + "/" + project.internal_id
+    unique_identifier_project = f"{re.sub(r'^https?://|/$', '', project.domain)}/{project.key}/{project.internal_id}"
     
-    vector_store = create_vector_store(unique_identifier_project)
-    
-    docs = []
-    for ticket in tickets:
-        embedding = embeddings_model.embed_query(ticket.embedding_vector)
+    async with AsyncSessionLocal() as session:
+        # Verificăm mai întâi dacă colecția există
+        query = text("SELECT EXISTS (SELECT 1 FROM langchain_pg_collection WHERE name = :name)")
+        result = await session.execute(query, {"name": unique_identifier_project})
+        collection_exists = result.scalar()
+
+        if collection_exists:
+            logger.info(f"Collection {unique_identifier_project} already exists. Skipping embedding generation.")
+            domain_with_slash = project.domain if project.domain.endswith('/') else f"{project.domain}/"
+            return {"tickets": f"Collection for {domain_with_slash}browse/{project.key} already exists."}
         
-        doc = Document(
-            page_content="",
-            metadata={
-                'ticket_url': ticket.ticket_url,
-                'issue_type': ticket.issue_type,
-                'status': ticket.status,
-                'priority': ticket.priority,
-                'sprint': ticket.sprint,
-                'key': ticket.ticket_api,
-                'created_at': datetime.now(timezone.utc).isoformat(),
-                'updated_at': datetime.now(timezone.utc).isoformat(),
-            },
-            embedding=embedding
-        )
-        docs.append(doc)
+        logger.info(f"Creating new collection for {unique_identifier_project} and adding all tickets.")
+        
+        # Creăm vector store doar dacă colecția nu există
+        vector_store = create_vector_store(unique_identifier_project)
+        
+        docs = [
+            Document(
+                page_content="",
+                metadata={
+                    'ticket_url': ticket.ticket_url,
+                    'issue_type': ticket.issue_type,
+                    'status': ticket.status,
+                    'priority': ticket.priority,
+                    'sprint': ticket.sprint,
+                    'key': ticket.ticket_api,
+                    'created_at': datetime.now(timezone.utc).isoformat(),
+                    'updated_at': datetime.now(timezone.utc).isoformat(),
+                },
+                embedding=await embeddings_model.aembed_query(ticket.embedding_vector)
+            )
+            for ticket in tickets
+        ]
+
+        await vector_store.aadd_documents(docs)
     
-    vector_store.add_documents(docs)
     return {"tickets": tickets}
 
 async def retrieve_documents(state):

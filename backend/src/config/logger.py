@@ -8,7 +8,7 @@ log_format = (
 
 log_colors = {
     'DEBUG': 'yellow',
-    'INFO': 'yellow',
+    'INFO': 'green',
     'WARNING': 'red',
     'ERROR': 'bold_red',
     'CRITICAL': 'bold_red',

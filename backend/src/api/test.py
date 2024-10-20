@@ -43,7 +43,5 @@ async def process_documents_endpoint(
     )
     
     return {
-        "answer": final_state["generation"],
-        "documents": final_state["documents"],
-        "tickets": final_state["tickets"]
+        "tickets added": final_state["tickets"]
     }
