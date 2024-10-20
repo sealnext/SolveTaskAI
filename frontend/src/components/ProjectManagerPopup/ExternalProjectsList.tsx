@@ -75,7 +75,7 @@ const ExternalProjectsList: React.FC<ExternalProjectsListProps> = ({
                     <RefreshCw className="w-4 h-4 group-hover:text-primary-foreground" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
+                <TooltipContent className="bg-primaryAccent text-primaryAccent-foreground">
                   <p>Reload Embeddings</p>
                 </TooltipContent>
               </Tooltip>
@@ -90,7 +90,7 @@ const ExternalProjectsList: React.FC<ExternalProjectsListProps> = ({
                       </Button>
                     </AlertDialogTrigger>
                   </TooltipTrigger>
-                  <TooltipContent>
+                  <TooltipContent className="bg-primaryAccent text-primaryAccent-foreground">
                     <p>Delete Project</p>
                   </TooltipContent>
                 </Tooltip>

@@ -5,6 +5,7 @@ import { renderCompactApiKeyInfo } from '@/lib/apiKeyUtils'
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ExistingApiKeySelectorProps {
   existingApiKeys: ApiKey[];
@@ -51,34 +52,45 @@ const ExistingApiKeySelector: React.FC<ExistingApiKeySelectorProps> = ({
         </Select>
         
         {selectedApiKeyId && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-            <Button 
-                size="icon" 
-                variant="ghost" 
-                className="rounded-full group"
-                >
-                <Trash2 className="w-4 h-4 text-destructive group-hover:text-destructive-foreground" />
-            </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the API key and remove all associated data.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => selectedApiKeyId && onRemoveApiKey(selectedApiKeyId)}
-                  className="text-destructive-foreground hover:bg-primaryAccent"
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <div className="flex items-center h-[42px] mt-4">
+            <AlertDialog>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="rounded-full group flex items-center justify-center h-9 w-9"
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive group-hover:text-destructive-foreground" />
+                      </Button>
+                    </AlertDialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-primaryAccent text-primaryAccent-foreground">
+                    <p>Delete API Key</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the API key and remove all associated data.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => selectedApiKeyId && onRemoveApiKey(selectedApiKeyId)}
+                    className="text-destructive-foreground hover:bg-primaryAccent"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         )}
       </div>
     </div>
