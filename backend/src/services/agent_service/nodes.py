@@ -11,6 +11,8 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker
 import re
 from sqlalchemy import text
+import asyncio
+from itertools import chain, islice
 
 import logging
 from datetime import datetime, timezone
@@ -34,6 +36,7 @@ def create_vector_store(unique_identifier_project: str):
         async_mode=True
     )
 
+# Document Processing Nodes
 async def access_documents_with_api_key(state: AgentState) -> AgentState:
     project_id = state["project"].id
     project_key = state["project"].key
@@ -56,7 +59,6 @@ async def generate_embeddings(state: dict) -> dict:
     unique_identifier_project = f"{re.sub(r'^https?://|/$', '', project.domain)}/{project.key}/{project.internal_id}"
     
     async with AsyncSessionLocal() as session:
-        # Verificăm mai întâi dacă colecția există
         query = text("SELECT EXISTS (SELECT 1 FROM langchain_pg_collection WHERE name = :name)")
         result = await session.execute(query, {"name": unique_identifier_project})
         collection_exists = result.scalar()
@@ -66,33 +68,43 @@ async def generate_embeddings(state: dict) -> dict:
             domain_with_slash = project.domain if project.domain.endswith('/') else f"{project.domain}/"
             return {"tickets": f"Collection for {domain_with_slash}browse/{project.key} already exists."}
         
-        logger.info(f"Creating new collection for {unique_identifier_project} and adding all tickets.")
+        logger.info(f"Creating new collection for {unique_identifier_project} and generating embeddings.")
         
-        # Creăm vector store doar dacă colecția nu există
         vector_store = create_vector_store(unique_identifier_project)
         
-        docs = [
-            Document(
-                page_content="",
-                metadata={
-                    'ticket_url': ticket.ticket_url,
-                    'issue_type': ticket.issue_type,
-                    'status': ticket.status,
-                    'priority': ticket.priority,
-                    'sprint': ticket.sprint,
-                    'key': ticket.ticket_api,
-                    'created_at': datetime.now(timezone.utc).isoformat(),
-                    'updated_at': datetime.now(timezone.utc).isoformat(),
-                },
-                embedding=await embeddings_model.aembed_query(ticket.embedding_vector)
-            )
-            for ticket in tickets
-        ]
+        texts = [ticket.embedding_vector for ticket in tickets]
+        metadatas = [{
+            'ticket_url': ticket.ticket_url,
+            'issue_type': ticket.issue_type,
+            'status': ticket.status,
+            'priority': ticket.priority,
+            'sprint': ticket.sprint,
+            'key': ticket.ticket_api,
+            'created_at': datetime.now(timezone.utc).isoformat(),
+            'updated_at': datetime.now(timezone.utc).isoformat(),
+        } for ticket in tickets]
 
-        await vector_store.aadd_documents(docs)
+        batch_size = 100
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i:i+batch_size]
+            batch_metadatas = metadatas[i:i+batch_size]
+            
+            batch_embeddings = await embeddings_model.aembed_documents(batch_texts)
+            
+            batch_documents = [
+                Document(page_content="", metadata=metadata, embedding=embedding)
+                for metadata, embedding in zip(batch_metadatas, batch_embeddings)
+            ]
+            
+            await vector_store.aadd_documents(batch_documents)
+            
+            logger.info(f"Processed batch {i//batch_size + 1} of {len(texts)//batch_size + 1}")
+
+        logger.info(f"Finished adding {len(texts)} documents to the vector store.")
     
     return {"tickets": tickets}
 
+# Self Rag Nodes
 async def retrieve_documents(state):
     question = state["question"]
     query_embedding = await embeddings_model.embed_query(question)
