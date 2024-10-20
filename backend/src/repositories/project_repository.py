@@ -5,6 +5,7 @@ from typing import List, Optional
 from sqlalchemy.exc import IntegrityError
 from models import Project, User, APIKey, user_project_association, api_key_project_association
 from schemas import ProjectUpdate, InternalProjectCreate
+from exceptions import ProjectAlreadyExistsError
 
 async def get_project_repository(db_session: AsyncSession):
     return ProjectRepository(db_session)
@@ -16,6 +17,11 @@ class ProjectRepository:
 
     async def create(self, user_id: int, project: InternalProjectCreate) -> Project:
         try:
+            # Check if project already exists
+            existing_project = await self.get_by_internal_id(project.internal_id)
+            if existing_project:
+                raise ProjectAlreadyExistsError(f"Project with internal_id {project.internal_id} already exists")
+
             api_key_id = project.api_key_id
             project_data = project.model_dump(exclude={'api_key_id'})
             
@@ -39,7 +45,7 @@ class ProjectRepository:
 
             await self.db_session.flush()
             
-            # Reîncărcăm proiectul cu toate relațiile sale
+            # Reload the project with all its relations
             stmt = select(Project).options(
                 selectinload(Project.api_keys),
                 selectinload(Project.users)
@@ -53,8 +59,7 @@ class ProjectRepository:
         except IntegrityError as e:
             await self.db_session.rollback()
             if "duplicate key value violates unique constraint" in str(e):
-                await self.db_session.execute(text("SELECT setval('projects_id_seq', (SELECT MAX(id) FROM projects))"))
-                return await self.create(user_id, project)
+                raise ProjectAlreadyExistsError(f"Project with these details already exists: {str(e)}")
             raise
 
     async def create_with_retry(self, user_id: int, project: InternalProjectCreate) -> Project:
@@ -166,3 +171,8 @@ class ProjectRepository:
         query = select(Project).join(user_project_association).where(user_project_association.c.user_id == user_id)
         result = await self.db_session.execute(query)
         return result.scalars().all()
+
+    async def get_by_internal_id(self, internal_id: str) -> Project:
+        stmt = select(Project).where(Project.internal_id == internal_id)
+        result = await self.db_session.execute(stmt)
+        return result.scalar_one_or_none()

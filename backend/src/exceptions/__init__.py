@@ -9,7 +9,8 @@ from .custom_exceptions import (
     APIKeyNotFoundException,
     APIKeyExpiredException,
     APIKeyAlreadyExistsError,   
-    ProjectNotFoundError
+    ProjectNotFoundError,
+    ProjectAlreadyExistsError
 )
 
 __all__ = [
@@ -23,5 +24,6 @@ __all__ = [
     "APIKeyNotFoundException",
     "APIKeyExpiredException",
     "APIKeyAlreadyExistsError",
-    "ProjectNotFoundError"
+    "ProjectNotFoundError",
+    "ProjectAlreadyExistsError"
 ]
