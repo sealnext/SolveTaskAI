@@ -11,14 +11,16 @@ from db.session import get_db
 from services import APIKeyService
 
 # User dependencies
-
 async def get_api_key_repository(db: AsyncSession = Depends(get_db)):
     return APIKeyRepository(db_session=db)
 
 async def get_user_repository(db: AsyncSession = Depends(get_db)):
     return UserRepository(db_session=db)
 
-async def get_user_service(repo: UserRepository = Depends(get_user_repository), api_key_repo: APIKeyRepository = Depends(get_api_key_repository)):
+async def get_user_service(
+    repo: UserRepository = Depends(get_user_repository),
+    api_key_repo: APIKeyRepository = Depends(get_api_key_repository)
+):
     return UserService(repo, api_key_repo)
 
 async def get_auth_service(user_repo: UserRepository = Depends(get_user_repository)):

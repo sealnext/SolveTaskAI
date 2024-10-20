@@ -4,10 +4,17 @@ from models.apikey import APIKey
 from typing import List, Optional
 from config.enums import TicketingSystemType
 from sqlalchemy.exc import IntegrityError
+from models.associations import api_key_project_association
 
 class APIKeyRepository:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
+        
+    async def get_by_project_id(self, project_id: int) -> APIKey | None:
+        result = await self.db_session.execute(
+            select(APIKey).join(api_key_project_association).where(api_key_project_association.c.project_id == project_id)
+        )
+        return result.scalar_one_or_none()
 
     async def create_api_key(self, api_key: APIKey) -> APIKey:
         try:

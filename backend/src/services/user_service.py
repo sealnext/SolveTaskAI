@@ -16,7 +16,7 @@ from exceptions import (
     APIKeyNotFoundException,
     APIKeyExpiredException
 )
-from validation_models import UserCreate
+from schemas import UserCreate
 from models import User
 from utils.security import hash_password, verify_password
 from services import AuthService

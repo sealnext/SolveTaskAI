@@ -1,5 +1,5 @@
 from repositories.apikey_repository import APIKeyRepository
-from validation_models.api_key_schema import APIKeyCreate, APIKeyResponse
+from schemas.api_key_schema import APIKeyCreate, APIKeyResponse
 from models.apikey import APIKey
 from exceptions import APIKeyAlreadyExistsError
 

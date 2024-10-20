@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request
 from middleware.auth_middleware import auth_middleware
 from dependencies import get_user_service, get_apikey_service
 from services import UserService, APIKeyService
-from validation_models.api_key_schema import APIKeyCreate
+from schemas.api_key_schema import APIKeyCreate
 
 
 router = APIRouter(

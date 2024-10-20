@@ -1,45 +1,114 @@
-from functools import lru_cache
-from langchain_anthropic import ChatAnthropic
-from langchain_openai import ChatOpenAI
-from my_agent.utils.tools import tools
-from langgraph.prebuilt import ToolNode
+from config import OPENAI_EMBEDDING_MODEL, DATABASE_URL
+from langchain_postgres import PGVector
+from langchain_openai import OpenAIEmbeddings
+from langchain.schema import Document
+from typing import List
+from services.data_extractor.data_extractor_factory import create_data_extractor
+from fastapi import HTTPException
+from .state import AgentState
+import re
 
+import logging
+import json
+from datetime import datetime, timezone
 
-@lru_cache(maxsize=4)
-def _get_model(model_name: str):
-    if model_name == "openai":
-        model = ChatOpenAI(temperature=0, model_name="gpt-4o")
-    elif model_name == "anthropic":
-        model =  ChatAnthropic(temperature=0, model_name="claude-3-sonnet-20240229")
-    else:
-        raise ValueError(f"Unsupported model type: {model_name}")
+logger = logging.getLogger(__name__)
 
-    model = model.bind_tools(tools)
-    return model
+embeddings_model = OpenAIEmbeddings(model=OPENAI_EMBEDDING_MODEL)
 
-# Define the function that determines whether to continue or not
-def should_continue(state):
-    messages = state["messages"]
-    last_message = messages[-1]
-    # If there are no tool calls, then we finish
-    if not last_message.tool_calls:
-        return "end"
-    # Otherwise if there is, we continue
-    else:
-        return "continue"
+def create_vector_store(unique_identifier_project: str):
+    return PGVector(
+        embeddings=embeddings_model,
+        collection_name=unique_identifier_project,
+        connection=DATABASE_URL,
+        pre_delete_collection=False,
+    )
 
+async def access_documents_with_api_key(state: AgentState) -> AgentState:
+    project_id = state["project"].id
+    project_key = state["project"].key
+    api_key = state["api_key"]
+    
+    if not all([project_id, project_key, api_key]):
+        raise HTTPException(status_code=400, detail="Missing required state data")
+    
+    logger.info(f"Accessing documents for project {project_id}")
+    data_extractor = create_data_extractor(api_key)
+    tickets = await data_extractor.get_all_tickets(project_key, project_id)
+    
+    state["tickets"] = tickets
+    return state
 
-system_prompt = """Be a helpful assistant"""
+async def generate_embeddings(state):
+    tickets = state["tickets"]
+    project = state["project"]
+    
+    # ex: "sealnext.atlassian.net/PZ/10001"
+    unique_identifier_project = re.sub(r'^https?://|/$', '', project.domain) + "/" + project.key + "/" + project.internal_id
+    
+    vector_store = create_vector_store(unique_identifier_project)
+    
+    docs = []
+    for ticket in tickets:
+        embedding = embeddings_model.embed_query(ticket.embedding_vector)
+        
+        doc = Document(
+            page_content="",
+            metadata={
+                'ticket_url': ticket.ticket_url,
+                'issue_type': ticket.issue_type,
+                'status': ticket.status,
+                'priority': ticket.priority,
+                'sprint': ticket.sprint,
+                'key': ticket.ticket_api,
+                'created_at': datetime.now(timezone.utc).isoformat(),
+                'updated_at': datetime.now(timezone.utc).isoformat(),
+            },
+            embedding=embedding
+        )
+        docs.append(doc)
+    
+    vector_store.add_documents(docs)
+    return {"tickets": tickets}
 
-# Define the function that calls the model
-def call_model(state, config):
-    messages = state["messages"]
-    messages = [{"role": "system", "content": system_prompt}] + messages
-    model_name = config.get('configurable', {}).get("model_name", "anthropic")
-    model = _get_model(model_name)
-    response = model.invoke(messages)
-    # We return a list, because this will get added to the existing list
-    return {"messages": [response]}
+async def retrieve_documents(state):
+    question = state["question"]
+    query_embedding = await embeddings_model.embed_query(question)
+    documents = await vector_store.asimilarity_search_by_vector(
+        query_embedding,
+        k=4,
+        filter={"project_id": state.get("project_id")}
+    )
+    return {"documents": documents}
 
-# Define the function to execute tools
-tool_node = ToolNode(tools)
+def generate_answer(state):
+    print("--- Generating answer ---")
+    
+    question = state["question"]
+    documents = state["documents"]
+    loop_step = state.get("loop_step", 0)
+    
+    docs_txt = format_documents(documents)
+    rag_prompt = rag_prompt.format(context=docs_txt, question=question)
+    generation = llm.invoke([HumanMessage(content=rag_prompt)])
+    return {"generation": generation, "loop_step": loop_step + 1}
+
+def grade_documents(state):
+    print("--- Grading documents ---")
+    
+    question = state["question"]
+    documents = state["documents"]
+    
+    filtered_documents = []
+    for document in documents:
+        doc_grader_prompt_formatted = doc_grader_prompt.format(document=document, question=question)
+        result = llm_json_model.invoke([SystemMessage(content=doc_grader_instructions)] + [HumanMessage(content=doc_grader_prompt_formatted)])
+        grade = json.loads(result.content)["binary_score"]
+        
+        if grade.lower() == "yes":
+            print("--- Document included ---")
+            filtered_documents.append(document)
+        else:
+            print("--- Document excluded ---")
+    
+    return {"documents": filtered_documents}
