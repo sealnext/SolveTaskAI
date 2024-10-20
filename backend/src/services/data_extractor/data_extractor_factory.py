@@ -3,7 +3,7 @@ from .jira_extractor import DataExtractorJira
 from .azure_extractor import DataExtractorAzure
 from models.apikey import APIKey
 from config.enums import TicketingSystemType
-
+    
 def create_data_extractor(api_key: APIKey) -> DataExtractor:
     ticketing_system_type = TicketingSystemType(api_key.service_type)
 

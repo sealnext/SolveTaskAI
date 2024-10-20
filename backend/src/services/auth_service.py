@@ -150,7 +150,7 @@ class AuthService:
             raise InvalidTokenException("Failed to verify token")
 
     def refresh_token_pair(self, expired_refresh_token: str, request: Request) -> Tuple[str, str]:
-        print("refresh_token_pair called")
+        logger.info("Refreshing token pair")
         if not expired_refresh_token:
             logger.info("Refresh token missing in session data")
             raise InvalidTokenException("Refresh token missing in session")

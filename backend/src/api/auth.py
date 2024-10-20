@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from dependencies import get_auth_service, get_user_service
 from exceptions import *
 from services import AuthService, UserService
-from validation_models import UserCreate
+from schemas import UserCreate
 from utils.cookie_manager import set_auth_cookies
 from utils.security import decode_next_auth_token
 

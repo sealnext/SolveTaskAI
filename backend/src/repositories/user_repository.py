@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 
 from models.user import User
-from validation_models import UserCreate
+from schemas import UserCreate
 from exceptions import UserAlreadyExistsException
 class UserRepository:
     def __init__(self, db_session: AsyncSession):

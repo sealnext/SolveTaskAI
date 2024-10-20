@@ -1,9 +1,10 @@
 import logging
 from fastapi import APIRouter, Depends, Request, HTTPException, Response
 from typing import List
+from fastapi.responses import JSONResponse
 
 from services.data_extractor import create_data_extractor
-from validation_models import ExternalProjectSchema, APIKeySchema, InternalProjectSchema, InternalProjectCreate
+from schemas import ExternalProjectSchema, APIKeySchema, InternalProjectSchema, InternalProjectCreate
 from middleware.auth_middleware import auth_middleware
 from services import ProjectService
 from dependencies import get_project_service
@@ -66,7 +67,7 @@ async def get_all_internal_projects(
     projects = await project_service.get_all_for_user(user_id)
     return projects
 
-@router.delete("/internal/{external_project_id}", status_code=204)
+@router.delete("/internal/{external_project_id}")
 async def delete_internal_project(
     external_project_id: int,
     request: Request,
@@ -74,4 +75,4 @@ async def delete_internal_project(
 ):
     user_id = request.state.user.id
     await project_service.delete_project_by_external_id(user_id, external_project_id)
-    return Response(status_code=204, content="Project deleted successfully")
+    return Response(status_code=204)

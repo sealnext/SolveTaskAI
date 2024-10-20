@@ -14,5 +14,11 @@ SYNC_DATABASE = os.getenv("SYNC_DATABASE", "False").lower() == "true"
 NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET")
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
+DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
+SQL_LOGGING = os.getenv("SQL_LOGGING", "false").lower() == "true"
 
 VECTOR_DIMENSION = os.getenv("VECTOR_DIMENSION", 1536)
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")

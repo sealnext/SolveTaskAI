@@ -1,6 +1,16 @@
-from langgraph.graph import add_messages
-from langchain_core.messages import BaseMessage
-from typing import TypedDict, Annotated, Sequence
+from typing import List, TypedDict
+from models.apikey import APIKey
+from schemas import Ticket
+from models import Project
 
 class AgentState(TypedDict):
-    messages: Annotated[Sequence[BaseMessage], add_messages]
+    question: str
+    user_id: int
+    project: Project
+    api_key: APIKey
+    generation: str
+    max_retries: int
+    answers: int
+    loop_step: int
+    documents: List[str]
+    tickets: List[Ticket]

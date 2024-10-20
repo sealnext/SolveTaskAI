@@ -1,5 +1,5 @@
 from fastapi.responses import Response
-from validation_models import CookieSettings
+from schemas import CookieSettings
 from datetime import timedelta
 from typing import Optional
 from config import JWT_ACCESS_TOKEN_EXPIRE_MINUTES, JWT_REFRESH_TOKEN_EXPIRE_DAYS

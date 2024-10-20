@@ -4,7 +4,7 @@ from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from sqlalchemy.exc import IntegrityError
 from models import Project, User, APIKey, user_project_association, api_key_project_association
-from validation_models import ProjectUpdate, InternalProjectCreate
+from schemas import ProjectUpdate, InternalProjectCreate
 
 async def get_project_repository(db_session: AsyncSession):
     return ProjectRepository(db_session)
@@ -12,6 +12,7 @@ async def get_project_repository(db_session: AsyncSession):
 class ProjectRepository:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
+
 
     async def create(self, user_id: int, project: InternalProjectCreate) -> Project:
         try:
@@ -46,20 +47,16 @@ class ProjectRepository:
             result = await self.db_session.execute(stmt)
             db_project = result.scalar_one()
 
-            # Adăugăm commit explicit aici
             await self.db_session.commit()
 
             return db_project
         except IntegrityError as e:
             await self.db_session.rollback()
             if "duplicate key value violates unique constraint" in str(e):
-                # Reajustăm secvența ID-ului
                 await self.db_session.execute(text("SELECT setval('projects_id_seq', (SELECT MAX(id) FROM projects))"))
-                # Reîncercăm crearea
                 return await self.create(user_id, project)
             raise
 
-    # Metoda separată pentru a gestiona duplicatele
     async def create_with_retry(self, user_id: int, project: InternalProjectCreate) -> Project:
         try:
             return await self.create(user_id, project)

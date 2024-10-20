@@ -6,7 +6,6 @@ from pgvector.sqlalchemy import Vector
 from config import VECTOR_DIMENSION
 from .base import Base
 
-# Embeddings Table using pgvector
 class Embedding(Base):
     __tablename__ = 'embeddings'
 
@@ -14,6 +13,11 @@ class Embedding(Base):
     ticket_url = Column(String(512), unique=True, nullable=False)
     project_id = Column(Integer, ForeignKey('projects.id'), nullable=False)
     embedding_vector = Column(Vector(VECTOR_DIMENSION), nullable=False)
+    issue_type = Column(String(128), nullable=False)
+    status = Column(String(128), nullable=False)
+    priority = Column(String(128), nullable=False)
+    sprint = Column(String(128), nullable=True)
+    key = Column(String(128), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
