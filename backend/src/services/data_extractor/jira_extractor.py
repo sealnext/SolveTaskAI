@@ -26,7 +26,7 @@ class DataExtractorJira(DataExtractor):
                 if attempt == retries - 1:
                     raise
                 await asyncio.sleep(delay)
-                delay *= 2  # Exponential backoff
+                delay *= 2 
 
     async def get_all_projects(self) -> List[ExternalProjectSchema]:
         api_route = urljoin(self.base_api_url, "project/search")
@@ -57,7 +57,7 @@ class DataExtractorJira(DataExtractor):
         api_route = urljoin(self.base_api_url, "search")
         all_tickets = []
         start_at = 0
-        max_results = 50
+        max_results = 100
 
         async with aiohttp.ClientSession(auth=self.auth) as session:
             while True:
