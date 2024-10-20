@@ -1,16 +1,16 @@
 import logging
-from fastapi import APIRouter, Depends, Request, HTTPException, Response
 from typing import List
-from fastapi.responses import JSONResponse
 
-from services.data_extractor import create_data_extractor
-from schemas import ExternalProjectSchema, APIKeySchema, InternalProjectSchema, InternalProjectCreate
-from middleware.auth_middleware import auth_middleware
-from services import ProjectService
-from dependencies import get_project_service
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+
+from dependencies import get_api_key_repository, get_project_service, get_user_service
 from exceptions import InvalidCredentialsException
-from services import UserService
-from dependencies import get_user_service
+from middleware.auth_middleware import auth_middleware
+from repositories import APIKeyRepository
+from schemas import APIKeySchema, ExternalProjectSchema, InternalProjectCreate, InternalProjectSchema
+from services import ProjectService, UserService
+from services.data_extractor import create_data_extractor
+from services.agent_service import process_documents
 
 logger = logging.getLogger(__name__)
 
@@ -48,15 +48,37 @@ async def get_external_project_by_id(
         raise HTTPException(status_code=404, detail="No projects found in external service. Check your API Key.")
     return projects
 
-@router.post("/internal/add", response_model=InternalProjectSchema)
+@router.post("/internal/add")
 async def add_internal_project(
     project: InternalProjectCreate,
     request: Request,
-    project_service: ProjectService = Depends(get_project_service)
+    project_service: ProjectService = Depends(get_project_service),
+    api_key_repository: APIKeyRepository = Depends(get_api_key_repository)
 ):
     user_id = request.state.user.id
     new_project = await project_service.save_project(project, user_id)
-    return new_project
+    api_key = await api_key_repository.get_by_project_id(new_project.id)
+    
+    initial_state = {
+        "question": "",
+        "project": new_project,
+        "api_key": api_key,
+        "user_id": user_id,
+        "generation": "",
+        "max_retries": 3,
+        "answers": 0,
+        "loop_step": 0,
+        "documents": [],
+        "tickets": []
+    }
+    
+    final_state = await process_documents(
+        initial_state
+    )
+    
+    return {
+        "tickets added": final_state["tickets"]
+    }
 
 @router.get("/internal", response_model=List[InternalProjectSchema])
 async def get_all_internal_projects(

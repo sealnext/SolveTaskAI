@@ -56,3 +56,7 @@ class APIKeyAlreadyExistsError(BaseCustomException):
 class ProjectNotFoundError(BaseCustomException):
     def __init__(self, detail: str = "Project not found"):
         super().__init__(detail, status.HTTP_404_NOT_FOUND)
+        
+class ProjectAlreadyExistsError(BaseCustomException):
+    def __init__(self, detail: str = "Project already exists"):
+        super().__init__(detail, status.HTTP_400_BAD_REQUEST)

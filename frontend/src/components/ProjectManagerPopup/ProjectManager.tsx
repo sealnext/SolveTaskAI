@@ -162,28 +162,27 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
 
     setIsLoading(true);
     try {
-      const response = await apiClient.post('/projects/internal/add', {
+      const newProjectData = {
         name: project.name,
         domain: selectedKey.domain,
         service_type: selectedKey.service_type,
         internal_id: project.id,
         key: project.key,
         api_key_id: selectedKey.id
-      });
+      };
 
-      if (response && response.id) {
+      const response = await apiClient.post('/projects/internal/add', newProjectData);
+
+      if (response.status === 200) {
         const newProject: Project = {
-          id: response.id,
-          name: response.name,
-          key: response.key,
-          domain: response.domain,
-          service_type: response.service_type
+          ...newProjectData,
+          id: response.data.id
         };
         onProjectsUpdate([...projects, newProject]);
         setMessage(`Project "${project.name}" added successfully!`);
         setNewlyAddedProjects(prev => new Set(prev).add(project.id));
       } else {
-        setMessage(`Failed to add project "${project.name}". ${response.message || 'Unknown error'}`);
+        setMessage(`Failed to add project "${project.name}". ${response.data?.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error adding internal project:', error);
