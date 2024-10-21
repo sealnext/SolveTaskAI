@@ -4,9 +4,9 @@ import { Badge } from '@/components/ui/badge';
 
 export const getServiceTypeColor = (serviceType: string) => {
   switch (serviceType.toLowerCase()) {
-    case 'jira':
-      return 'bg-primary text-primary-foreground';
     case 'azure':
+      return 'bg-primary text-primary-foreground';
+    case 'jira':
       return 'bg-secondary text-secondary-foreground';
     default:
       return 'bg-muted text-muted-foreground';

@@ -52,7 +52,6 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
 
     setIsLoading(true);
     try {
-      // Ensure we're passing a number, not an object
       const fetchedProjects = await apiClient.post<ExternalProjectSchema[]>(`/projects/external/id/${keyId}`);
       setExternalProjects(fetchedProjects.data);
       
@@ -60,13 +59,15 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
         setMessage(`${fetchedProjects.data.length} external projects found.`);
       } else {
         setMessage('No external projects found.');
+        setExternalProjects([]);
       }
     } catch (error) {
       console.error('Error fetching external projects:', error);
-      if (error.message.includes('No projects found in external service')) {
+      setExternalProjects([]); 
+      if (error.response && error.response.status === 404) {
         setMessage('No projects found in external service. Please check your API Key.');
       } else {
-        setMessage(`Error fetching projects: ${error.message}`);
+        setMessage(error.message);
       }
     } finally {
       setIsLoading(false);
@@ -116,6 +117,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
     const id = parseInt(keyId);
     setSelectedApiKeyId(id);
     setIsLoading(true);
+    setExternalProjects([]); // Golim lista de proiecte externe înainte de a încărca altele noi
     
     const selectedKey = existingApiKeys.find(key => key.id === id);
     if (selectedKey) {
@@ -123,20 +125,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
       setDomain(selectedKey.domain);
       setEmail(selectedKey.domain_email);
       
-      try {
-        const fetchedProjects = await apiClient.post<ExternalProjectSchema[]>(`/projects/external/id/${id}`);
-        setExternalProjects(fetchedProjects.data);
-        
-        if (fetchedProjects.data.length > 0) {
-          setMessage(`${fetchedProjects.data.length} external projects found.`);
-        } else {
-          setMessage('No external projects found.');
-        }
-      } catch (error) {
-        setMessage(error.message);
-      } finally {
-        setIsLoading(false);
-      }
+      await fetchExternalProjects(id);
     }
   };
 

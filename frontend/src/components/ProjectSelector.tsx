@@ -36,19 +36,26 @@ export default function ProjectSelector({
   const selectedProject = projects.find(project => project.id === selectedProjectId);
   const [isLoading, setIsLoading] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState('')
+  const [isOpen, setIsOpen] = React.useState(false)
+
   const handleSelectProject = (projectId: number) => {
     setIsLoading(true);
     onSelectProject(projectId);
     setIsLoading(false);
+    setIsOpen(false);
+  }
+
+  const handleAddNewProject = () => {
+    setIsOpen(false);
+    onAddNewProject();
   }
 
   const filteredProjects = projects.filter((project) =>
     project.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
@@ -115,7 +122,7 @@ export default function ProjectSelector({
         <DropdownMenuSeparator key="add-project-separator" />
         <div key="add-project-button">
           <Button 
-            onClick={onAddNewProject} 
+            onClick={handleAddNewProject} 
             variant="ghost" 
             className="w-full justify-start pl-2"
           >
