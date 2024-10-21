@@ -14,3 +14,4 @@ class AgentState(TypedDict):
     loop_step: int
     documents: List[str]
     tickets: List[Ticket]
+    status: str

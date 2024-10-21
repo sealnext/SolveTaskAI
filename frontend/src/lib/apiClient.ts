@@ -1,6 +1,12 @@
 export default function ApiClient() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+  /*
+  This function when called will return a response object with the following properties:
+  - data: the data returned from the API call
+  - status: the status code of the response
+  */
+
   const request = async (endpoint: string, options: RequestInit = {}) => {
     const response = await fetch(`${baseUrl}${endpoint}`, {
       ...options,
@@ -19,7 +25,8 @@ export default function ApiClient() {
     // Verifică dacă răspunsul are conținut înainte de a încerca să-l parseze ca JSON
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.indexOf("application/json") !== -1 && response.status !== 204) {
-      return response.json();
+      const data = await response.json();
+      return { data, status: response.status };
     } else {
       return { status: response.status };
     }

@@ -12,6 +12,7 @@ import { ProfileMenuComponent } from "@/components/ProfileMenu";
 import ApiClient from "@/lib/apiClient";
 import ProjectSelector from "@/components/ProjectSelector";
 import ProjectManager from "@/components/ProjectManagerPopup/ProjectManager";
+import { log } from "console";
 
 interface Message {
   id: string;
@@ -48,7 +49,7 @@ export default function ChatPage() {
   const fetchInternalProjects = useCallback(async () => {
     try {
       const response = await apiclient.get('/projects/internal');
-      setProjects(response);
+      setProjects(response.data);
     } catch (error) {
       console.error('Error fetching internal projects:', error);
     }
@@ -100,16 +101,6 @@ export default function ChatPage() {
       //   }
       // ]
       
-      const local_projects = await apiclient.get('/projects/internal');
-      //   [
-      //     {
-      //         "id": 1,
-      //         "name": "test",
-      //         "domain": "https://sealnext.atlassian.net/",
-      //         "company_id": 1
-      //     }
-      //  ]
-
       // Simulăm un răspuns de la AI pentru demonstrație
       await new Promise(resolve => setTimeout(resolve, 2500));
       const aiResponse: Message = {
@@ -139,7 +130,7 @@ export default function ChatPage() {
   const refreshInternalProjects = useCallback(async () => {
     try {
       const response = await apiclient.get('/projects/internal');
-      setProjects(response);
+      setProjects(response.data);
     } catch (error) {
       console.error('Error fetching internal projects:', error);
     }
