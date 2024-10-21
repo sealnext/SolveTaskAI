@@ -41,7 +41,7 @@ class DataExtractorJira(DataExtractor):
                     'maxResults': max_results
                 }
                 
-                logging.info(f"Fetching projects starting at {start_at}")
+                logger.info(f"Fetching projects starting at {start_at}")
                 
                 data = await self.fetch_with_retry(session, api_route, params=params)
                 all_projects.extend(self._standardize_project_data(data['values']))
