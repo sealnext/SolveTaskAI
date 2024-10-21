@@ -20,7 +20,7 @@ class ProjectRepository:
             # Check if project already exists
             existing_project = await self.get_by_internal_id(project.internal_id)
             if existing_project:
-                raise ProjectAlreadyExistsError(f"Project with internal_id {project.internal_id} already exists")
+                raise ProjectAlreadyExistsError(f"Contextual project already exist for this project")
 
             api_key_id = project.api_key_id
             project_data = project.model_dump(exclude={'api_key_id'})

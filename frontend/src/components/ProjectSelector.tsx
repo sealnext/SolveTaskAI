@@ -72,6 +72,7 @@ export default function ProjectSelector({
         alignOffset={-5}
         sideOffset={5}
         side="top"
+        key="dropdown-content"
       >
         <div className="p-2">
           <Input
@@ -83,12 +84,12 @@ export default function ProjectSelector({
           />
         </div>
         {filteredProjects.length > 0 ? (
-          <>
-            <DropdownMenuLabel>Projects</DropdownMenuLabel>
-            <DropdownMenuSeparator />
+          <div key="project-list">
+            <DropdownMenuLabel key="projects-label">Projects</DropdownMenuLabel>
+            <DropdownMenuSeparator key="projects-separator" />
             {filteredProjects.map((project) => (
               <DropdownMenuItem
-                key={project.id}
+                key={`project-${project.id}`}
                 onSelect={() => handleSelectProject(project.id)}
                 className="w-full p-0"
               >
@@ -107,12 +108,12 @@ export default function ProjectSelector({
                 </div>
               </DropdownMenuItem>
             ))}
-          </>
+          </div>
         ) : (
-          <div className="py-4 px-2 text-sm text-muted-foreground">No projects found</div>
+          <div key="no-projects" className="py-4 px-2 text-sm text-muted-foreground">No projects found</div>
         )}
-        <DropdownMenuSeparator />
-        <div>
+        <DropdownMenuSeparator key="add-project-separator" />
+        <div key="add-project-button">
           <Button 
             onClick={onAddNewProject} 
             variant="ghost" 

@@ -66,7 +66,7 @@ async def generate_embeddings(state: dict) -> dict:
         if collection_exists:
             logger.info(f"Collection {unique_identifier_project} already exists. Skipping embedding generation.")
             domain_with_slash = project.domain if project.domain.endswith('/') else f"{project.domain}/"
-            return {"tickets": f"Collection for {domain_with_slash}browse/{project.key} already exists."}
+            return {"status": f"Collection for {domain_with_slash}browse/{project.key} already exists.", "tickets": []}
         
         logger.info(f"Creating new collection for {unique_identifier_project} and generating embeddings.")
         
@@ -102,7 +102,7 @@ async def generate_embeddings(state: dict) -> dict:
 
         logger.info(f"Finished adding {len(texts)} documents to the vector store.")
     
-    return {"tickets": tickets}
+    return {"tickets": tickets, "status": "success"}
 
 # Self Rag Nodes
 async def retrieve_documents(state):

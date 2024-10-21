@@ -34,7 +34,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
     setIsInitialLoading(true);
     try {
       const response = await apiClient.get('/api-keys');
-      const keys: ApiKey[] = response.data;
+      const keys: ApiKey[] = response.data.data;
       setExistingApiKeys(keys);
       if (keys.length > 0) {
         setApiKeySource('existing');
@@ -54,10 +54,10 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
     try {
       // Ensure we're passing a number, not an object
       const fetchedProjects = await apiClient.post<ExternalProjectSchema[]>(`/projects/external/id/${keyId}`);
-      setExternalProjects(fetchedProjects);
+      setExternalProjects(fetchedProjects.data);
       
-      if (fetchedProjects.length > 0) {
-        setMessage(`${fetchedProjects.length} external projects found.`);
+      if (fetchedProjects.data.length > 0) {
+        setMessage(`${fetchedProjects.data.length} external projects found.`);
       } else {
         setMessage('No external projects found.');
       }
@@ -125,10 +125,10 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
       
       try {
         const fetchedProjects = await apiClient.post<ExternalProjectSchema[]>(`/projects/external/id/${id}`);
-        setExternalProjects(fetchedProjects);
+        setExternalProjects(fetchedProjects.data);
         
-        if (fetchedProjects.length > 0) {
-          setMessage(`${fetchedProjects.length} external projects found.`);
+        if (fetchedProjects.data.length > 0) {
+          setMessage(`${fetchedProjects.data.length} external projects found.`);
         } else {
           setMessage('No external projects found.');
         }
@@ -176,17 +176,14 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
       if (response.status === 200) {
         const newProject: Project = {
           ...newProjectData,
-          id: response.data.id
+          id: response.data.project_id
         };
         onProjectsUpdate([...projects, newProject]);
-        setMessage(`Project "${project.name}" added successfully!`);
+        setMessage(response.data.message);
         setNewlyAddedProjects(prev => new Set(prev).add(project.id));
-      } else {
-        setMessage(`Failed to add project "${project.name}". ${response.data?.message || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Error adding internal project:', error);
-      setMessage(`Error adding project "${project.name}". Please try again.`);
+      setMessage(error.message);
     } finally {
       setIsLoading(false);
     }

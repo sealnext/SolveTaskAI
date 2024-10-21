@@ -74,7 +74,7 @@ export default function SignupPage() {
         password
       })
 
-      if (response.message === "User created successfully") {
+      if (response.data.message === "User created successfully") {
         const loginRes = await signIn('credentials', {
           redirect: false,
           username: email,

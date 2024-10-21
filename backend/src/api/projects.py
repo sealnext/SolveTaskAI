@@ -76,9 +76,14 @@ async def add_internal_project(
         initial_state
     )
     
-    return {
-        "tickets added": final_state["tickets"]
-    }
+    logger.info(f"Final state: {final_state}")
+    
+    tickets = len(final_state['tickets'])
+    
+    if tickets > 0:
+        return {"message": f"There are now {tickets} tickets available in this project context.", "project_id": new_project.id}
+    
+    return {"message": final_state["status"]}
 
 @router.get("/internal", response_model=List[InternalProjectSchema])
 async def get_all_internal_projects(
