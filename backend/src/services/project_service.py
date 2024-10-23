@@ -16,6 +16,9 @@ class ProjectService:
 
     async def update_project(self, user_id: int, project_id: int, project_update: ProjectUpdate):
         return await self.project_repository.update(user_id, project_id, project_update)
+    
+    async def get_project_by_external_id(self, external_project_id: int):
+        return await self.project_repository.get_by_internal_id(external_project_id)
 
     async def delete_project_by_external_id(self, user_id: int, external_project_id: int):
         project_id = await self.project_repository.get_project_id_by_external_id(external_project_id)
@@ -24,3 +27,8 @@ class ProjectService:
             raise ProjectNotFoundError("Project does not belong to user")
         logger.info(f"Deleting project with ID: {project_id}")
         return await self.project_repository.delete(user_id, project_id)
+
+    async def delete_embeddings_by_external_id(self, user_id: int, external_project_id: int):
+        project_id = await self.project_repository.get_project_id_by_external_id(external_project_id)
+        still_associated = await self.project_repository.is_project_associated(project_id)
+        return still_associated

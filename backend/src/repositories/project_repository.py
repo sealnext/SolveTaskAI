@@ -13,7 +13,11 @@ async def get_project_repository(db_session: AsyncSession):
 class ProjectRepository:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
-
+        
+    async def get_by_external_id(self, user_id: int, external_project_id: int) -> Optional[Project]:
+        query = select(Project).join(user_project_association).where(and_(Project.internal_id == cast(str(external_project_id), String), user_project_association.c.user_id == user_id))
+        result = await self.db_session.execute(query)
+        return result.scalar_one_or_none()
 
     async def create(self, user_id: int, project: InternalProjectCreate) -> Project:
         try:
@@ -172,7 +176,13 @@ class ProjectRepository:
         result = await self.db_session.execute(query)
         return result.scalars().all()
 
-    async def get_by_internal_id(self, internal_id: str) -> Project:
-        stmt = select(Project).where(Project.internal_id == internal_id)
+    async def get_by_internal_id(self, internal_id: int) -> Project:
+        # TODO: why tf is the internal_id an string in database? change it to int
+        stmt = select(Project).where(Project.internal_id == str(internal_id))
         result = await self.db_session.execute(stmt)
         return result.scalar_one_or_none()
+    
+    async def is_project_associated(self, project_id: int) -> bool:
+        query = select(user_project_association).where(user_project_association.c.project_id == project_id)
+        result = await self.db_session.execute(query)
+        return result.scalar_one_or_none() is not None

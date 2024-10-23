@@ -13,7 +13,7 @@ class InvalidCredentialsException(BaseCustomException):
 
 
 class InvalidTokenException(BaseCustomException):
-    def __init__(self, detail: str = "Invalid token"):
+    def __init__(self, detail: str = "Unauthorized token"):
         super().__init__(detail, status.HTTP_401_UNAUTHORIZED)
 
 
