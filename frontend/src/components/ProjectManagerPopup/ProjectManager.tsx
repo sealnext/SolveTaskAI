@@ -62,7 +62,6 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
         setExternalProjects([]);
       }
     } catch (error) {
-      console.error('Error fetching external projects:', error);
       setExternalProjects([]); 
       if (error.response && error.response.status === 404) {
         setMessage('No projects found in external service. Please check your API Key.');
@@ -102,7 +101,6 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
         setMessage('API Key added, but no ID was returned. Please try refreshing.');
       }
     } catch (error) {
-      console.error('Error adding API key:', error);
       if (error.response && error.response.data && error.response.data.message) {
         setMessage(`Error: ${error.response.data.message}`);
       } else {
@@ -184,7 +182,6 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
       await apiClient.post('/projects/reload-embeddings', { projectKey: project.key });
       setMessage(`Embeddings reloaded for project "${project.name}"`);
     } catch (error) {
-      console.error('Error reloading embeddings:', error);
       setMessage(`Error reloading embeddings for "${project.name}". Please try again.`);
     } finally {
       setIsLoading(false);
@@ -201,7 +198,6 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
       setExternalProjects([]);
       onProjectsUpdate(projects.filter(project => project.id !== keyId));
     } catch (error) {
-      console.error('Error removing API key:', error);
       setMessage(`Error removing API key: ${error.message}`);
     } finally {
       setIsLoading(false);
@@ -230,8 +226,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
         setMessage(`Failed to delete project "${project.name}".`);
       }
     } catch (error) {
-      console.error('Error deleting project:', error);
-      setMessage(`Error deleting project "${project.name}". Please try again.`);
+      setMessage(error.message);
     } finally {
       setIsLoading(false);
     }

@@ -59,22 +59,15 @@ async def add_internal_project(
     new_project = await project_service.save_project(project, user_id)
     api_key = await api_key_repository.get_by_project_id(new_project.id)
     
-    initial_state = {
-        "question": "",
+    agent_state = {
         "project": new_project,
         "api_key": api_key,
-        "user_id": user_id,
-        "generation": "",
-        "max_retries": 3,
-        "answers": 0,
-        "loop_step": 0,
-        "documents": [],
-        "tickets": []
+        "action": "add",
+        "tickets": [],
+        "status": "pending"
     }
     
-    final_state = await process_documents(
-        initial_state
-    )
+    final_state = await process_documents(agent_state)
     
     logger.info(f"Final state: {final_state}")
     
@@ -94,6 +87,7 @@ async def get_all_internal_projects(
     projects = await project_service.get_all_for_user(user_id)
     return projects
 
+#TODO change this to use internal id
 @router.delete("/internal/{external_project_id}")
 async def delete_internal_project(
     external_project_id: int,
@@ -101,5 +95,26 @@ async def delete_internal_project(
     project_service: ProjectService = Depends(get_project_service)
 ):
     user_id = request.state.user.id
+    project = await project_service.get_project_by_external_id(external_project_id)
+
+    logger.debug(f"Deleting project with external ID: {external_project_id}")
     await project_service.delete_project_by_external_id(user_id, external_project_id)
+    logger.debug(f"Checking if embeddings are still associated with project: {external_project_id}")
+    still_associated = await project_service.delete_embeddings_by_external_id(user_id, external_project_id)
+    
+    logger.debug(f"Embeddings still associated: {still_associated}")
+    if still_associated is False:
+        logger.debug(f"Project: {project}")
+        agent_state = {
+            "project": project,
+            "action": "delete",
+            "tickets": [],
+            "status": "pending"
+        }
+        logger.debug(f"Processing documents for deletion: {agent_state}")
+        final_state = await process_documents(agent_state)
+        logger.debug(f"Final state: {final_state}")
+        if final_state["status"] != "success":
+            raise HTTPException(status_code=500, detail="Failed to delete embeddings")
+
     return Response(status_code=204)

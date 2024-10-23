@@ -1,18 +1,23 @@
 from fastapi import Depends
 from dependencies import get_project_repository, get_api_key_repository
 from repositories import ProjectRepository, APIKeyRepository
-from .document_processing_graph import create_document_processing_graph
-from .self_rag_graph import create_self_rag_graph
+from .document_processing.document_processing_graph import create_document_processing_graph
+from .rag.self_rag_graph import create_self_rag_graph
+import logging
 
 __all__ = ["process_documents", "perform_self_rag"]
 
 __version__ = "0.1.0"
 
-async def process_documents(input_data: dict):
+logger = logging.getLogger(__name__)
+
+async def process_documents(agent_state):
     graph = create_document_processing_graph()
-    result = await graph.ainvoke(input_data)
+    logger.debug(f"Graph nodes before invocation: {graph.nodes}")
+    result = await graph.ainvoke(agent_state)
     return result
 
-async def perform_self_rag(input_data: dict):
-    result = await self_rag_graph.ainvoke(input_data)
+async def perform_self_rag(agent_state):
+    graph = create_self_rag_graph()
+    result = await graph.ainvoke(agent_state)
     return result
