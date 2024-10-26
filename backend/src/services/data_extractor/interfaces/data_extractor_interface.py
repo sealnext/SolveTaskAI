@@ -17,3 +17,7 @@ class DataExtractor(ABC):
   @abstractmethod
   async def get_all_tickets(self, project_key: str, project_id: int):
     pass
+
+  @abstractmethod
+  async def get_ticket(self, ticket_url: str):
+    pass

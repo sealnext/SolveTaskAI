@@ -1,21 +1,16 @@
 from config import OPENAI_EMBEDDING_MODEL, DATABASE_URL
 from langchain_postgres import PGVector
 from langchain_openai import OpenAIEmbeddings
-from langchain.schema import Document
-from typing import List
-from services.data_extractor.data_extractor_factory import create_data_extractor
-from fastapi import HTTPException
 from .state import AgentState
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker
 import re
-from sqlalchemy import text
-import asyncio
-from itertools import chain, islice
-
+import json
+from langchain_openai import ChatOpenAI
+from langchain.schema import SystemMessage, HumanMessage
 import logging
-from datetime import datetime, timezone
+from services.data_extractor import create_data_extractor
 
 logger = logging.getLogger(__name__)
 
@@ -38,43 +33,101 @@ def create_vector_store(unique_identifier_project: str):
 
 # Self Rag Nodes
 async def retrieve_documents(state):
+    logger.info("--- Retrieving documents node ---")
     question = state["question"]
-    query_embedding = await embeddings_model.embed_query(question)
-    documents = await vector_store.asimilarity_search_by_vector(
+    
+    logger.info(f"Question: {question}")
+    query_embedding = await embeddings_model.aembed_query(question)
+    
+    unique_identifier_project = f"{re.sub(r'^https?://|/$', '', state['project'].domain)}/{state['project'].key}/{state['project'].internal_id}"
+    vector_store = create_vector_store(unique_identifier_project)
+    
+    documents_with_scores = await vector_store.asimilarity_search_with_score_by_vector(
         query_embedding,
-        k=4,
-        filter={"project_id": state.get("project_id")}
+        k=1,
     )
+    
+    logger.info(f"Documents with scores: {documents_with_scores}")
+    
+    data_extractor = create_data_extractor(state["api_key"])
+    
+    documents = []
+    for doc, score in documents_with_scores:
+        
+        document_content = await data_extractor.get_ticket(doc.metadata["key"])
+        doc.page_content = document_content.content
+        doc.metadata["similarity_score"] = score
+        documents.append(doc)
+
+    logger.info(f"Retrieved {len(documents)} documents")
+    for doc in documents:
+        logger.info(f"Document key: {doc.metadata['key']}, Similarity score: {doc.metadata['similarity_score']}")
+    
     return {"documents": documents}
 
-def generate_answer(state):
-    print("--- Generating answer ---")
+doc_grader_instructions = """You are a grader assessing relevance of a retrieved document to a user question.
+If the document contains keyword(s) or semantic meaning related to the question, grade it as relevant."""
+
+# Grader prompt
+doc_grader_prompt = """Here is the retrieved document: \n\n {document} \n\n Here is the user question: \n\n {question}. 
+This carefully and objectively assess whether the document contains at least some information that is relevant to the question.
+Return JSON with single key, binary_score, that is 'yes' or 'no' score to indicate whether the document contains at least some information that is relevant to the question."""
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+llm_json_mode = llm.bind(response_format={"type": "json_object"})
+
+async def grade_documents(state: AgentState) -> dict:
+    logger.info("--- Grading documents node ---")
+    
+    question = state["question"]
+    documents = state["documents"]
+
+    filtered_docs = []
+    for doc in documents:
+        logger.debug(f"Grading document: {doc}")
+        doc_grader_prompt_formatted = doc_grader_prompt.format(
+            document=doc.page_content, question=question
+        )
+        result = await llm_json_mode.ainvoke(
+            [SystemMessage(content=doc_grader_instructions)]
+            + [HumanMessage(content=doc_grader_prompt_formatted)]
+        )
+        grade = json.loads(result.content)["binary_score"]
+        if grade.lower() == "yes":
+            logger.debug("Document graded as relevant")
+            filtered_docs.append(doc)
+        else:
+            logger.debug("Document graded as not relevant")
+
+    return {"documents": filtered_docs}
+
+# Prompt
+rag_prompt = """You are an assistant for question-answering tasks. 
+Here is the context to use to answer the question:
+
+{context} 
+
+Think carefully about the above context. 
+Now, review the user question:
+
+{question}
+
+Provide an answer to this questions using only the above context. 
+Use three sentences maximum and keep the answer concise.
+Answer:"""
+
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+def generate(state):
+    logger.info("--- Generate node ---")
     
     question = state["question"]
     documents = state["documents"]
     loop_step = state.get("loop_step", 0)
-    
-    docs_txt = format_documents(documents)
-    rag_prompt = rag_prompt.format(context=docs_txt, question=question)
-    generation = llm.invoke([HumanMessage(content=rag_prompt)])
-    return {"generation": generation, "loop_step": loop_step + 1}
 
-def grade_documents(state):
-    print("--- Grading documents ---")
-    
-    question = state["question"]
-    documents = state["documents"]
-    
-    filtered_documents = []
-    for document in documents:
-        doc_grader_prompt_formatted = doc_grader_prompt.format(document=document, question=question)
-        result = llm_json_model.invoke([SystemMessage(content=doc_grader_instructions)] + [HumanMessage(content=doc_grader_prompt_formatted)])
-        grade = json.loads(result.content)["binary_score"]
-        
-        if grade.lower() == "yes":
-            print("--- Document included ---")
-            filtered_documents.append(document)
-        else:
-            print("--- Document excluded ---")
-    
-    return {"documents": filtered_documents}
+    # RAG generation
+    docs_txt = format_docs(documents)
+    rag_prompt_formatted = rag_prompt.format(context=docs_txt, question=question)
+    generation = llm.invoke([HumanMessage(content=rag_prompt_formatted)])
+    return {"generation": generation, "loop_step": loop_step + 1}

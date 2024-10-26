@@ -9,8 +9,44 @@ class Ticket(BaseModel):
     status: Optional[str] = None
     priority: Optional[str] = None
     sprint: Optional[str] = None
-    embedding_vector: str
+    embedding_vector: Optional[str] = None
 
+class JiraIssueContentSchema(BaseModel):
+    content: str
+    ticket_api: str
+    ticket_url: str
+
+    class Config:
+        populate_by_name = True
+
+    @root_validator(pre=True)
+    def flatten_fields(cls, values):
+        fields = values.get('fields', {})
+
+        api_self_url = values.get('self', "")
+        base_url = "/".join(api_self_url.split("/")[:3])
+        ticket_key = values.get('key', None)
+        values['ticket_url'] = f"{base_url}/browse/{ticket_key}"
+        values['ticket_api'] = api_self_url
+
+        content_data = []
+
+        title = fields.get('summary')
+        if title:
+            content_data.append(title)
+
+        description = fields.get('description')
+        if description:
+            content_data.append(description)
+
+        comments = fields.get('comment', {}).get('comments', [])
+        if comments:
+            all_comments = "\n".join(comment.get('body', '') for comment in comments)
+            content_data.append(all_comments)
+
+        values['content'] = "\n\n".join(content_data)
+
+        return values
 class JiraIssueSchema(Ticket):
     class Config:
         populate_by_name = True
