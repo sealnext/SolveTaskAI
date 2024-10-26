@@ -83,34 +83,39 @@ async def generate_embeddings(state: dict) -> dict:
         
         vector_store = create_vector_store(unique_identifier_project)
         
-        texts = [ticket.embedding_vector for ticket in tickets]
-        metadatas = [{
-            'ticket_url': ticket.ticket_url,
-            'issue_type': ticket.issue_type,
-            'status': ticket.status,
-            'priority': ticket.priority,
-            'sprint': ticket.sprint,
-            'key': ticket.ticket_api,
-            'created_at': datetime.now(timezone.utc).isoformat(),
-            'updated_at': datetime.now(timezone.utc).isoformat(),
-        } for ticket in tickets]
-
         batch_size = 100
-        for i in range(0, len(texts), batch_size):
-            batch_texts = texts[i:i+batch_size]
-            batch_metadatas = metadatas[i:i+batch_size]
+        for i in range(0, len(tickets), batch_size):
+            batch_tickets = tickets[i:i+batch_size]
             
-            batch_embeddings = await embeddings_model.aembed_documents(batch_texts)
-            
-            batch_documents = [
-                Document(page_content="", metadata=metadata, embedding=embedding)
-                for metadata, embedding in zip(batch_metadatas, batch_embeddings)
-            ]
-            
-            await vector_store.aadd_documents(batch_documents)
-            
-            logger.info(f"Processed batch {i//batch_size + 1} of {len(texts)//batch_size + 1}")
+            embedding_texts = [ticket.embedding_vector for ticket in batch_tickets]
+            metadatas = [{
+                'ticket_url': ticket.ticket_url,
+                'issue_type': ticket.issue_type,
+                'status': ticket.status,
+                'priority': ticket.priority,
+                'sprint': ticket.sprint,
+                'key': ticket.ticket_api,
+                'created_at': datetime.now(timezone.utc).isoformat(),
+                'updated_at': datetime.now(timezone.utc).isoformat(),
+            } for ticket in batch_tickets]
 
-        logger.info(f"Finished adding {len(texts)} documents to the vector store.")
+            embeddings = await embeddings_model.aembed_documents(embedding_texts)
+            
+            logger.info(f"Generated {len(embeddings)} embeddings for batch {i//batch_size + 1}")
+            
+            # Log sample embeddings
+            for idx in range(min(5, len(embeddings))):
+                logger.info(f"Sample embedding {idx} length: {len(embeddings[idx])}")
+                logger.info(f"Sample embedding {idx} preview: {embeddings[idx][:5]}...")
+            
+            await vector_store.aadd_embeddings(
+                texts=[""] * len(embeddings),
+                embeddings=embeddings,
+                metadatas=metadatas
+            )
+            
+            logger.info(f"Processed and added batch {i//batch_size + 1} of {len(tickets)//batch_size + 1} to vector store")
+
+        logger.info(f"Finished adding {len(tickets)} documents to the vector store.")
     
     return {"tickets": tickets, "status": "success"}

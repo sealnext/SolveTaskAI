@@ -1,8 +1,5 @@
-from fastapi import Depends
-from dependencies import get_project_repository, get_api_key_repository
-from repositories import ProjectRepository, APIKeyRepository
-from .document_processing.document_processing_graph import create_document_processing_graph
-from .rag.self_rag_graph import create_self_rag_graph
+from .document_processing.graph import create_document_processing_graph
+from .rag.graph import create_self_rag_graph
 import logging
 
 __all__ = ["process_documents", "perform_self_rag"]

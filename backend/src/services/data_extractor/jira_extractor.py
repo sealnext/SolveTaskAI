@@ -4,7 +4,7 @@ import logging
 from urllib.parse import urljoin
 from typing import List, Dict, Any
 from .interfaces.data_extractor_interface import DataExtractor
-from schemas import ExternalProjectSchema, JiraIssueSchema
+from schemas import ExternalProjectSchema, JiraIssueSchema, JiraIssueContentSchema
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,18 @@ class DataExtractorJira(DataExtractor):
                     raise
                 await asyncio.sleep(delay)
                 delay *= 2 
+                
+    async def get_ticket(self, ticket_url: str) -> JiraIssueContentSchema:
+        async with aiohttp.ClientSession(auth=self.auth) as session:
+            logger.info(f"Fetching ticket from {ticket_url}")
+            
+            data = await self.fetch_with_retry(session, ticket_url, params={})
+            
+            project_id = str(data.get('fields', {}).get('project', {}).get('id'))
+            
+            validated_ticket = JiraIssueContentSchema(**{**data, 'project_id': project_id})
+            
+            return validated_ticket
 
     async def get_all_projects(self) -> List[ExternalProjectSchema]:
         api_route = urljoin(self.base_api_url, "project/search")

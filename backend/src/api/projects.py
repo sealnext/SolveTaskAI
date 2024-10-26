@@ -57,6 +57,7 @@ async def add_internal_project(
 ):
     user_id = request.state.user.id
     new_project = await project_service.save_project(project, user_id)
+    # TODO: use api key service instead of repository, here and in chat api
     api_key = await api_key_repository.get_by_project_id(new_project.id)
     
     agent_state = {
@@ -113,7 +114,6 @@ async def delete_internal_project(
         }
         logger.debug(f"Processing documents for deletion: {agent_state}")
         final_state = await process_documents(agent_state)
-        logger.debug(f"Final state: {final_state}")
         if final_state["status"] != "success":
             raise HTTPException(status_code=500, detail="Failed to delete embeddings")
 

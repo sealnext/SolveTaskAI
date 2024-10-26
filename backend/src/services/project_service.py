@@ -17,6 +17,10 @@ class ProjectService:
     async def update_project(self, user_id: int, project_id: int, project_update: ProjectUpdate):
         return await self.project_repository.update(user_id, project_id, project_update)
     
+    async def get_project_by_id(self, user_id: int, project_id: int):
+        return await self.project_repository.get_by_id(user_id, project_id)
+    
+    # TOOD: check if user_id is needed or not
     async def get_project_by_external_id(self, external_project_id: int):
         return await self.project_repository.get_by_internal_id(external_project_id)
 

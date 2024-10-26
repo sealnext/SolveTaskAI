@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.projects import router as projects_router
 from api.auth import router as auth_router
 from api.apikey import router as api_keys_router
+from api.chat import router as chat_router
+
 from db import sync_database, init_db
 from exceptions.handlers import register_exception_handlers
 
@@ -22,6 +24,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(projects_router)
 app.include_router(api_keys_router)
+app.include_router(chat_router)
 
 # Exception Handlers
 register_exception_handlers(app)

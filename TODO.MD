@@ -41,3 +41,7 @@ Batching: Process embeddings and insertions in batches to improve performance.
 Efficient Metadata Updates: Update metadata without re-embedding tickets.
 
 Enhanced Logging: Improve logging for tracking and error handling.
+
+- check if the delete_embeddings is not deleting the embeddings if 2 users have the same project
+
+- cache the pgvector so we dont need to create a new connection every time
