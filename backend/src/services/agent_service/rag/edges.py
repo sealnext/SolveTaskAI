@@ -51,7 +51,7 @@ def grade_generation_hallucination_and_usefulness(state):
     question = state["question"]
     documents = state["documents"]
     generation = state["generation"]
-    max_retries = state.get("max_retries", 3)  # Default to 3 if not provided
+    max_retries = state.get("max_retries", 3)
 
     hallucination_grader_prompt_formatted = hallucination_grader_prompt.format(
         documents=format_docs(documents), generation=generation.content

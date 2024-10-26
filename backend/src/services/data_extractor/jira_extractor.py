@@ -110,3 +110,14 @@ class DataExtractorJira(DataExtractor):
             )
             for project in projects
         ]
+
+    async def get_tickets_parallel(self, ticket_urls: List[str]) -> List[JiraIssueContentSchema]:
+        async with aiohttp.ClientSession(auth=self.auth) as session:
+            tasks = [self.fetch_ticket(session, url) for url in ticket_urls]
+            return await asyncio.gather(*tasks)
+
+    async def fetch_ticket(self, session, ticket_url: str) -> JiraIssueContentSchema:
+        logger.info(f"Fetching ticket from {ticket_url}")
+        data = await self.fetch_with_retry(session, ticket_url, params={})
+        project_id = str(data.get('fields', {}).get('project', {}).get('id'))
+        return JiraIssueContentSchema(**{**data, 'project_id': project_id})
