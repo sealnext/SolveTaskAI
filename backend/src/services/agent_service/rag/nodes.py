@@ -11,6 +11,7 @@ from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
 import logging
 from services.data_extractor import create_data_extractor
+from config import NUMBER_OF_DOCS_TO_RETRIEVE
 
 logger = logging.getLogger(__name__)
 
@@ -44,20 +45,10 @@ async def retrieve_documents(state):
     
     documents_with_scores = await vector_store.asimilarity_search_with_score_by_vector(
         query_embedding,
-        k=1,
+        k=NUMBER_OF_DOCS_TO_RETRIEVE,
     )
     
-    logger.info(f"Documents with scores: {documents_with_scores}")
-    
-    data_extractor = create_data_extractor(state["api_key"])
-    
-    documents = []
-    for doc, score in documents_with_scores:
-        
-        document_content = await data_extractor.get_ticket(doc.metadata["key"])
-        doc.page_content = document_content.content
-        doc.metadata["similarity_score"] = score
-        documents.append(doc)
+    documents = await fetch_documents(state, documents_with_scores)
 
     logger.info(f"Retrieved {len(documents)} documents")
     for doc in documents:
@@ -131,3 +122,17 @@ def generate(state):
     rag_prompt_formatted = rag_prompt.format(context=docs_txt, question=question)
     generation = llm.invoke([HumanMessage(content=rag_prompt_formatted)])
     return {"generation": generation, "loop_step": loop_step + 1}
+
+async def fetch_documents(state, documents_with_scores):
+    data_extractor = create_data_extractor(state["api_key"])
+    
+    ticket_urls = [doc.metadata["key"] for doc, _ in documents_with_scores]
+    fetched_documents = await data_extractor.get_tickets_parallel(ticket_urls)
+    
+    documents = []
+    for (doc, score), fetched_doc in zip(documents_with_scores, fetched_documents):
+        doc.page_content = fetched_doc.content
+        doc.metadata["similarity_score"] = score
+        documents.append(doc)
+    
+    return documents

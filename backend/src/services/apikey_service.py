@@ -8,7 +8,6 @@ class APIKeyService:
         self.apikey_repository = apikey_repository
 
     async def create_api_key(self, user_id: int, api_key_data: APIKeyCreate) -> APIKeyResponse:
-        # Verifică dacă există deja o cheie API cu aceeași valoare
         existing_key = await self.apikey_repository.get_api_key_by_value(api_key_data.api_key)
         if existing_key:
             raise APIKeyAlreadyExistsError("An API key with this value already exists")

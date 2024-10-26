@@ -12,6 +12,7 @@ from .config import (
     OPENAI_EMBEDDING_MODEL,
     DEBUG_MODE,
     SQL_LOGGING,
+    NUMBER_OF_DOCS_TO_RETRIEVE,
 )
 
 from .logger import logging

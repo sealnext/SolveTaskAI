@@ -11,7 +11,6 @@ from jose import JWTError, jwt
 
 # Local imports
 from config import (
-    ENVIRONMENT,
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
     JWT_ALGORITHM,
     JWT_REFRESH_TOKEN_EXPIRE_DAYS,
