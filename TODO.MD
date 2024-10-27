@@ -45,3 +45,5 @@ Enhanced Logging: Improve logging for tracking and error handling.
 - check if the delete_embeddings is not deleting the embeddings if 2 users have the same project
 
 - cache the pgvector so we dont need to create a new connection every time
+
+- if no context is found at retrieval, try to make multiple generations of the same questions, and retrieve again, until we find context or we run out of generations.
