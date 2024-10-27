@@ -29,24 +29,27 @@ class JiraIssueContentSchema(BaseModel):
         values['ticket_url'] = f"{base_url}/browse/{ticket_key}"
         values['ticket_api'] = api_self_url
 
-        content_data = []
+        # Title section
+        title = fields.get('summary', 'No title provided')
+        title_section = f"TITLE: {title}\n\n"
 
-        title = fields.get('summary')
-        if title:
-            content_data.append(title)
+        # Description section
+        description = fields.get('description', 'No description provided')
+        description_section = f"DESCRIPTION: {description}\n\n"
 
-        description = fields.get('description')
-        if description:
-            content_data.append(description)
-
+        # Comments section
         comments = fields.get('comment', {}).get('comments', [])
         if comments:
-            all_comments = "\n".join(comment.get('body', '') for comment in comments)
-            content_data.append(all_comments)
+            comments_content = "\n".join(f"- {comment.get('body', '')}" for comment in comments)
+        else:
+            comments_content = "No comments"
+        comments_section = f"COMMENTS:\n{comments_content}"
 
-        values['content'] = "\n\n".join(content_data)
+        # Combine all sections
+        values['content'] = f"{title_section}{description_section}{comments_section}"
 
         return values
+
 class JiraIssueSchema(Ticket):
     class Config:
         populate_by_name = True

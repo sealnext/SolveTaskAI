@@ -16,3 +16,6 @@ class AgentState(TypedDict):
     tickets: List[Ticket]
     status: str
     action: Literal['delete', 'add']
+    retry_retrieve_count: int
+    retry_retrieve: bool
+    ignore_tickets: List[str]

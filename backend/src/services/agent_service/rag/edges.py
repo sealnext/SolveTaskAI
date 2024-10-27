@@ -3,112 +3,79 @@ import logging
 
 from langchain.schema import SystemMessage, HumanMessage
 from langchain_openai import ChatOpenAI
+from .prompts import after_generation_instructions, after_generation_prompt
+from config import OPENAI_MODEL
 
 from .nodes import format_docs
 
 logger = logging.getLogger(__name__)
 
-# Hallucination grader instructions
-hallucination_grader_instructions = """
-You are a teacher grading a quiz. 
-You will be given FACTS and a STUDENT ANSWER. 
-Here is the grade criteria to follow:
-
-(1) Ensure the STUDENT ANSWER is grounded in the FACTS. 
-
-(2) Ensure the STUDENT ANSWER does not contain "hallucinated" information outside the scope of the FACTS.
-
-Score:
-A score of yes means that the student's answer meets all of the criteria. This is the highest (best) score. 
-A score of no means that the student's answer does not meet all of the criteria. This is the lowest possible score you can give.
-Explain your reasoning in a step-by-step manner to ensure your reasoning and conclusion are correct. 
-Avoid simply stating the correct answer at the outset."""
-
-hallucination_grader_prompt = """FACTS: \n\n {documents} \n\n STUDENT ANSWER: {generation}. 
-Return JSON with two two keys, binary_score is 'yes' or 'no' score to indicate whether the STUDENT ANSWER is grounded in the FACTS. And a key, explanation, that contains an explanation of the score."""
-
-# Answer grader instructions
-answer_grader_instructions = """You are a teacher grading a quiz. 
-You will be given a QUESTION and a STUDENT ANSWER. 
-Here is the grade criteria to follow:
-(1) The STUDENT ANSWER helps to answer the QUESTION
-Score:
-A score of yes means that the student's answer meets all of the criteria. This is the highest (best) score. 
-The student can receive a score of yes if the answer contains extra information that is not explicitly asked for in the question.
-A score of no means that the student's answer does not meet all of the criteria. This is the lowest possible score you can give.
-Explain your reasoning in a step-by-step manner to ensure your reasoning and conclusion are correct. 
-Avoid simply stating the correct answer at the outset."""
-
-answer_grader_prompt = """QUESTION: \n\n {question} \n\n STUDENT ANSWER: {generation}. 
-Return JSON with two two keys, binary_score is 'yes' or 'no' score to indicate whether the STUDENT ANSWER meets the criteria. And a key, explanation, that contains an explanation of the score."""
-
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+llm = ChatOpenAI(model=OPENAI_MODEL, temperature=0)
 llm_json_mode = llm.bind(response_format={"type": "json_object"})
 
-def grade_generation_hallucination_and_usefulness(state):
+async def grade_generation_hallucination_and_usefulness(state: dict) -> str:
     logger.info("--- Grade generation hallucination and usefulness ---")
     
     question = state["question"]
     documents = state["documents"]
     generation = state["generation"]
     max_retries = state.get("max_retries", 3)
+    retry_retrieve_count = state.get("retry_retrieve_count", 0)
+    ignore_tickets = state.get("ignore_tickets", [])
 
-    hallucination_grader_prompt_formatted = hallucination_grader_prompt.format(
-        documents=format_docs(documents), generation=generation.content
+    after_generation_prompt_formatted = after_generation_prompt.format(
+        documents=format_docs(documents),
+        question=question,
+        generation=generation.content
     )
-    result = llm_json_mode.invoke(
-        [SystemMessage(content=hallucination_grader_instructions)]
-        + [HumanMessage(content=hallucination_grader_prompt_formatted)]
-    )
-    grade = json.loads(result.content)["binary_score"]
 
-    # Check hallucination
-    if grade == "yes":
-        logger.debug("hallucination grade is yes")
-        # Check question-answering
-        answer_grader_prompt_formatted = answer_grader_prompt.format(
-            question=question, generation=generation.content
-        )
-        result = llm_json_mode.invoke(
-            [SystemMessage(content=answer_grader_instructions)]
-            + [HumanMessage(content=answer_grader_prompt_formatted)]
-        )
-        grade = json.loads(result.content)["binary_score"]
-        if grade == "yes":
-            logger.debug("question-answering grade is yes")
-            return "useful"
-        elif state["loop_step"] <= max_retries:
-            logger.debug("question-answering grade is no")
-            return "not useful"
-        else:
-            logger.debug("max retries reached")
-            return "max retries"
-    elif state["loop_step"] <= max_retries:
-        logger.debug("hallucination grade is no")
-        return "not supported"
+    result = await llm_json_mode.ainvoke(
+        [
+            SystemMessage(content=after_generation_instructions),
+            HumanMessage(content=after_generation_prompt_formatted)
+        ]
+    )
+
+    grade_result = json.loads(result.content)
+    binary_score = grade_result["binary_score"]
+    explanation = grade_result["explanation"]
+
+    logger.info(f"Grade result: {binary_score}")
+    logger.info(f"Explanation: {explanation}")
+
+    if binary_score == "yes":
+        logger.info("Generation meets all criteria")
+        return "useful"
+    elif retry_retrieve_count < max_retries:
+        logger.info("Generation does not meet all criteria, retrying retrieval")
+        ignore_tickets.extend([doc.metadata["key"] for doc in documents])
+        state["ignore_tickets"] = list(set(ignore_tickets))  # Remove duplicates
+        state["retry_retrieve_count"] = retry_retrieve_count + 1
+        return "not useful"
     else:
-        logger.debug("max retries reached")
+        logger.info("Max retries reached")
         return "max retries"
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+def decide_after_grading(state):
+    """
+    Determines whether to retry document retrieval or end the process
+
+    Args:
+        state (dict): The current graph state
+
+    Returns:
+        str: Decision for next node to call
+    """
+    logger.info("---ASSESS GRADED DOCUMENTS---")
+    documents = state["documents"]
+    retry_retrieve_count = state.get("retry_retrieve_count", 0)
+
+    if not documents and retry_retrieve_count < 3:  # Allow up to 2 retries (3 total attempts)
+        logger.info("---DECISION: NO RELEVANT DOCUMENTS FOUND, RETRY RETRIEVAL---")
+        return "retry"
+    elif not documents:
+        logger.info("---DECISION: MAX RETRIES REACHED---")
+        return "max retries"
+    else:
+        logger.info("---DECISION: RELEVANT DOCUMENTS FOUND, END PROCESS---")
+        return "generate"
