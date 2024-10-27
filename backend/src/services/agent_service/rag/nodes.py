@@ -1,4 +1,4 @@
-from config import OPENAI_EMBEDDING_MODEL, DATABASE_URL
+from config import OPENAI_EMBEDDING_MODEL, DATABASE_URL, NUMBER_OF_DOCS_TO_RETRIEVE
 from langchain_postgres import PGVector
 from langchain_openai import OpenAIEmbeddings
 from .state import AgentState
@@ -11,7 +11,8 @@ from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
 import logging
 from services.data_extractor import create_data_extractor
-from config import NUMBER_OF_DOCS_TO_RETRIEVE
+from .prompts import doc_grader_instructions, doc_grader_prompt, rag_prompt
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -36,33 +37,36 @@ def create_vector_store(unique_identifier_project: str):
 async def retrieve_documents(state):
     logger.info("--- Retrieving documents node ---")
     question = state["question"]
+    retry_retrieve_count = state.get("retry_retrieve_count", 0)
+    ignore_tickets = state.get("ignore_tickets", [])
     
-    logger.info(f"Question: {question}")
+    logger.info(f"Question: {question}, Retry count: {retry_retrieve_count}")
     query_embedding = await embeddings_model.aembed_query(question)
     
     unique_identifier_project = f"{re.sub(r'^https?://|/$', '', state['project'].domain)}/{state['project'].key}/{state['project'].internal_id}"
     vector_store = create_vector_store(unique_identifier_project)
     
+    k = NUMBER_OF_DOCS_TO_RETRIEVE * (retry_retrieve_count + 1)
     documents_with_scores = await vector_store.asimilarity_search_with_score_by_vector(
         query_embedding,
-        k=NUMBER_OF_DOCS_TO_RETRIEVE,
+        k=k,
     )
+    
+    # Filter out ignored tickets
+    documents_with_scores = [
+        (doc, score) for doc, score in documents_with_scores 
+        if doc.metadata["key"] not in ignore_tickets
+    ][:NUMBER_OF_DOCS_TO_RETRIEVE]
     
     documents = await fetch_documents(state, documents_with_scores)
     
     logger.debug(f"My Documents: {documents}")
-
     logger.info(f"Retrieved {len(documents)} documents")
 
-    return {"documents": documents}
+    state["documents"] = documents
+    state["retry_retrieve_count"] = retry_retrieve_count + 1
+    return state
 
-doc_grader_instructions = """You are a grader assessing relevance of a retrieved document to a user question.
-If the document contains keyword(s) or semantic meaning related to the question, grade it as relevant."""
-
-# Grader prompt
-doc_grader_prompt = """Here is the retrieved document: \n\n {document} \n\n Here is the user question: \n\n {question}. 
-This carefully and objectively assess whether the document contains at least some information that is relevant to the question.
-Return JSON with single key, binary_score, that is 'yes' or 'no' score to indicate whether the document contains at least some information that is relevant to the question."""
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 llm_json_mode = llm.bind(response_format={"type": "json_object"})
@@ -72,9 +76,9 @@ async def grade_documents(state: AgentState) -> dict:
     
     question = state["question"]
     documents = state["documents"]
+    ignore_tickets = state.get("ignore_tickets", [])
 
-    filtered_docs = []
-    for doc in documents:
+    async def grade_single_document(doc):
         logger.debug(f"Grading document: {doc}")
         doc_grader_prompt_formatted = doc_grader_prompt.format(
             document=doc.page_content, question=question
@@ -85,31 +89,35 @@ async def grade_documents(state: AgentState) -> dict:
         )
         grade = json.loads(result.content)["binary_score"]
         logger.debug(f"Grade result: {grade}")
-        if grade.lower() == "yes":
+        return doc, grade.lower() == "yes"
+
+    # Run grading for all documents in parallel
+    grading_results = await asyncio.gather(
+        *[grade_single_document(doc) for doc in documents]
+    )
+
+    filtered_docs = []
+    for doc, is_relevant in grading_results:
+        if is_relevant:
             logger.debug("Document graded as relevant")
             filtered_docs.append(doc)
         else:
             logger.debug("Document graded as not relevant")
+            ignore_tickets.append(doc.metadata["key"])
 
-    return {"documents": filtered_docs}
-
-# Prompt
-rag_prompt = """You are an assistant for question-answering tasks. 
-Here is the context to use to answer the question, those are tickets:
-
-{context} 
-
-Think carefully about the above context. 
-Now, review the user question:
-
-{question}
-
-If you can answer the question, then use only the above context.
-Use three sentences maximum and keep the answer concise.
-Answer:"""
+    state["documents"] = filtered_docs
+    state["ignore_tickets"] = list(set(ignore_tickets))  # Remove duplicates
+    return state
 
 def format_docs(docs):
-    return "\n\n".join(doc.page_content for doc in docs)
+    formatted_docs = [
+        f"Ticket {i+1}: '{doc.metadata.get('ticket_url', 'No URL provided')}'\n\n"
+        f"page_content={doc.page_content}\n\n"
+        f"metadata={json.dumps(doc.metadata, indent=2)}"
+        for i, doc in enumerate(docs)
+    ]
+    
+    return f"There are {len(docs)} contextual tickets for you to use:\n\n" + "\n\n".join(formatted_docs)
 
 def generate(state):
     logger.info("--- Generate node ---")
@@ -120,6 +128,7 @@ def generate(state):
 
     # RAG generation
     docs_txt = format_docs(documents)
+    logger.info(f"Documents formatted being used to generate: {docs_txt}")
     rag_prompt_formatted = rag_prompt.format(context=docs_txt, question=question)
     generation = llm.invoke([HumanMessage(content=rag_prompt_formatted)])
     return {"generation": generation, "loop_step": loop_step + 1}

@@ -13,6 +13,7 @@ from .config import (
     DEBUG_MODE,
     SQL_LOGGING,
     NUMBER_OF_DOCS_TO_RETRIEVE,
+    OPENAI_MODEL
 )
 
 from .logger import logging
