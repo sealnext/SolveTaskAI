@@ -11,13 +11,13 @@ def create_self_rag_graph():
 
     # Define the nodes
     workflow.add_node("retrieve", retrieve_documents)
-    # workflow.add_node("grade_documents", grade_documents)
+    workflow.add_node("grade_documents", grade_documents)
     # workflow.add_node("generate", generate)
 
     # Build graph
     workflow.set_entry_point("retrieve")
-    workflow.add_edge("retrieve", END)
-    # workflow.add_edge("grade_documents", "generate")
+    workflow.add_edge("retrieve", "grade_documents")
+    workflow.add_edge("grade_documents", END)
     # workflow.add_conditional_edges(
     #     "generate",
     #     grade_generation_hallucination_and_usefulness,
