@@ -38,10 +38,8 @@ async def grade_generation_hallucination_and_usefulness(state: dict) -> str:
 
     grade_result = json.loads(result.content)
     binary_score = grade_result["binary_score"]
-    explanation = grade_result["explanation"]
 
     logger.info(f"Grade result: {binary_score}")
-    logger.info(f"Explanation: {explanation}")
 
     if binary_score == "yes":
         logger.info("Generation meets all criteria")
