@@ -49,11 +49,11 @@ async def retrieve_documents(state):
     )
     
     documents = await fetch_documents(state, documents_with_scores)
+    
+    logger.debug(f"My Documents: {documents}")
 
     logger.info(f"Retrieved {len(documents)} documents")
-    for doc in documents:
-        logger.info(f"Document key: {doc.metadata['key']}, Similarity score: {doc.metadata['similarity_score']}")
-    
+
     return {"documents": documents}
 
 doc_grader_instructions = """You are a grader assessing relevance of a retrieved document to a user question.
@@ -84,6 +84,7 @@ async def grade_documents(state: AgentState) -> dict:
             + [HumanMessage(content=doc_grader_prompt_formatted)]
         )
         grade = json.loads(result.content)["binary_score"]
+        logger.debug(f"Grade result: {grade}")
         if grade.lower() == "yes":
             logger.debug("Document graded as relevant")
             filtered_docs.append(doc)
@@ -94,7 +95,7 @@ async def grade_documents(state: AgentState) -> dict:
 
 # Prompt
 rag_prompt = """You are an assistant for question-answering tasks. 
-Here is the context to use to answer the question:
+Here is the context to use to answer the question, those are tickets:
 
 {context} 
 
@@ -103,7 +104,7 @@ Now, review the user question:
 
 {question}
 
-Provide an answer to this questions using only the above context. 
+If you can answer the question, then use only the above context.
 Use three sentences maximum and keep the answer concise.
 Answer:"""
 
@@ -132,7 +133,6 @@ async def fetch_documents(state, documents_with_scores):
     documents = []
     for (doc, score), fetched_doc in zip(documents_with_scores, fetched_documents):
         doc.page_content = fetched_doc.content
-        doc.metadata["similarity_score"] = score
         documents.append(doc)
     
     return documents
