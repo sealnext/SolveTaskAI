@@ -1,5 +1,5 @@
 import re
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, root_validator
 
 class Ticket(BaseModel):
@@ -11,11 +11,16 @@ class Ticket(BaseModel):
     sprint: Optional[str] = None
     embedding_vector: Optional[str] = None
 
+class TicketContent(BaseModel):
+    title: str = "No title provided"
+    description: str = "No description provided"
+    comments: List[str] = []
+
 class JiraIssueContentSchema(BaseModel):
-    content: str
+    content: TicketContent
     ticket_api: str
     ticket_url: str
-
+    
     class Config:
         populate_by_name = True
 
@@ -29,24 +34,23 @@ class JiraIssueContentSchema(BaseModel):
         values['ticket_url'] = f"{base_url}/browse/{ticket_key}"
         values['ticket_api'] = api_self_url
 
-        # Title section
-        title = fields.get('summary', 'No title provided')
-        title_section = f"TITLE: {title}\n\n"
-
-        # Description section
-        description = fields.get('description', 'No description provided')
-        description_section = f"DESCRIPTION: {description}\n\n"
-
-        # Comments section
+        # Extract content components with default values
+        title = fields.get('summary') or "No title provided"
+        description = fields.get('description') or "No description provided"
+        
+        # Process comments with author names
         comments = fields.get('comment', {}).get('comments', [])
-        if comments:
-            comments_content = "\n".join(f"- {comment.get('body', '')}" for comment in comments)
-        else:
-            comments_content = "No comments"
-        comments_section = f"COMMENTS:\n{comments_content}"
+        comments_list = [
+            f"{comment.get('author', {}).get('displayName', 'Unknown')}: {comment.get('body', '')}"
+            for comment in comments
+        ] if comments else []
 
-        # Combine all sections
-        values['content'] = f"{title_section}{description_section}{comments_section}"
+        # Create content structure with default values
+        values['content'] = {
+            "title": title,
+            "description": description,
+            "comments": comments_list
+        }
 
         return values
 
@@ -77,7 +81,10 @@ class JiraIssueSchema(Ticket):
         }
 
         comments = fields.get('comment', {}).get('comments', [])
-        all_comments = " ".join(comment.get('body', '') for comment in comments) if comments else ""
+        all_comments = " ".join(
+            f"{comment.get('author', {}).get('displayName', 'Unknown')}: {comment.get('body', '')}"
+            for comment in comments
+        ) if comments else ""
 
         embedding_data = []
 

@@ -112,7 +112,7 @@ async def grade_documents(state: AgentState) -> dict:
 def format_docs(docs):
     formatted_docs = [
         f"Ticket {i+1}: '{doc.metadata.get('ticket_url', 'No URL provided')}'\n\n"
-        f"page_content={doc.page_content}\n\n"
+        f"page_content={json.dumps(doc.page_content.__dict__, indent=2)}\n\n"
         f"metadata={json.dumps(doc.metadata, indent=2)}"
         for i, doc in enumerate(docs)
     ]
@@ -127,6 +127,7 @@ def generate(state):
     loop_step = state.get("loop_step", 0)
 
     # RAG generation
+    logger.info(f"Documents before formatting: {documents}")
     docs_txt = format_docs(documents)
     logger.info(f"Documents formatted being used to generate: {docs_txt}")
     rag_prompt_formatted = rag_prompt.format(context=docs_txt, question=question)

@@ -12,12 +12,11 @@ after_generation_instructions = """You are evaluating the quality of a response 
 Provide a clear explanation that outlines your reasoning for the score. Walk through each criterion, detailing where the RESPONSE succeeds or falls short.
 
 Output JSON with two keys:  
-- `binary_score`: "yes" or "no" based on whether the RESPONSE meets all criteria.  
-- `explanation`: an explanation describing the score rationale.
+- `binary_score`: "yes" or "no" based on whether the RESPONSE meets all criteria.
 """
 
 after_generation_prompt = """CONTEXT: \n\n {documents} \n\n QUESTION: \n\n {question} \n\n RESPONSE: \n\n {generation}. 
-Return JSON with the keys "binary_score" ("yes" or "no") and "explanation" (step-by-step reasoning for the score).
+Return JSON with the keys "binary_score" ("yes" or "no").
 """
 
 doc_grader_instructions = """You are a grader assessing relevance of a retrieved document to a user question.
@@ -32,10 +31,9 @@ Return JSON with single key, binary_score, that is 'yes' or 'no' score to indica
 rag_prompt = """You are an assistant for question-answering tasks. 
 You will be given a list of tickets for context, each ticket has a ticket_url, page_content and metadata.
 
-You can use the metadata to get more information about the ticket when responding.
-You can use the ticket_url when responding, to link to the ticket in your answer as reference.
-You can use the page_content to answer the question, this is the context you have to work with.
-The page_context is divided into three sections, title, description and comments. You can use all of them to answer the question.
+- EVERYTIME Use the metadata (such as updated_at, created_at, status, sprint, issue_type, and priority) to provide context when responding. These details can help anchor the ticket in time and status, allowing you to inform the user about when and where the ticket stands if it aids in answering their question.
+- EVERYTIME use the ticket_url for each ticket when responding, linking to it as a reference for each piece of information provided.
+- EVERYTIME Use the page_content to answer the question, this is the context you have to work with, which is divided into title, description and comments. You can use all of them to answer the question.
 
 {context} 
 
@@ -45,5 +43,6 @@ Now, review the user question:
 {question}
 
 If you can answer the question, then use only the above context.
-Use five sentences maximum and keep the answer concise.
+Use up to five sentences for a concise answer when possible. If more information is needed to fully answer the question, use additional sentences as necessary.
+
 Answer:"""
