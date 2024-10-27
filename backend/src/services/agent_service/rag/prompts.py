@@ -37,12 +37,13 @@ You will be given a list of tickets for context, each ticket has a ticket_url, p
 
 {context} 
 
-Think carefully about the above context. 
+Think carefully about the above context and use every ticket to answer the question by referencing them everytime you use the context.
+First you can aggregate the context from all tickets and give a single answer, then you can use the individual tickets to answer the question by referencing them everytime you use the context.
 Now, review the user question:
 
 {question}
 
 If you can answer the question, then use only the above context.
-Use up to five sentences for a concise answer when possible. If more information is needed to fully answer the question, use additional sentences as necessary.
+Give a concise answer when possible.
 
 Answer:"""
