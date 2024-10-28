@@ -47,3 +47,18 @@ If you can answer the question, then use only the above context.
 Give a concise answer when possible.
 
 Answer:"""
+
+# ... existing code ...
+
+question_alternatives_instructions = """You are an expert at generating alternative search queries. 
+Given an original question, generate 5 alternative phrasings that:
+1. Maintain the core intent of the original question
+2. Use different keywords and sentence structures
+3. Include both broader and more specific variations
+
+Return a JSON object with an array of exactly 5 alternative questions."""
+
+question_alternatives_prompt = """Original question: {question}
+
+Generate 5 alternative ways to ask this question that might help retrieve different but relevant documents.
+Return JSON with a single key "alternatives" containing an array of 5 strings."""

@@ -11,7 +11,7 @@ from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
 import logging
 from services.data_extractor import create_data_extractor
-from .prompts import doc_grader_instructions, doc_grader_prompt, rag_prompt
+from .prompts import doc_grader_instructions, doc_grader_prompt, rag_prompt, question_alternatives_instructions, question_alternatives_prompt
 import asyncio
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,7 @@ async def retrieve_documents(state):
     ignore_tickets = state.get("ignore_tickets", [])
     
     logger.info(f"Question: {question}, Retry count: {retry_retrieve_count}")
+
     query_embedding = await embeddings_model.aembed_query(question)
     
     unique_identifier_project = f"{re.sub(r'^https?://|/$', '', state['project'].domain)}/{state['project'].key}/{state['project'].internal_id}"
@@ -67,6 +68,66 @@ async def retrieve_documents(state):
     state["retry_retrieve_count"] = retry_retrieve_count + 1
     return state
 
+
+async def retry_retrieve_documents(state):
+    logger.info("--- Retry Retrieve Documents Node (with alternatives) ---")
+    question = state["question"]
+    ignore_tickets = state.get("ignore_tickets", [])
+    
+    # Generate alternative questions
+    logger.info(f"Generating alternatives for question: {question}")
+    alternatives_prompt = question_alternatives_prompt.format(question=question)
+    result = await llm_json_mode.ainvoke([
+        SystemMessage(content=question_alternatives_instructions),
+        HumanMessage(content=alternatives_prompt)
+    ])
+    
+    alternative_questions = json.loads(result.content)["alternatives"]
+    alternative_questions.append(question)  # Include original question
+    logger.info(f"Generated alternatives: {alternative_questions}")
+    
+    # Generate embeddings for all questions in parallel
+    logger.info("Generating embeddings for all questions")
+    embeddings_tasks = [
+        embeddings_model.aembed_query(q) for q in alternative_questions
+    ]
+    query_embeddings = await asyncio.gather(*embeddings_tasks)
+    
+    # Setup vector store
+    unique_identifier_project = f"{re.sub(r'^https?://|/$', '', state['project'].domain)}/{state['project'].key}/{state['project'].internal_id}"
+    vector_store = create_vector_store(unique_identifier_project)
+    
+    # Retrieve documents for each embedding in parallel
+    logger.info("Retrieving documents for all embeddings")
+    retrieve_tasks = [
+        vector_store.asimilarity_search_with_score_by_vector(
+            embedding,
+            k=NUMBER_OF_DOCS_TO_RETRIEVE
+        ) for embedding in query_embeddings
+    ]
+    all_documents_with_scores = await asyncio.gather(*retrieve_tasks)
+    
+    # Flatten and filter documents
+    all_documents = []
+    seen_keys = set()
+    
+    for docs_with_scores in all_documents_with_scores:
+        for doc, score in docs_with_scores:
+            key = doc.metadata["key"]
+            if key not in seen_keys and key not in ignore_tickets:
+                seen_keys.add(key)
+                all_documents.append((doc, score))
+    
+    logger.info(f"Retrieved {len(all_documents)} unique documents after filtering")
+    
+    # Fetch full document content
+    documents = await fetch_documents(state, all_documents)
+    
+    logger.info(f"Final number of documents after fetching: {len(documents)}")
+    state["documents"] = documents
+    state["retry_retrieve_count"] = state.get("retry_retrieve_count", 0) + 1
+    
+    return state
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 llm_json_mode = llm.bind(response_format={"type": "json_object"})

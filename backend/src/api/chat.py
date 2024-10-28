@@ -32,7 +32,7 @@ async def chat(request: ChatRequest,
         "project": project,
         "user_id": request.user_id,
         "documents": [],
-        "max_retries": 1,
+        "max_retries": 2,
         "api_key": api_key,
         "status": "pending"
     }
