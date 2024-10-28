@@ -8,6 +8,8 @@ from config import OPENAI_MODEL
 
 from .nodes import format_docs
 
+RETRIES_ALLOWED = 2
+
 logger = logging.getLogger(__name__)
 
 llm = ChatOpenAI(model=OPENAI_MODEL, temperature=0)
@@ -19,7 +21,7 @@ async def grade_generation_hallucination_and_usefulness(state: dict) -> str:
     question = state["question"]
     documents = state["documents"]
     generation = state["generation"]
-    max_retries = state.get("max_retries", 3)
+    max_retries = state.get("max_retries", 2)
     retry_retrieve_count = state.get("retry_retrieve_count", 0)
     ignore_tickets = state.get("ignore_tickets", [])
 
@@ -68,7 +70,7 @@ def decide_after_grading(state):
     documents = state["documents"]
     retry_retrieve_count = state.get("retry_retrieve_count", 0)
 
-    if not documents and retry_retrieve_count < 3:  # Allow up to 2 retries (3 total attempts)
+    if not documents and retry_retrieve_count < RETRIES_ALLOWED:  # ONLY 1 RETRY ALLOWED
         logger.info("---DECISION: NO RELEVANT DOCUMENTS FOUND, RETRY RETRIEVAL---")
         return "retry"
     elif not documents:
