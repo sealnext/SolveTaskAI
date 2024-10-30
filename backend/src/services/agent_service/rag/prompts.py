@@ -27,29 +27,6 @@ doc_grader_prompt = """Here is the retrieved document: \n\n {document} \n\n Here
 This carefully and objectively assess whether the document contains at least some information that is relevant to the question.
 Return JSON with single key, binary_score, that is 'yes' or 'no' score to indicate whether the document contains at least some information that is relevant to the question."""
 
-# Generation prompt
-rag_prompt = """You are an assistant for question-answering tasks. 
-You will be given a list of tickets for context, each ticket has a ticket_url, page_content and metadata.
-
-- EVERYTIME Use the metadata (such as updated_at, created_at, status, sprint, issue_type, and priority) to provide context when responding. These details can help anchor the ticket in time and status, allowing you to inform the user about when and where the ticket stands if it aids in answering their question.
-- EVERYTIME use the ticket_url for each ticket when responding, linking to it as a reference for each piece of information provided.
-- EVERYTIME Use the page_content to answer the question, this is the context you have to work with, which is divided into title, description and comments. You can use all of them to answer the question.
-
-{context} 
-
-Think carefully about the above context and use every ticket to answer the question by referencing them everytime you use the context.
-First you can aggregate the context from all tickets and give a single answer, then you can use the individual tickets to answer the question by referencing them everytime you use the context.
-Now, review the user question:
-
-{question}
-
-If you can answer the question, then use only the above context.
-Give a concise answer when possible.
-
-Answer:"""
-
-# ... existing code ...
-
 question_alternatives_instructions = """You are an expert at generating alternative search queries. 
 Given an original question, generate 5 alternative phrasings that:
 1. Maintain the core intent of the original question
@@ -62,3 +39,4 @@ question_alternatives_prompt = """Original question: {question}
 
 Generate 5 alternative ways to ask this question that might help retrieve different but relevant documents.
 Return JSON with a single key "alternatives" containing an array of 5 strings."""
+
