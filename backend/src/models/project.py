@@ -18,6 +18,7 @@ class Project(Base):
     api_keys = relationship("APIKey", secondary=api_key_project_association, back_populates="projects")
     embeddings = relationship("Embedding", back_populates="project")
     users = relationship("User", secondary=user_project_association, back_populates="projects")
+    chat_sessions = relationship("ChatSession", back_populates="project")
 
     def __repr__(self):
         return f"<Project(id={self.id}, name={self.name})>"

@@ -1,3 +1,4 @@
+from repositories import ChatSessionRepository
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.session import get_db
@@ -35,3 +36,6 @@ async def get_project_service(project_repo: ProjectRepository = Depends(get_proj
 
 async def get_apikey_service(repo: APIKeyRepository = Depends(get_api_key_repository)):
     return APIKeyService(repo)
+
+async def get_chat_session_repository(db: AsyncSession = Depends(get_db)):
+    return ChatSessionRepository(db)

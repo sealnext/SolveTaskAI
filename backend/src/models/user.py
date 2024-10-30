@@ -22,5 +22,8 @@ class User(Base):
     # Relația many-to-many cu proiectele
     projects = relationship("Project", secondary=user_project_association, back_populates="users")
 
+    # Add to existing relationships
+    chat_sessions = relationship("ChatSession", back_populates="user")
+
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email}, full_name={self.full_name})>"
