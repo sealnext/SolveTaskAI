@@ -3,4 +3,20 @@ from .cookie_schema import CookieSettings
 from .project_schema import ExternalProjectSchema, ProjectUpdate, InternalProjectSchema, InternalProjectCreate  
 from .api_key_schema import APIKeySchema, APIKeyCreate, APIKeyResponse
 from .ticket_schema import JiraIssueSchema, Ticket, JiraIssueContentSchema
-__all__ = ["UserCreate", "UserRead", "CookieSettings", "ExternalProjectSchema", "ProjectUpdate", "APIKeySchema", "InternalProjectSchema", "InternalProjectCreate", "JiraIssueSchema", "Ticket", "JiraIssueContentSchema"]
+from .chat_schema import QuestionRequest, QuestionResponse
+
+__all__ = [
+    "UserCreate",
+    "UserRead", 
+    "CookieSettings",
+    "ExternalProjectSchema",
+    "ProjectUpdate",
+    "APIKeySchema",
+    "InternalProjectSchema",
+    "InternalProjectCreate",
+    "JiraIssueSchema",
+    "Ticket",
+    "JiraIssueContentSchema",
+    "QuestionRequest",
+    "QuestionResponse"
+]

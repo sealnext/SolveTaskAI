@@ -11,12 +11,14 @@ from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
 import logging
 from services.data_extractor import create_data_extractor
-from .prompts import doc_grader_instructions, doc_grader_prompt, rag_prompt, question_alternatives_instructions, question_alternatives_prompt
+from .prompts import doc_grader_instructions, doc_grader_prompt
 import asyncio
 
 logger = logging.getLogger(__name__)
 
 embeddings_model = OpenAIEmbeddings(model=OPENAI_EMBEDDING_MODEL)
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+llm_json_mode = llm.bind(response_format={"type": "json_object"})
 
 # Create a SQLAlchemy engine
 engine = create_async_engine(DATABASE_URL)
@@ -33,7 +35,6 @@ def create_vector_store(unique_identifier_project: str):
         async_mode=True
     )
 
-# Self Rag Nodes
 async def retrieve_documents(state):
     logger.info("--- Retrieving documents node ---")
     question = state["question"]
@@ -61,76 +62,42 @@ async def retrieve_documents(state):
     
     documents = await fetch_documents(state, documents_with_scores)
     
-    logger.debug(f"My Documents: {documents}")
+    logger.debug(f"Retrieved documents: {documents}")
     logger.info(f"Retrieved {len(documents)} documents")
 
     state["documents"] = documents
     state["retry_retrieve_count"] = retry_retrieve_count + 1
     return state
 
-
 async def retry_retrieve_documents(state):
-    logger.info("--- Retry Retrieve Documents Node (with alternatives) ---")
+    logger.info("--- Retry Retrieve Documents Node ---")
     question = state["question"]
     ignore_tickets = state.get("ignore_tickets", [])
     
-    # Generate alternative questions
-    logger.info(f"Generating alternatives for question: {question}")
-    alternatives_prompt = question_alternatives_prompt.format(question=question)
-    result = await llm_json_mode.ainvoke([
-        SystemMessage(content=question_alternatives_instructions),
-        HumanMessage(content=alternatives_prompt)
-    ])
+    query_embedding = await embeddings_model.aembed_query(question)
     
-    alternative_questions = json.loads(result.content)["alternatives"]
-    alternative_questions.append(question)  # Include original question
-    logger.info(f"Generated alternatives: {alternative_questions}")
-    
-    # Generate embeddings for all questions in parallel
-    logger.info("Generating embeddings for all questions")
-    embeddings_tasks = [
-        embeddings_model.aembed_query(q) for q in alternative_questions
-    ]
-    query_embeddings = await asyncio.gather(*embeddings_tasks)
-    
-    # Setup vector store
     unique_identifier_project = f"{re.sub(r'^https?://|/$', '', state['project'].domain)}/{state['project'].key}/{state['project'].internal_id}"
     vector_store = create_vector_store(unique_identifier_project)
     
-    # Retrieve documents for each embedding in parallel
-    logger.info("Retrieving documents for all embeddings")
-    retrieve_tasks = [
-        vector_store.asimilarity_search_with_score_by_vector(
-            embedding,
-            k=NUMBER_OF_DOCS_TO_RETRIEVE
-        ) for embedding in query_embeddings
-    ]
-    all_documents_with_scores = await asyncio.gather(*retrieve_tasks)
+    k = NUMBER_OF_DOCS_TO_RETRIEVE * 2  # Try with double the documents on retry
+    documents_with_scores = await vector_store.asimilarity_search_with_score_by_vector(
+        query_embedding,
+        k=k,
+    )
     
-    # Flatten and filter documents
-    all_documents = []
-    seen_keys = set()
+    # Filter out ignored tickets
+    documents_with_scores = [
+        (doc, score) for doc, score in documents_with_scores 
+        if doc.metadata["key"] not in ignore_tickets
+    ][:NUMBER_OF_DOCS_TO_RETRIEVE]
     
-    for docs_with_scores in all_documents_with_scores:
-        for doc, score in docs_with_scores:
-            key = doc.metadata["key"]
-            if key not in seen_keys and key not in ignore_tickets:
-                seen_keys.add(key)
-                all_documents.append((doc, score))
+    documents = await fetch_documents(state, documents_with_scores)
     
-    logger.info(f"Retrieved {len(all_documents)} unique documents after filtering")
-    
-    # Fetch full document content
-    documents = await fetch_documents(state, all_documents)
-    
-    logger.info(f"Final number of documents after fetching: {len(documents)}")
+    logger.info(f"Retrieved {len(documents)} documents on retry")
     state["documents"] = documents
     state["retry_retrieve_count"] = state.get("retry_retrieve_count", 0) + 1
     
     return state
-
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-llm_json_mode = llm.bind(response_format={"type": "json_object"})
 
 async def grade_documents(state: AgentState) -> dict:
     logger.info("--- Grading documents node ---")
@@ -169,31 +136,6 @@ async def grade_documents(state: AgentState) -> dict:
     state["documents"] = filtered_docs
     state["ignore_tickets"] = list(set(ignore_tickets))  # Remove duplicates
     return state
-
-def format_docs(docs):
-    formatted_docs = [
-        f"Ticket {i+1}: '{doc.metadata.get('ticket_url', 'No URL provided')}'\n\n"
-        f"page_content={json.dumps(doc.page_content.__dict__, indent=2)}\n\n"
-        f"metadata={json.dumps(doc.metadata, indent=2)}"
-        for i, doc in enumerate(docs)
-    ]
-    
-    return f"There are {len(docs)} contextual tickets for you to use:\n\n" + "\n\n".join(formatted_docs)
-
-def generate(state):
-    logger.info("--- Generate node ---")
-    
-    question = state["question"]
-    documents = state["documents"]
-    loop_step = state.get("loop_step", 0)
-
-    # RAG generation
-    logger.info(f"Documents before formatting: {documents}")
-    docs_txt = format_docs(documents)
-    logger.info(f"Documents formatted being used to generate: {docs_txt}")
-    rag_prompt_formatted = rag_prompt.format(context=docs_txt, question=question)
-    generation = llm.invoke([HumanMessage(content=rag_prompt_formatted)])
-    return {"generation": generation, "loop_step": loop_step + 1}
 
 async def fetch_documents(state, documents_with_scores):
     data_extractor = create_data_extractor(state["api_key"])

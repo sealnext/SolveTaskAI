@@ -47,3 +47,10 @@ Enhanced Logging: Improve logging for tracking and error handling.
 - cache the pgvector so we dont need to create a new connection every time
 
 - if no context is found at retrieval, try to make multiple generations of the same questions, and retrieve again, until we find context or we run out of generations.
+
+- Instead of using the original user question as a query to the database, it is typical to rewrite the question for optimized retrieval. For example, we can use the HyDE method.
+
+- foloseste ensure_config in loc de state in graph pentru
+a salvat date sensitive, deoarece state e salvat in memory la un moment dat.
+
+- foloseste checkpoint la graph pentru a fi salvat in baza de date si sa nu se mai piarda chat-ul.
