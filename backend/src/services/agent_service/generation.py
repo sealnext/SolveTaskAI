@@ -39,8 +39,18 @@ class ResponseGenerator:
                 "\n3. Only answer without RetrieveDocuments if you have sufficient context in chat history."
                 "\n4. Keep answers concise where possible; expand only for complex inquiries."
             ),
-            ("human", "Chat History:\n{chat_history}\n\nQuestion: {question}\n\nNOTE: If chat_history is empty, you MUST use RetrieveDocuments first!")
-        ])
+            ("human", """Previous Context:
+            {chat_history}
+
+            Current Question:
+            {question}
+
+            Instructions:
+            - If there is no previous context above, you MUST use RetrieveDocuments first
+            - If the previous context exists but doesn't help answer the current question, use RetrieveDocuments
+            - If the current question asks you to retrieve or search for information unrelated to the previous context, use RetrieveDocuments
+            - Only use existing context if it's directly relevant to the current question""")
+            ])
 
     def _format_docs(self, documents: List[dict]) -> str:
         """Format documents for the prompt."""
@@ -56,8 +66,9 @@ class ResponseGenerator:
         
         return f"Retrieved documents:\n\n" + "\n\n".join(formatted_docs)
 
-    async def generate_response(self, question: str, chat_history: str = "") -> str:
-        """Generate a response using chat history and retrieving documents if needed."""
+    async def generate_response(self, question: str, chat_history: str = "") -> tuple[str, Optional[str]]:
+        """Generate a response using chat history and retrieving documents if needed.
+        Returns tuple of (answer, context) where context might be None if no new documents were retrieved."""
         logger.info("Generating response")
         logger.debug(f"Chat history exists: {bool(chat_history)}")
         
@@ -98,6 +109,14 @@ class ResponseGenerator:
                 documents = await retrieve_tool.invoke(search_question)
                 logger.info(f"Retrieved {len(documents)} documents")
                 
+                # If no documents found, return a default response
+                if not documents:
+                    return (
+                        "I couldn't find relevant information in this project's tickets or docs. "
+                        "Please try asking about the project's tickets, issues, or development workflow instead.",
+                        None
+                    )
+                
                 # Format documents for context
                 context = self._format_docs(documents)
                 
@@ -114,6 +133,6 @@ Remember to:
 3. Keep the answer concise if the question is simple
 """
                 final_response = await self.llm.ainvoke([HumanMessage(content=final_prompt)])
-                return final_response.content
+                return final_response.content, context
         
-        return response.content
+        return response.content, None
