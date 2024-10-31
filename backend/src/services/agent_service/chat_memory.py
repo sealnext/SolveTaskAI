@@ -1,7 +1,8 @@
-from typing import List, Optional
+from typing import List
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from repositories.chat_session_repository import ChatSessionRepository
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -9,12 +10,51 @@ class ChatMemory:
     def __init__(self, chat_session_repository: ChatSessionRepository):
         self.repository = chat_session_repository
 
+    def filter_messages(self, messages: List[dict], window_size: int = 4, system_window: int = 3) -> List[dict]:
+        """Filter messages to keep only the most recent unique context and system messages.
+        
+        Args:
+            messages: List of messages
+            window_size: Number of message pairs to keep (default 4 pairs = last 8 messages)
+            system_window: Number of most recent unique system messages to keep (default 3)
+        """
+        # Separate system messages (context) from conversation messages
+        system_messages = [msg for msg in messages if isinstance(msg, SystemMessage)]
+        conversation_messages = [msg for msg in messages if not isinstance(msg, SystemMessage)]
+        
+        logger.debug(f"Total messages: {len(messages)}, System messages: {len(system_messages)}, "
+                    f"Conversation messages: {len(conversation_messages)}")
+        
+        # Remove duplicates from system messages while preserving order
+        unique_system = []
+        seen_content = set()
+        for msg in reversed(system_messages):  # Process from newest to oldest
+            if msg.content not in seen_content:
+                unique_system.append(msg)
+                seen_content.add(msg.content)
+                if len(unique_system) >= system_window:
+                    break
+        
+        # Reverse back to maintain chronological order
+        unique_system.reverse()
+        
+        # Keep last n conversation messages
+        filtered_conversation = conversation_messages[-window_size * 2:] if conversation_messages else []
+        
+        # Combine filtered system messages with filtered conversation
+        filtered = unique_system + filtered_conversation
+        
+        logger.debug(f"Filtered to {len(filtered)} messages: {len(unique_system)} unique system + "
+                    f"{len(filtered_conversation)} conversation")
+        
+        return filtered
+
     async def get_chat_history(self, chat_id: str) -> List[dict]:
-        """Get chat history for a specific chat ID."""
+        """Get filtered chat history for a specific chat ID."""
         messages = await self.repository.get_messages(chat_id)
         logger.debug(f"Retrieved history for {chat_id}: {len(messages)} messages")
         
-        # Convert stored messages back to LangChain message objects
+        # Convert stored messages to LangChain message objects
         converted_messages = []
         for msg in messages:
             if msg["type"] == "human":
@@ -24,7 +64,10 @@ class ChatMemory:
             elif msg["type"] == "system":
                 converted_messages.append(SystemMessage(content=msg["content"]))
         
-        return converted_messages
+        # Filter messages before returning
+        filtered_messages = self.filter_messages(converted_messages)
+        logger.debug(f"Returning {len(filtered_messages)} filtered messages")
+        return filtered_messages
 
     async def has_history(self, chat_id: str) -> bool:
         """Check if there is any history for this chat ID."""
