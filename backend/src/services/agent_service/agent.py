@@ -31,11 +31,11 @@ class Agent:
         
         try:
             # Get chat history
-            chat_history = await self.memory.get_chat_history(chat_id)
-            formatted_history = self.memory.format_chat_history(chat_history)
+            messages = await self.memory.get_chat_history(chat_id)
+            logger.debug(f"Retrieved {len(messages)} messages for processing")
             
             # Generate response and get context if any
-            answer, context = await self.generator.generate_response(question, formatted_history)
+            answer, context = await self.generator.generate_response(question, messages)
             
             # Add to chat history with context if available
             await self.memory.add_to_chat_history(chat_id, question, answer, context)

@@ -8,6 +8,7 @@ from .rag.prompts import after_generation_instructions, after_generation_prompt
 from .rag.specialized_rag import RetrieveDocuments
 from models import Project
 from models.apikey import APIKey
+from langchain_core.messages import AIMessage
 
 logger = logging.getLogger(__name__)
 
@@ -17,60 +18,36 @@ class ResponseGenerator:
         self.project = project
         self.api_key = api_key
         
-        # Define the main prompt with RetrieveDocuments as a tool
+        # Modificăm prompt-ul pentru a fi mai flexibil în decizia de a folosi tool-ul
         self.prompt = ChatPromptTemplate.from_messages([
             (
                 "system",
-                "You are a specialized ticketing assistant helping users analyze and understand tickets, issues, and project documents from Jira, Confluence, and Azure DevOps."
+                "You are a specialized ticketing assistant helping users analyze and understand tickets, issues, and project documents."
                 "\n\nYour Role:"
-                "\n- Answer user questions about tickets, development issues, and project documentation."
-                "\n- ALWAYS use RetrieveDocuments when there is no context or chat history available."
-                "\n- Use RetrieveDocuments when the existing context is insufficient."
-                "\n- Use chat history for context when available and sufficient."
-                "\n\nGuidelines for Using Ticket Information:"
-                "\n- **Always** include metadata (updated_at, created_at, status, sprint, issue_type, priority) for context, but **only** when needed and if it aids in answering the question. If the question is simple, answer in a simple manner."
-                "\n- Link to ticket URLs when referencing information."
-                "\n\nResponse Formatting:"
-                "\n- For simple questions (e.g., 'Who solved this bug?'), give a brief, direct answer with only the essential information, such as the name and ticket link."
-                "\n- For complex questions, provide an overview first, followed by detailed references and metadata."
-                "\n\nIMPORTANT RULES:"
-                "\n1. If there is NO chat history or context, you MUST use RetrieveDocuments first."
-                "\n2. If chat history exists but doesn't contain relevant information, use RetrieveDocuments."
-                "\n3. Only answer without RetrieveDocuments if you have sufficient context in chat history."
-                "\n4. Keep answers concise where possible; expand only for complex inquiries."
+                "\n- Answer user questions about tickets and project documentation."
+                "\n- Use existing context when sufficient."
+                "\n- Don't use RetrieveDocuments unless necessary is really really necessary:"
+                "\n  1. There is no context at all"
+                "\n  2. The existing context doesn't contain the specific information needed"
+                "\n  3. The question asks about different tickets or aspects not covered in current context"
+                "\n\nImportant:"
+                "\n- If the current context contains the information needed, use it instead of retrieving new documents"
+                "\n- Don't use RetrieveDocuments just because a question mentions tickets - check if current context is sufficient first"
             ),
-            ("human", """Previous Context:
+            ("human", """Previous conversation and context:
             {chat_history}
-
-            Current Question:
-            {question}
-
-            Instructions:
-            - If there is no previous context above, you MUST use RetrieveDocuments first
-            - If the previous context exists but doesn't help answer the current question, use RetrieveDocuments
-            - If the current question asks you to retrieve or search for information unrelated to the previous context, use RetrieveDocuments
-            - Only use existing context if it's directly relevant to the current question""")
-            ])
-
-    def _format_docs(self, documents: List[dict]) -> str:
-        """Format documents for the prompt."""
-        if not documents:
-            return ""
             
-        formatted_docs = [
-            f"Ticket {i+1}: '{doc.metadata.get('ticket_url', 'No URL provided')}'\n\n"
-            f"Content: {doc.page_content}\n\n"
-            f"Metadata: {doc.metadata}"
-            for i, doc in enumerate(documents)
-        ]
-        
-        return f"Retrieved documents:\n\n" + "\n\n".join(formatted_docs)
+            Current question: {question}
+            
+            Before using RetrieveDocuments, analyze if the existing context contains the information needed.""")
+        ])
 
-    async def generate_response(self, question: str, chat_history: str = "") -> tuple[str, Optional[str]]:
-        """Generate a response using chat history and retrieving documents if needed.
-        Returns tuple of (answer, context) where context might be None if no new documents were retrieved."""
+    async def generate_response(self, question: str, chat_history: List[dict]) -> tuple[str, Optional[str]]:
+        """Generate a response using filtered chat history and retrieving documents if needed."""
         logger.info("Generating response")
-        logger.debug(f"Chat history exists: {bool(chat_history)}")
+        
+        # Format chat history for the prompt
+        formatted_history = self._format_chat_history(chat_history) if chat_history else ""
         
         # Create tool with project and api_key
         retrieve_tool = RetrieveDocuments(
@@ -78,20 +55,15 @@ class ResponseGenerator:
             api_key=self.api_key
         )
         
-        # Force tool usage if no chat history
-        tool_choice = {
-            "type": "function",
-            "function": {"name": "RetrieveDocuments"}
-        } if not chat_history else "auto"
-        
+        # Let the LLM decide when to use the tool based on the system prompt
         chain = self.prompt | self.llm.bind_tools(
             [retrieve_tool.to_tool()],
-            tool_choice=tool_choice
+            tool_choice="auto"
         )
         
         response = await chain.ainvoke({
             "question": question,
-            "chat_history": chat_history
+            "chat_history": formatted_history
         })
         
         logger.debug(f"Response has tool calls: {bool(response.tool_calls)}")
@@ -111,11 +83,34 @@ class ResponseGenerator:
                 
                 # If no documents found, return a default response
                 if not documents:
-                    return (
-                        "I couldn't find relevant information in this project's tickets or docs. "
-                        "Please try asking about the project's tickets, issues, or development workflow instead.",
-                        None
-                    )
+                    # Generăm un răspuns mai inteligent bazat pe contextul existent
+                    no_docs_prompt = f"""
+                    No direct information was found in the project's documentation for this question.
+
+                    Previous conversation context:
+                    {formatted_history}
+
+                    Current question: {question}
+
+                    Instructions:
+                    1. If the question is related to the previous context or project discussions, provide an informed response. Always highlight any uncertainties and the basis for your conclusions.
+                    2. If the question is unrelated to the project, politely explain that responses are limited to project-specific topics and guide the user towards relevant queries.
+                    3. Encourage rephrasing or refining the question if it seems vague or off-topic.
+                    4. Never answer questions that are not related to the project, even if the user insists.
+
+                    System Guardrails:
+                    - Use content filters to automatically check for off-topic or inappropriate content.
+                    - Implement monitoring to ensure responses remain within the scope of project-related discussions.
+                    - Configure the system to provide alerts for potential override attempts or off-topic inquiries.
+
+                    Remember to:
+                    - Clearly articulate the level of certainty in your response.
+                    - Explain the reasoning behind the ability or inability to provide a specific answer.
+                    - Suggest alternative phrasings or further questions that could lead to more precise information related to the project, because you couldn't find anything in the project's data.
+                    """
+
+                    uncertain_response = await self.llm.ainvoke([HumanMessage(content=no_docs_prompt)])
+                    return uncertain_response.content, None
                 
                 # Format documents for context
                 context = self._format_docs(documents)
@@ -123,16 +118,46 @@ class ResponseGenerator:
                 # Generate final response with retrieved context
                 final_prompt = f"""Based on the following context:
 
-{context}
+                {context}
 
-Answer the question: {question}
+                Answer the question: {question}
 
-Remember to:
-1. Reference specific tickets when providing information
-2. Include relevant metadata
-3. Keep the answer concise if the question is simple
-"""
+                Remember to:
+                1. Reference specific tickets when providing information
+                2. Include relevant metadata
+                3. Keep the answer concise if the question is simple
+                """
                 final_response = await self.llm.ainvoke([HumanMessage(content=final_prompt)])
                 return final_response.content, context
         
         return response.content, None
+
+    def _format_docs(self, documents: List[dict]) -> str:
+        """Format documents for the prompt."""
+        if not documents:
+            return ""
+            
+        formatted_docs = [
+            f"Ticket {i+1}: '{doc.metadata.get('ticket_url', 'No URL provided')}'\n\n"
+            f"Content: {doc.page_content}\n\n"
+            f"Metadata: {doc.metadata}"
+            for i, doc in enumerate(documents)
+        ]
+        
+        return f"Retrieved documents:\n\n" + "\n\n".join(formatted_docs)
+
+    def _format_chat_history(self, messages: List[dict]) -> str:
+        """Format chat history for the prompt."""
+        if not messages:
+            return ""
+            
+        formatted = []
+        for msg in messages:
+            if isinstance(msg, SystemMessage):
+                formatted.append(f"Context: {msg.content}")
+            elif isinstance(msg, HumanMessage):
+                formatted.append(f"Human: {msg.content}")
+            elif isinstance(msg, AIMessage):
+                formatted.append(f"Assistant: {msg.content}")
+        
+        return "\n".join(formatted)
