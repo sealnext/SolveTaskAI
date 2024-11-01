@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 import SpatialTooltip from "@/components/SpatialTooltip"
@@ -12,13 +12,13 @@ import { ProfileMenuComponent } from "@/components/ProfileMenu";
 import ApiClient from "@/lib/apiClient";
 import ProjectSelector from "@/components/ProjectSelector";
 import ProjectManager from "@/components/ProjectManagerPopup/ProjectManager";
-import { log } from "console";
 
 interface Message {
   id: string;
   text: string;
   sender: 'user' | 'ai';
   isHtml?: boolean;
+  animate?: boolean;
 }
 
 interface Project {
@@ -31,11 +31,14 @@ interface Project {
 export default function ChatPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const chatId = searchParams.get('chat_id');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [showProjectManager, setShowProjectManager] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<Message | null>(null);
 
   // Memoize the API client to prevent it from being recreated on each render
   const apiclient = useMemo(() => ApiClient(), []);
@@ -64,60 +67,81 @@ export default function ChatPage() {
   };
 
   const handleSendMessage = useCallback(async (message: string) => {
+    if (!selectedProjectId) {
+      return;
+    }
+
     const newUserMessage: Message = {
       id: uuidv4(),
       text: message,
       sender: 'user'
     };
     setMessages(prevMessages => [...prevMessages, newUserMessage]);
+    
+    setLoadingMessage({
+      id: 'loading',
+      text: '',
+      sender: 'ai'
+    });
     setIsLoading(true);
 
     try {
-      // Aici ar trebui să fie apelul real către API
-      // const data = await response.json();
-     
-      const response = await apiclient.post('/projects/external', {
-        service_type: "jira",
-        api_key: "YOUR_ATLASSIAN_TOKEN_HERE",
-        domain: "https://sealnext.atlassian.net/",
-        domain_email: "ovidiu@sealnext.com"
-      });
-      // [
-      //     {
-      //       "name": "project zugravii",
-      //       "key": "PZ",
-      //       "id": "10001",
-      //       "avatarUrl": "https://sealnext.atlassian.net/rest/api/2/universal_avatar/view/type/project/avatar/10418",
-      //       "projectTypeKey": "software",
-      //       "style": "next-gen"
-      //   },
-      //   {
-      //       "name": "ScrumProjectNr1",
-      //       "key": "SCRUM",
-      //       "id": "10000",
-      //       "avatarUrl": "https://sealnext.atlassian.net/rest/api/2/universal_avatar/view/type/project/avatar/10402",
-      //       "projectTypeKey": "software",
-      //       "style": "next-gen"
-      //   }
-      // ]
-      
-      // Simulăm un răspuns de la AI pentru demonstrație
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      const requestBody = {
+        question: message,
+        project_id: selectedProjectId,
+        user_id: session?.user?.id,
+        ...(chatId && { chat_id: chatId })
+      };
+
+      const response = await apiclient.post('/chat', requestBody);
+      const { answer, chat_id } = response.data;
+
+      if (!chatId) {
+        router.push(`/chat?chat_id=${chat_id}`);
+      }
+
       const aiResponse: Message = {
         id: uuidv4(),
-        text: `The User Registration Bug (JIRA-3005) is being fixed, expected by October 10, 2024. The Payment Gateway Integration (JIRA-3010) is complete as of October 3, 2024.`,
+        text: answer,
         sender: 'ai',
-        isHtml: true
+        isHtml: true,
+        animate: true
       };
 
       setMessages(prevMessages => [...prevMessages, aiResponse]);
     } catch (error) {
       console.error('Error sending message:', error);
-      // Aici puteți adăuga o notificare de eroare pentru utilizator
     } finally {
+      setLoadingMessage(null);
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedProjectId, chatId, session?.user?.id, router, apiclient]);
+
+  // Add a useEffect to load existing chat messages if chat_id exists
+  useEffect(() => {
+    const loadExistingChat = async () => {
+      if (chatId) {
+        try {
+          const response = await apiclient.get(`/chat/${chatId}`);
+          const chatHistory = response.data.messages.map((msg: any) => ({
+            id: uuidv4(),
+            text: msg.content,
+            sender: msg.role === 'user' ? 'user' : 'ai',
+            isHtml: msg.role === 'ai',
+            animate: false
+          }));
+          setMessages(chatHistory);
+        } catch (error) {
+          console.error('Error loading chat history:', error);
+        }
+      } else {
+        // Clear messages for new chat
+        setMessages([]);
+      }
+    };
+
+    loadExistingChat();
+  }, [chatId, apiclient]);
 
   const handleCloseApiKeyManager = () => {
     setShowProjectManager(false);
@@ -152,7 +176,7 @@ export default function ChatPage() {
       <SpatialTooltip />
       
       <div className="flex-grow overflow-hidden">
-        <Chat messages={messages} />
+        <Chat messages={messages} loadingMessage={loadingMessage} />
       </div>
 
       <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 w-3/4 max-w-4xl flex items-center space-x-4">

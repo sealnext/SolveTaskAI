@@ -6,13 +6,16 @@ interface Message {
   id: string;
   text: string;
   sender: 'user' | 'ai';
+  isHtml?: boolean;
+  animate?: boolean;
 }
 
 interface ChatProps {
   messages: Message[];
+  loadingMessage?: Message;
 }
 
-const Chat: React.FC<ChatProps> = ({ messages }) => {
+const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [typingMessage, setTypingMessage] = useState<Message | null>(null);
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
@@ -27,7 +30,7 @@ const Chat: React.FC<ChatProps> = ({ messages }) => {
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       setLastMessageId(lastMessage.id);
-      if (lastMessage.sender === 'ai') {
+      if (lastMessage.sender === 'ai' && lastMessage.animate) {
         setTypingMessage(lastMessage);
       }
     }
@@ -86,7 +89,7 @@ const Chat: React.FC<ChatProps> = ({ messages }) => {
                         : 'bg-backgroundSecondary text-foreground'
                     } max-w-[70%]`}
                   >
-                    {message.sender === 'ai' && typingMessage?.id === message.id ? (
+                    {message.sender === 'ai' && message.animate && typingMessage?.id === message.id ? (
                       <TypewriterEffect message={message} />
                     ) : (
                       <div dangerouslySetInnerHTML={{ 
@@ -96,6 +99,24 @@ const Chat: React.FC<ChatProps> = ({ messages }) => {
                   </div>
                 </div>
               ))}
+              
+              {loadingMessage && (
+                <div className="flex justify-start items-start px-8 animate-fade-in">
+                  <div className="mr-2 mt-1">
+                    <div className="w-7 h-7 rounded-full border-2 border-muted flex items-center justify-center">
+                      <MdSupportAgent className="text-foreground-secondary text-lg" />
+                    </div>
+                  </div>
+                  <div className="rounded-xl p-3 bg-backgroundSecondary text-foreground max-w-[70%]">
+                    <div className="flex items-center space-x-1">
+                      <span className="animate-bounce">.</span>
+                      <span className="animate-bounce" style={{ animationDelay: "0.2s" }}>.</span>
+                      <span className="animate-bounce" style={{ animationDelay: "0.4s" }}>.</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div ref={messagesEndRef} />
             </div>
           </div>
