@@ -131,6 +131,11 @@ export default function ChatPage() {
             animate: false
           }));
           setMessages(chatHistory);
+          
+          if (response.data.project_id) {
+            setSelectedProjectId(response.data.project_id);
+          }
+          
         } catch (error) {
           console.error('Error loading chat history:', error);
         }
