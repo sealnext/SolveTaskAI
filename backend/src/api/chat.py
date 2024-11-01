@@ -44,7 +44,10 @@ async def get_chat_history(
             }
             formatted_messages.append(formatted_message)
         
-        return {"messages": formatted_messages}
+        return {
+            "messages": formatted_messages,
+            "project_id": chat_session.project_id
+        }
         
     except Exception as e:
         logger.error(f"Error retrieving chat history: {str(e)}")
