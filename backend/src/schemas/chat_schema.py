@@ -5,7 +5,6 @@ class QuestionRequest(BaseModel):
     """Schema for chat request"""
     question: str = Field(..., description="The question to be answered")
     project_id: int = Field(..., description="ID of the project")
-    user_id: int = Field(..., description="ID of the user making the request")
     chat_id: Optional[str] = Field(None, description="ID of the chat session")
     
     class Config:
@@ -13,7 +12,6 @@ class QuestionRequest(BaseModel):
             "example": {
                 "question": "What are the main features implemented in the last sprint?",
                 "project_id": 1,
-                "user_id": 1,
                 "chat_id": "chat_123"
             }
         }
