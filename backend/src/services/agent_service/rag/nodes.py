@@ -108,15 +108,34 @@ async def grade_documents(state: AgentState) -> dict:
 
     async def grade_single_document(doc):
         logger.debug(f"Grading document: {doc}")
+        
+        metadata = {
+            "key": doc.metadata["key"],
+        }
+        
+        optional_fields = [
+            "status", "priority", "sprint", "created_at", "issue_type", "ticket_url", "updated_at"
+        ]
+        
+        for field in optional_fields:
+            if field in doc.metadata:
+                metadata[field] = doc.metadata[field]
+        
         doc_grader_prompt_formatted = doc_grader_prompt.format(
-            document=doc.page_content, question=question
+            document=doc.page_content,
+            metadata=json.dumps(metadata, indent=2),
+            question=question
         )
+        
         result = await llm_json_mode.ainvoke(
             [SystemMessage(content=doc_grader_instructions)]
             + [HumanMessage(content=doc_grader_prompt_formatted)]
         )
         grade = json.loads(result.content)["binary_score"]
-        logger.debug(f"Grade result: {grade}")
+        logger.debug(f"Grade result: {grade} for ticket {metadata['key']}")
+        
+        # Attach the metadata to the document for later use
+        doc.metadata.update(metadata)
         return doc, grade.lower() == "yes"
 
     # Run grading for all documents in parallel
@@ -127,10 +146,10 @@ async def grade_documents(state: AgentState) -> dict:
     filtered_docs = []
     for doc, is_relevant in grading_results:
         if is_relevant:
-            logger.debug("Document graded as relevant")
+            logger.debug(f"Document {doc.metadata['key']} graded as relevant")
             filtered_docs.append(doc)
         else:
-            logger.debug("Document graded as not relevant")
+            logger.debug(f"Document {doc.metadata['key']} graded as not relevant")
             ignore_tickets.append(doc.metadata["key"])
 
     state["documents"] = filtered_docs
@@ -146,6 +165,33 @@ async def fetch_documents(state, documents_with_scores):
     documents = []
     for (doc, score), fetched_doc in zip(documents_with_scores, fetched_documents):
         doc.page_content = fetched_doc.content
+        # Update metadata with available fields from fetched ticket
+        metadata = {
+            "key": doc.metadata["key"],
+            "content": fetched_doc.content,
+        }
+        
+        # Safely add optional fields if they exist
+        if hasattr(fetched_doc, 'summary'):
+            metadata["title"] = fetched_doc.summary
+        if hasattr(fetched_doc, 'status'):
+            metadata["status"] = fetched_doc.status
+        if hasattr(fetched_doc, 'priority'):
+            metadata["priority"] = fetched_doc.priority
+        if hasattr(fetched_doc, 'assignee'):
+            metadata["assignee"] = fetched_doc.assignee
+        if hasattr(fetched_doc, 'reporter'):
+            metadata["reporter"] = fetched_doc.reporter
+        if hasattr(fetched_doc, 'created'):
+            metadata["created"] = fetched_doc.created
+        if hasattr(fetched_doc, 'updated'):
+            metadata["updated"] = fetched_doc.updated
+        if hasattr(fetched_doc, 'labels'):
+            metadata["labels"] = fetched_doc.labels
+        if hasattr(fetched_doc, 'issue_type'):
+            metadata["type"] = fetched_doc.issue_type
+            
+        doc.metadata.update(metadata)
         documents.append(doc)
     
     return documents

@@ -68,7 +68,7 @@ export default function ChatPage() {
 
   const handleSendMessage = useCallback(async (message: string) => {
     if (!selectedProjectId) {
-      return;
+      throw new Error("Please select a project before sending a message");
     }
 
     const newUserMessage: Message = {
@@ -132,10 +132,10 @@ export default function ChatPage() {
           }));
           setMessages(chatHistory);
           
+          // Setăm project_id-ul din chat session
           if (response.data.project_id) {
             setSelectedProjectId(response.data.project_id);
           }
-          
         } catch (error) {
           console.error('Error loading chat history:', error);
         }
@@ -190,14 +190,16 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <div className="fixed bottom-8 right-4 w-1/8 h-14">
-        <ProjectSelector 
-          projects={projects}
-          selectedProjectId={selectedProjectId}
-          onSelectProject={handleProjectSelect}
-          onAddNewProject={() => setShowProjectManager(true)}
-        />
-      </div>
+      {!chatId && (
+        <div className="fixed bottom-8 right-4 w-1/8 h-14">
+          <ProjectSelector 
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onSelectProject={handleProjectSelect}
+            onAddNewProject={() => setShowProjectManager(true)}
+          />
+        </div>
+      )}
 
       {showProjectManager && (
         <ProjectManager 

@@ -37,8 +37,59 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
   }, [messages]);
 
   const formatJiraTickets = (text: string) => {
-    return text.replace(/JIRA-\d+/g, (match) => 
-      `<span class="text-blue-500 cursor-pointer">${match}</span>`
+    const jiraPattern = /\[([A-Z]+-\d+)\]\((.*?)\)/g;
+    return text.replace(jiraPattern, (match, ticketId, url) => 
+      `<a href="${url}" target="_blank" class="text-blue-500 hover:underline">${ticketId}</a>`
+    );
+  };
+
+  const formatText = (text: string) => {
+    let processedText = text
+      .replace(/\\n\\n/g, '\n\n')
+      .replace(/\\n/g, '\n');
+    
+    processedText = processedText
+      .replace(/\n\n/g, '<br><br>')
+      .replace(/\n/g, '<br>');
+    
+    processedText = formatJiraTickets(processedText);
+
+    processedText = processedText.replace(
+      /\*\*(.*?)\*\*/g, 
+      '<strong class="font-bold">$1</strong>'
+    );
+
+    processedText = processedText.replace(
+      /\*(.*?)\*/g, 
+      '<em class="italic">$1</em>'
+    );
+
+    processedText = processedText.replace(
+      /`(.*?)`/g, 
+      '<code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">$1</code>'
+    );
+
+    processedText = processedText.replace(
+      /```([\s\S]*?)```/g,
+      '<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>$1</code></pre>'
+    );
+
+    return processedText;
+  };
+
+  const formatMessage = (message: Message) => {
+    const formattedText = formatText(message.text);
+    
+    return (
+      <div 
+        className="markdown-content"
+        dangerouslySetInnerHTML={{ 
+          __html: DOMPurify.sanitize(formattedText, {
+            ALLOWED_TAGS: ['strong', 'em', 'code', 'pre', 'a', 'br'],
+            ALLOWED_ATTR: ['href', 'target', 'class']
+          }) 
+        }} 
+      />
     );
   };
 
@@ -49,7 +100,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
     useEffect(() => {
       if (currentIndex < message.text.length) {
         const timer = setTimeout(() => {
-          setDisplayText(prev => formatJiraTickets(prev + message.text[currentIndex]));
+          setDisplayText(prev => prev + message.text[currentIndex]);
           setCurrentIndex(prevIndex => prevIndex + 1);
         }, 20);
 
@@ -59,7 +110,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
       }
     }, [currentIndex, message.text]);
 
-    return <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displayText) }} />;
+    return formatMessage({ ...message, text: displayText });
   };
 
   return (
@@ -92,9 +143,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
                     {message.sender === 'ai' && message.animate && typingMessage?.id === message.id ? (
                       <TypewriterEffect message={message} />
                     ) : (
-                      <div dangerouslySetInnerHTML={{ 
-                        __html: DOMPurify.sanitize(formatJiraTickets(message.text)) 
-                      }} />
+                      formatMessage(message)
                     )}
                   </div>
                 </div>

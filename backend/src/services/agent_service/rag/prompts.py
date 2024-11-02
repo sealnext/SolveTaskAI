@@ -23,9 +23,23 @@ doc_grader_instructions = """You are a grader assessing relevance of a retrieved
 If the document contains keyword(s) or semantic meaning related to the question, grade it as relevant."""
 
 # Grader prompt
-doc_grader_prompt = """Here is the retrieved document: \n\n {document} \n\n Here is the user question: \n\n {question}. 
-This carefully and objectively assess whether the document contains at least some information that is relevant to the question.
-Return JSON with single key, binary_score, that is 'yes' or 'no' score to indicate whether the document contains at least some information that is relevant to the question."""
+doc_grader_prompt = """Please evaluate if this document is relevant for answering the user's question.
+
+Document Content:
+{document}
+
+Document Metadata:
+{metadata}
+
+User Question:
+{question}
+
+Evaluate if this document and its metadata contain information that could help answer the question.
+Return a JSON object with a binary_score field that is either "yes" or "no".
+
+Example response:
+{{"binary_score": "yes"}}
+"""
 
 question_alternatives_instructions = """You are an expert at generating alternative search queries. 
 Given an original question, generate 5 alternative phrasings that:
