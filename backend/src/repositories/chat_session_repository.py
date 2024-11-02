@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from models import ChatSession
 import logging
+from sqlalchemy import desc
 
 logger = logging.getLogger(__name__)
 
@@ -62,3 +63,20 @@ class ChatSessionRepository:
             return chat_session.messages
         logger.debug(f"No messages found for chat {chat_id}")
         return []
+
+    async def get_all_by_user_id(self, user_id: int) -> List[ChatSession]:
+        """
+        Retrieve all chat sessions for a specific user, ordered by last update date descending
+        """
+        try:
+            result = await self.session.execute(
+                select(ChatSession)
+                .where(ChatSession.user_id == user_id)
+                .order_by(desc(ChatSession.updated_at))
+            )
+            chat_sessions = result.scalars().all()
+            logger.debug(f"Retrieved {len(chat_sessions)} chat sessions for user {user_id}")
+            return list(chat_sessions)
+        except Exception as e:
+            logger.error(f"Error retrieving chat sessions for user {user_id}: {str(e)}")
+            raise

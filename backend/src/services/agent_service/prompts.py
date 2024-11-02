@@ -55,7 +55,7 @@ Remember to:
 2. Include relevant metadata
 3. Keep the answer concise if the question is simple
 4. Provide information directly without mentioning "the existing context" or similar phrases
-5. Start your response with the actual information requested"""
+5. Start your response with the actual information requested and keep the answer concise and to the point, simple and easy to understand"""
 
 # Create prompt templates
 main_prompt_template = ChatPromptTemplate.from_messages([

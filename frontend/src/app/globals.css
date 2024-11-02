@@ -50,3 +50,43 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+.markdown-content {
+  @apply text-foreground;
+}
+
+.markdown-content strong {
+  @apply font-bold;
+}
+
+.markdown-content em {
+  @apply italic;
+}
+
+.markdown-content ul {
+  @apply list-disc ml-4 my-2;
+}
+
+.markdown-content ol {
+  @apply list-decimal ml-4 my-2;
+}
+
+.markdown-content blockquote {
+  @apply border-l-4 border-gray-300 pl-4 my-2 italic;
+}
+
+.markdown-content h1 {
+  @apply text-2xl font-bold my-4;
+}
+
+.markdown-content h2 {
+  @apply text-xl font-bold my-3;
+}
+
+.markdown-content h3 {
+  @apply text-lg font-bold my-2;
+}
+
+.markdown-content p {
+  @apply my-2;
+}

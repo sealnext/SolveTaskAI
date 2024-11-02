@@ -50,7 +50,4 @@ Enhanced Logging: Improve logging for tracking and error handling.
 
 - Instead of using the original user question as a query to the database, it is typical to rewrite the question for optimized retrieval. For example, we can use the HyDE method.
 
-- foloseste ensure_config in loc de state in graph pentru
-a salvat date sensitive, deoarece state e salvat in memory la un moment dat.
-
-- foloseste checkpoint la graph pentru a fi salvat in baza de date si sa nu se mai piarda chat-ul.
+- nu cred ca mai e nevoie de a trimite project_id in chat request, doar chat_id ar trebui sa fie suficient. 
