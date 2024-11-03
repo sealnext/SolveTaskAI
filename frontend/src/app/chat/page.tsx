@@ -56,7 +56,7 @@ export default function ChatPage() {
     } catch (error) {
       console.error('Error fetching internal projects:', error);
     }
-  }, []); // Remove apiclient from the dependency array
+  }, []);
 
   useEffect(() => {
     fetchInternalProjects();
@@ -117,7 +117,6 @@ export default function ChatPage() {
     }
   }, [selectedProjectId, chatId, session?.user?.id, router, apiclient]);
 
-  // Add a useEffect to load existing chat messages if chat_id exists
   useEffect(() => {
     const loadExistingChat = async () => {
       if (chatId) {
@@ -132,7 +131,6 @@ export default function ChatPage() {
           }));
           setMessages(chatHistory);
           
-          // Setăm project_id-ul din chat session
           if (response.data.project_id) {
             setSelectedProjectId(response.data.project_id);
           }
@@ -140,7 +138,6 @@ export default function ChatPage() {
           console.error('Error loading chat history:', error);
         }
       } else {
-        // Clear messages for new chat
         setMessages([]);
       }
     };
