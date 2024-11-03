@@ -10,18 +10,20 @@ import { useSession } from "next-auth/react"
 import { Separator } from "@/components/ui/separator"
 import * as SwitchPrimitives from "@radix-ui/react-switch"
 import { useTheme } from "@/contexts/ThemeContext"
+import { useRouter } from 'next/navigation'
+import { SettingsDialog } from '@/components/SettingsDialog'
 
-const ThemeSwitch = ({ checked, onCheckedChange }) => (
+export const ThemeSwitch = ({ checked, onCheckedChange }) => (
   <SwitchPrimitives.Root
     checked={checked}
     onCheckedChange={onCheckedChange}
     className={cn(
-      "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
+      "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
       checked ? "bg-primary" : "bg-muted"
     )}
   >
     <SwitchPrimitives.Thumb className={cn(
-      "pointer-events-none flex items-center justify-center h-5 w-5 rounded-full shadow-lg ring-0 transition-transform",
+      "pointer-events-none flex items-center justify-center h-5 w-5 rounded-full shadow-lg ring-0",
       checked ? "translate-x-5 bg-white" : "translate-x-0 bg-white"
     )}>
       {checked ? (
@@ -33,29 +35,32 @@ const ThemeSwitch = ({ checked, onCheckedChange }) => (
   </SwitchPrimitives.Root>
 )
 
-const MenuItem = ({ icon: Icon, children, onClick, shortcut }) => (
-  <button
-    className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-muted-20 active:bg-muted transition-colors text-sm font-medium text-foreground rounded-lg cursor-pointer"
-    onClick={onClick}
-  >
-    <div className="flex items-center">
-      {Icon && <Icon className="mr-3 h-4 w-4 text-primary" />}
-      <span>{children}</span>
-    </div>
-    {shortcut ? (
-      <span className="text-xs text-muted-foreground flex items-center">
-        <Command className="h-3 w-3 mr-1" />
-        {shortcut}
-      </span>
-    ) : (
-      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-    )}
-  </button>
-)
+const MenuItem = ({ icon: Icon, children, onClick, shortcut }) => {
+  return (
+    <button
+      className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-muted-20 active:bg-muted transition-colors text-sm font-medium text-foreground rounded-lg cursor-pointer"
+      onClick={onClick}
+    >
+      <div className="flex items-center">
+        {Icon && <Icon className="mr-3 h-4 w-4 text-primary" />}
+        <span>{children}</span>
+      </div>
+      {shortcut ? (
+        <span className="text-xs text-muted-foreground flex items-center">
+          <Command className="h-3 w-3 mr-1" />
+          {shortcut}
+        </span>
+      ) : (
+        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+      )}
+    </button>
+  );
+};
 
 export function ProfileMenuComponent() {
   const [isPremium, setIsPremium] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
   const { data: session } = useSession()
   const [isVisible, setIsVisible] = useState(false)
@@ -128,7 +133,16 @@ export function ProfileMenuComponent() {
             <ThemeSwitch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
           </div>
           <div className="p-2 space-y-1">
-            <MenuItem icon={Settings} shortcut="S">Account Settings</MenuItem>
+            <MenuItem 
+              icon={Settings} 
+              shortcut="S" 
+              onClick={() => {
+                setIsSettingsOpen(true);
+                setIsOpen(false);
+              }}
+            >
+              Account Settings
+            </MenuItem>
           </div>
           <Separator className="my-2 bg-muted" />
           <div className="p-2">
@@ -156,6 +170,11 @@ export function ProfileMenuComponent() {
           </div>
         </div>
       )}
+
+      <SettingsDialog 
+        open={isSettingsOpen} 
+        onOpenChange={setIsSettingsOpen}
+      />
     </div>
   )
 }
