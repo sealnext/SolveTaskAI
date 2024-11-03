@@ -51,3 +51,5 @@ Enhanced Logging: Improve logging for tracking and error handling.
 - Instead of using the original user question as a query to the database, it is typical to rewrite the question for optimized retrieval. For example, we can use the HyDE method.
 
 - nu cred ca mai e nevoie de a trimite project_id in chat request, doar chat_id ar trebui sa fie suficient. 
+
+- ca atunci cand adaugi un proiect, sa poti optional sa pui si limba, pentru ca default noi avem in engleza transformarea si optimizarea query-ului pt embeddings. Asa putem lua limba proiectului si sa facem transformarea si optimizarea in functie de limba nu in engleza BY DEFAULT.
