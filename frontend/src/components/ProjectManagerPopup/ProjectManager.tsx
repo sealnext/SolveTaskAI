@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ApiClient from "@/lib/apiClient";
 import { Loader2 } from 'lucide-react';
@@ -234,7 +233,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
 
   if (isInitialLoading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-background/60">
         <div className="bg-background p-6 rounded-2xl shadow-xl max-w-md w-full flex flex-col items-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="mt-2 text-sm text-muted-foreground">Loading API Keys...</p>
@@ -244,7 +243,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-background/90 data-[theme=light]:bg-gray-700/50">
       <div className="bg-background p-6 rounded-2xl shadow-xl max-w-md w-full">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Project Manager</h2>

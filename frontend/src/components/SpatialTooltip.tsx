@@ -37,8 +37,8 @@ const ChatIcon = () => (
   const tooltipItems = [
     { icon: <ChatIcon />, title: "Chat", href: "/chat", shortcutKey: "alt+c" },
     { icon: <HistoryIcon />, title: "History", href: "/history", shortcutKey: "alt+h" },
-    { icon: <SearchIcon />, title: "Search", href: "/search", shortcutKey: "alt+f" },
-    { icon: <SettingsIcon />, title: "Settings", href: "/settings", shortcutKey: "alt+s" },
+    // { icon: <SearchIcon />, title: "Search", href: "/search", shortcutKey: "alt+f" },
+    // { icon: <SettingsIcon />, title: "Settings", href: "/settings", shortcutKey: "alt+s" },
     { icon: <FeedbackIcon />, title: "Feedback", href: "/feedback"},
   ];
 

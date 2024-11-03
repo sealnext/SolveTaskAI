@@ -12,7 +12,7 @@ body {
   }
 }
 
-@layer base { 
+@layer base {
   :root {
     --color-primary: #eca6a0;
     --color-primary-accent: #ee7368;
@@ -25,7 +25,7 @@ body {
     --color-muted: 178 193 204;
     --color-muted-lighter: 223 222 222;
   }
-  
+
   .dark {
     --color-primary: #613733;
     --color-primary-accent: #86352c;
@@ -38,7 +38,7 @@ body {
     --color-muted: 44 44 44;
     --color-muted-lighter: 66 66 66;
     --color-muted-foreground: 203 213 225;
-  }  
+  }
 }
 
 @layer base {
@@ -51,6 +51,42 @@ body {
   }
 }
 
+/* Eliminăm tranzițiile de culoare pentru theme switching */
+* {
+  transition: none;
+}
+
+/* Permitem tranziții specifice pentru anumite clase */
+.animate-in,
+.animate-out,
+.slide-in,
+.slide-out,
+.fade-in,
+.fade-out,
+.zoom-in,
+.zoom-out,
+[class*="animate-"],
+[class*="motion-"],
+/* Clase specifice pentru GooeyButton */
+.gooey-button,
+.gooey-text,
+.gooey-blob,
+.gooey-button-container *,
+/* Alte clase care necesită tranziții */
+[class*="transition"] {
+  transition-property: transform, opacity, filter, scale !important;
+  transition-duration: 200ms !important;
+}
+
+/* Stiluri specifice pentru hover effects */
+.hover\:bg-muted:hover,
+.hover\:bg-muted-20:hover,
+.hover\:bg-muted\/50:hover,
+.hover\:text-foreground:hover {
+  transition: background-color 200ms ease !important;
+}
+
+/* Stiluri pentru markdown */
 .markdown-content {
   @apply text-foreground;
 }
