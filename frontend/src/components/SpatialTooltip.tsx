@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { useSearchParams, usePathname } from 'next/navigation';
 import { GooeyButton } from "@/components/GooeyButton";
 
 const ChatIcon = () => (
@@ -42,6 +43,17 @@ const ChatIcon = () => (
   ];
 
 const SpatialTooltip: React.FC = () => {
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const chatId = searchParams.get('chat_id');
+  
+  const isActivePath = (href: string): boolean => {
+    if (href === '/chat' && chatId) {
+      return false;
+    }
+    return pathname === href;
+  };
+
   return (
     <>
       <div className="fixed left-8 top-1/2 transform -translate-y-1/2 bg-backgroundSecondary text-muted-foreground rounded-full px-2 py-4 flex flex-col items-center space-y-4 z-50 shadow-md shadow-black/10">
@@ -52,6 +64,7 @@ const SpatialTooltip: React.FC = () => {
               icon={item.icon}
               title={item.title}
               shortcutKey={item.shortcutKey}
+              isActive={isActivePath(item.href)}
             />
           </Link>
         ))}

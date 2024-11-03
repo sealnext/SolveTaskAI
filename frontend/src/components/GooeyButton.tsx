@@ -11,6 +11,7 @@ interface GooeyButtonProps {
   href: string;
   shortcutKey?: string;
   onClick?: (event: React.MouseEvent) => void;
+  isActive?: boolean;
 }
 
 const isMac = typeof window !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -31,12 +32,11 @@ const formatShortcut = (shortcut: string): React.ReactNode[] => {
 };
 
 export const GooeyButton = forwardRef<HTMLButtonElement, GooeyButtonProps>(
-  ({ icon, title, href, shortcutKey, onClick }, ref) => {
+  ({ icon, title, href, shortcutKey, onClick, isActive }, ref) => {
     const pathname = usePathname();
-    const isActive = pathname === href;
     const [isHovered, setIsHovered] = useState(false);
     const innerRef = useRef<HTMLButtonElement>(null);
-    const [formattedShortcut, setFormattedShortcut] = useState('');
+    const [formattedShortcut, setFormattedShortcut] = useState<React.ReactNode[]>([]);
 
     useImperativeHandle(ref, () => innerRef.current!);
 
@@ -53,7 +53,7 @@ export const GooeyButton = forwardRef<HTMLButtonElement, GooeyButtonProps>(
 
     return (
       <div 
-        className={styles['gooey-button-container']}
+        className={`${styles['gooey-button-container']} ${isActive ? styles['active'] : ''} ${isHovered ? styles['hovered'] : ''}`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={onClick}
@@ -72,7 +72,7 @@ export const GooeyButton = forwardRef<HTMLButtonElement, GooeyButtonProps>(
         </button>
         <span className={`${styles['gooey-text']} ${(isHovered && !isActive) ? styles['visible'] : ''}`}>
           {title} 
-          {formattedShortcut && (
+          {formattedShortcut.length > 0 && (
             <span className={styles['shortcut-container']}>
               {formattedShortcut}
             </span>
