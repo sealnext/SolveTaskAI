@@ -37,9 +37,9 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
   }, [messages]);
 
   const formatJiraTickets = (text: string) => {
-    const jiraPattern = /\[([A-Z]+-\d+)\]\((.*?)\)/g;
-    return text.replace(jiraPattern, (match, ticketId, url) => 
-      `<a href="${url}" target="_blank" class="text-blue-500 hover:underline">${ticketId}</a>`
+    const jiraPattern = /\[(.*?)]\((https?:\/\/[^\s)]+)\)/g;
+    return text.replace(jiraPattern, (match, linkText, url) => 
+      `<a href="${url}" target="_blank" class="text-blue-500 hover:underline">${linkText}</a>`
     );
   };
 
@@ -54,25 +54,11 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
     
     processedText = formatJiraTickets(processedText);
 
-    processedText = processedText.replace(
-      /\*\*(.*?)\*\*/g, 
-      '<strong class="font-bold">$1</strong>'
-    );
-
-    processedText = processedText.replace(
-      /\*(.*?)\*/g, 
-      '<em class="italic">$1</em>'
-    );
-
-    processedText = processedText.replace(
-      /`(.*?)`/g, 
-      '<code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">$1</code>'
-    );
-
-    processedText = processedText.replace(
-      /```([\s\S]*?)```/g,
-      '<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>$1</code></pre>'
-    );
+    processedText = processedText
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+      .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">$1</code>')
+      .replace(/```([\s\S]*?)```/g, '<pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto"><code>$1</code></pre>');
 
     return processedText;
   };

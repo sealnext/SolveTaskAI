@@ -49,7 +49,12 @@ class RetrieveInput(BaseModel):
 class RetrieveDocuments(BaseModel):
     """Tool for retrieving relevant documents from the project's knowledge base."""
     name: str = "RetrieveDocuments"
-    description: str = "Retrieves relevant documents from the project's knowledge base to answer the user's question"
+    description: str = """Retrieves relevant documents from the project's knowledge base.
+    When using this tool, provide an optimized search query that:
+    1. Focuses on key technical concepts
+    2. Includes relevant terminology
+    3. Removes conversational elements
+    4. Captures the semantic meaning of the search requirement"""
     project: Any
     api_key: Any
 
@@ -67,22 +72,28 @@ class RetrieveDocuments(BaseModel):
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "question": {
+                        "search_query": {
                             "type": "string",
-                            "description": "The question to search documents for"
+                            "description": "The optimized search query to use for document retrieval"
+                        },
+                        "original_question": {
+                            "type": "string",
+                            "description": "The original user question for context"
                         }
                     },
-                    "required": ["question"]
+                    "required": ["search_query", "original_question"]
                 }
             }
         }
 
-    async def invoke(self, question: str) -> List[dict]:
+    async def invoke(self, search_query: str, original_question: str) -> List[dict]:
         """Execute the retrieve workflow."""
-        logger.info(f"Retrieving documents for question: {question}")
+        logger.info(f"Retrieving documents for optimized query: {search_query}")
+        logger.info(f"Original question: {original_question}")
         
         state = {
-            "question": question,
+            "question": search_query,  # Use the optimized query for embedding search
+            "original_question": original_question,  # Keep original for context
             "project": self.project,
             "api_key": self.api_key,
             "documents": [],

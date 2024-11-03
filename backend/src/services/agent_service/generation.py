@@ -22,7 +22,9 @@ class ResponseGenerator:
 
     async def generate_response(self, question: str, chat_history: List[dict]) -> tuple[str, Optional[str]]:
         """Generate a response using filtered chat history and retrieving documents if needed."""
-        logger.info("Generating response")
+        logger.info("="*50)
+        logger.info("Starting response generation")
+        logger.info("="*50)
         
         formatted_history = self._format_chat_history(chat_history) if chat_history else ""
         
@@ -36,40 +38,61 @@ class ResponseGenerator:
             tool_choice="auto"
         )
         
+        logger.info(f"Original question: {question}")
+        if formatted_history:
+            logger.info("Chat history context available")
+            logger.debug(f"Chat history: {formatted_history}")
+        
         response = await chain.ainvoke({
             "question": question,
             "chat_history": formatted_history
         })
         
+        logger.debug(f"Initial LLM response: {response}")
         logger.debug(f"Response has tool calls: {bool(response.tool_calls)}")
         
         if response.tool_calls:
             tool_call = response.tool_calls[0]
-            logger.info(f"Processing tool call: {tool_call}")
+            logger.info("-"*50)
+            logger.info("Document retrieval requested")
+            logger.info("-"*50)
             
             if tool_call["name"] == "RetrieveDocuments":
-                search_question = tool_call["args"].get("question", question)
-                documents = await retrieve_tool.invoke(search_question)
-                logger.info(f"Retrieved {len(documents)} documents")
+                args = tool_call["args"]
+                search_query = args["search_query"]
+                original_question = args["original_question"]
+                
+                logger.info("Query transformation:")
+                logger.info(f"  Original: '{original_question}'")
+                logger.info(f"  Optimized: '{search_query}'")
+                
+                documents = await retrieve_tool.invoke(search_query, original_question)
+                logger.info(f"Retrieved {len(documents)} relevant documents")
                 
                 if not documents:
+                    logger.info("No documents found - generating no-docs response")
                     no_docs_response = await self.llm.ainvoke([
                         HumanMessage(content=no_docs_prompt_template.format(
                             chat_history=formatted_history,
-                            question=question
+                            question=original_question
                         ))
                     ])
                     return no_docs_response.content, None
                 
                 context = self._format_docs(documents)
+                logger.info("Generating final response with retrieved context")
                 final_response = await self.llm.ainvoke([
                     HumanMessage(content=final_answer_prompt_template.format(
                         context=context,
-                        question=question
+                        question=original_question
                     ))
                 ])
+                logger.info("="*50)
+                logger.info("Response generation completed")
+                logger.info("="*50)
                 return final_response.content, context
         
+        logger.info("Direct response without document retrieval")
         return response.content, None
 
     def _format_docs(self, documents: List[dict]) -> str:
