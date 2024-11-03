@@ -33,10 +33,20 @@ export default function ProjectSelector({
   onSelectProject, 
   onAddNewProject
 }: ProjectSelectorProps) {
+  const [isInitialLoading, setIsInitialLoading] = React.useState(true);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (projects.length > 0 && !selectedProjectId) {
+      onSelectProject(projects[0].id);
+    }
+    // Simulăm un mic delay pentru a evita flash-ul de "No Projects Available"
+    setTimeout(() => setIsInitialLoading(false), 100);
+  }, [projects, selectedProjectId, onSelectProject]);
+
   const selectedProject = projects.find(project => project.id === selectedProjectId);
-  const [isLoading, setIsLoading] = React.useState(false)
-  const [searchTerm, setSearchTerm] = React.useState('')
-  const [isOpen, setIsOpen] = React.useState(false)
 
   const handleSelectProject = (projectId: number) => {
     setIsLoading(true);
@@ -63,13 +73,20 @@ export default function ProjectSelector({
           className="w-full justify-between"
           aria-label="Select Project"
         >
-          {isLoading ? (
-            <div className="h-5 w-32 bg-muted animate-pulse rounded"></div>
-          ) : (
-            <span className="truncate">
-              {selectedProject ? selectedProject.name : "Select Project"}
-            </span>
-          )}
+          <div className="w-[100px] flex items-center">
+            {isLoading || isInitialLoading ? (
+              <div className="flex items-center gap-1.5">
+                <div className="h-3 w-20 bg-muted/30 animate-pulse rounded-sm"></div>
+                <div className="h-3 w-8 bg-muted/20 animate-pulse rounded-sm"></div>
+              </div>
+            ) : projects.length === 0 ? (
+              <span className="truncate">No Projects Available</span>
+            ) : (
+              <span className="truncate">
+                {selectedProject?.name}
+              </span>
+            )}
+          </div>
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
