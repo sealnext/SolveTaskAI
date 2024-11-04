@@ -181,22 +181,16 @@ export default function ChatPage() {
         <Chat messages={messages} loadingMessage={loadingMessage} />
       </div>
 
-      <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 w-3/4 max-w-4xl flex items-center space-x-4">
-        <div className="flex-grow h-14">
-          <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
-        </div>
+      <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 w-3/4 max-w-4xl">
+        <ChatInput 
+          onSendMessage={handleSendMessage} 
+          isLoading={isLoading}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={handleProjectSelect}
+          onAddNewProject={() => setShowProjectManager(true)}
+        />
       </div>
-
-      {!chatId && (
-        <div className="fixed bottom-8 right-4 w-1/8 h-14">
-          <ProjectSelector 
-            projects={projects}
-            selectedProjectId={selectedProjectId}
-            onSelectProject={handleProjectSelect}
-            onAddNewProject={() => setShowProjectManager(true)}
-          />
-        </div>
-      )}
 
       {showProjectManager && (
         <ProjectManager 
