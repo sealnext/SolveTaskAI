@@ -1,3 +1,5 @@
+'use client'
+
 import React from 'react';
 import Link from 'next/link';
 import { useSearchParams, usePathname } from 'next/navigation';
@@ -56,7 +58,7 @@ const SpatialTooltip: React.FC = () => {
 
   return (
     <>
-      <div className="fixed left-8 top-1/2 transform -translate-y-1/2 bg-backgroundSecondary text-muted-foreground rounded-full px-2 py-4 flex flex-col items-center space-y-4 z-50 shadow-md shadow-black/10">
+      <div className="fixed left-8 top-1/2 transform -translate-y-1/2 bg-backgroundSecondary text-muted-foreground rounded-full px-2 py-4 flex flex-col items-center space-y-4 z-50 shadow-md shadow-black/10 hidden md:flex">
         {tooltipItems.map((item, index) => (
           <Link key={index} href={item.href} passHref>
             <GooeyButton

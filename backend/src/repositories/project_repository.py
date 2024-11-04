@@ -2,8 +2,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, and_, text, cast, String, insert
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
+from sqlalchemy import exists
 from sqlalchemy.exc import IntegrityError
-from models import Project, User, APIKey, user_project_association, api_key_project_association
+from models import Project, User, APIKey, user_project_association, api_key_project_association, ChatSession
 from schemas import ProjectUpdate, InternalProjectCreate
 from exceptions import ProjectAlreadyExistsError
 
@@ -102,27 +103,42 @@ class ProjectRepository:
             await self.db_session.refresh(project)
         return project
 
-    async def delete(self, user_id: int, project_id: int) -> bool:
-        project = await self.get_by_id(user_id, project_id)
-        if project:
-            # Remove the user-project association
-            user_project_delete_stmt = delete(user_project_association).where(
-                (user_project_association.c.user_id == user_id) &
-                (user_project_association.c.project_id == project_id)
-            )
-            await self.db_session.execute(user_project_delete_stmt)
-
-            # Remove the api-key-project associations
-            api_key_project_delete_stmt = delete(api_key_project_association).where(
-                api_key_project_association.c.project_id == project_id
-            )
-            await self.db_session.execute(api_key_project_delete_stmt)
-
-            # Delete the project
-            await self.db_session.delete(project)
-            await self.db_session.commit()
-            return True
-        return False
+    async def delete(self, user_id: int, project_id: int):
+        try:
+            # Start a transaction
+            async with self.db_session.begin_nested():
+                # First delete chat sessions associated with the project
+                await self.db_session.execute(
+                    delete(ChatSession).where(ChatSession.project_id == project_id)
+                )
+                
+                # Delete user-project associations
+                await self.db_session.execute(
+                    delete(user_project_association).where(
+                        and_(
+                            user_project_association.c.project_id == project_id,
+                            user_project_association.c.user_id == user_id
+                        )
+                    )
+                )
+                
+                # Delete api-key-project associations
+                await self.db_session.execute(
+                    delete(api_key_project_association).where(
+                        api_key_project_association.c.project_id == project_id
+                    )
+                )
+                
+                # Finally delete the project
+                await self.db_session.execute(
+                    delete(Project).where(Project.id == project_id)
+                )
+                
+                await self.db_session.commit()
+                return True
+        except Exception as e:
+            await self.db_session.rollback()
+            raise e
 
     async def get_with_related(self, user_id: int, project_id: int) -> Optional[Project]:
         query = (
