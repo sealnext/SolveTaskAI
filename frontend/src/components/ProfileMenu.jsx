@@ -101,7 +101,7 @@ export function ProfileMenuComponent() {
   }, [isOpen])
 
   return (
-    <div className="relative">
+    <div className="relative hidden md:block">
       <Avatar 
         className="h-10 w-10 cursor-pointer bg-primary text-foreground ring-2 ring-offset-2 ring-offset-background ring-primary transition-all hover:ring-secondary"
         onClick={() => setIsOpen(!isOpen)}

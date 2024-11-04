@@ -11,8 +11,8 @@ module.exports = {
   		colors: {
   			background: 'var(--color-background)',
   			foreground: 'var(--color-foreground)',
-			backgroundSecondary: 'var(--color-background-secondary)',
-			foregroundSecondary: 'var(--color-foreground-secondary)',
+  			backgroundSecondary: 'var(--color-background-secondary)',
+  			foregroundSecondary: 'var(--color-foreground-secondary)',
   			card: {
   				DEFAULT: 'var(--color-card)',
   				foreground: 'var(--color-card-foreground)'
@@ -30,19 +30,19 @@ module.exports = {
   				foreground: 'var(--color-secondary-foreground)'
   			},
   			muted: {
+  				'10': 'rgb(var(--color-muted) / 0.1)',
+  				'20': 'rgb(var(--color-muted) / 0.2)',
   				DEFAULT: 'rgb(var(--color-muted))',
-  				foreground: 'rgb(var(--color-muted-foreground))',
-  				10: 'rgb(var(--color-muted) / 0.1)',
-  				20: 'rgb(var(--color-muted) / 0.2)',
+  				foreground: 'rgb(var(--color-muted-foreground))'
   			},
   			accent: {
   				DEFAULT: 'var(--color-accent)',
   				foreground: 'var(--color-accent-foreground)'
   			},
-			primaryAccent: {
-				DEFAULT: 'var(--color-primary-accent)',
-				foreground: 'var(--color-primary-accent-foreground)'
-			},
+  			primaryAccent: {
+  				DEFAULT: 'var(--color-primary-accent)',
+  				foreground: 'var(--color-primary-accent-foreground)'
+  			},
   			destructive: {
   				DEFAULT: 'var(--color-destructive)',
   				foreground: 'var(--color-destructive-foreground)'
@@ -56,6 +56,16 @@ module.exports = {
   				'3': 'var(--color-chart-3)',
   				'4': 'var(--color-chart-4)',
   				'5': 'var(--color-chart-5)'
+  			},
+  			sidebar: {
+  				DEFAULT: 'hsl(var(--sidebar-background))',
+  				foreground: 'hsl(var(--sidebar-foreground))',
+  				primary: 'hsl(var(--sidebar-primary))',
+  				'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
+  				accent: 'hsl(var(--sidebar-accent))',
+  				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
+  				border: 'hsl(var(--sidebar-border))',
+  				ring: 'hsl(var(--sidebar-ring))'
   			}
   		},
   		borderRadius: {
