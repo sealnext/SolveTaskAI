@@ -101,14 +101,14 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
 
   return (
     <div className="bg-background fixed inset-0 flex items-center justify-center px-4 pt-6 pb-28">
-      <div className="w-3/4 max-w-4xl h-full flex flex-col">
-        <div className="flex-grow border-muted border-2 overflow-hidden bg-backgroundSecondary rounded-xl shadow-md">
+      <div className="w-3/4 max-w-4xl h-full flex flex-col md:w-3/4 w-full">
+        <div className="flex-grow border-muted md:border-2 overflow-hidden bg-backgroundSecondary rounded-xl md:border-2 md:bg-backgroundSecondary md:rounded-xl md:shadow-md border-0 bg-transparent">
           <div className="h-full overflow-y-auto custom-scrollbar">
-            <div className="space-y-2 px-12 py-8">
+            <div className="space-y-2 md:px-8 py-8">
               {messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start items-start'} px-8 ${
+                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start items-start'} md:px-8 ${
                     message.id === lastMessageId ? 'animate-fade-in' : ''
                   }`}
                 >
@@ -121,10 +121,10 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
                   )}
                   <div
                     className={`rounded-xl p-3 ${
-                      message.sender === 'user'
-                        ? 'bg-accent text-foreground'
-                        : 'bg-backgroundSecondary text-foreground'
-                    } max-w-[70%]`}
+                      message.sender === 'ai' 
+                        ? 'md:bg-backgroundSecondary bg-transparent md:max-w-[90%] max-w-[90%]' 
+                        : 'bg-accent md:max-w-[70%] max-w-[70%]'
+                    } text-foreground`}
                   >
                     {message.sender === 'ai' && message.animate && typingMessage?.id === message.id ? (
                       <TypewriterEffect message={message} />
@@ -136,7 +136,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
               ))}
               
               {loadingMessage && (
-                <div className="flex justify-start items-start px-8 animate-fade-in">
+                <div className="flex justify-start items-start md:px-8 animate-fade-in">
                   <div className="mr-2 mt-1">
                     <div className="w-7 h-7 rounded-full border-2 border-muted flex items-center justify-center">
                       <MdSupportAgent className="text-foreground-secondary text-lg" />
