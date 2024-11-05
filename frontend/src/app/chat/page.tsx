@@ -12,6 +12,7 @@ import { ProfileMenuComponent } from "@/components/ProfileMenu";
 import ApiClient from "@/lib/apiClient";
 import ProjectSelector from "@/components/ProjectSelector";
 import ProjectManager from "@/components/ProjectManagerPopup/ProjectManager";
+import { MobileSidebar } from "@/components/MobileSidebar"
 
 interface Message {
   id: string;
@@ -162,6 +163,10 @@ export default function ChatPage() {
     }
   }, [apiclient]);
 
+  const handleNewChat = useCallback(() => {
+    router.push('/chat'); // Aceasta va reseta chat-ul prin navigare la ruta de bază
+  }, [router]);
+
   if (status === "loading") {
     return <LoadingSpinner />;
   }
@@ -171,35 +176,45 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground relative">
-      <div className="absolute top-4 right-4 z-50">
-        <ProfileMenuComponent />
-      </div>
-      <SpatialTooltip />
-      
-      <div className="flex-grow overflow-hidden">
-        <Chat messages={messages} loadingMessage={loadingMessage} />
-      </div>
+    <div className="flex h-screen bg-background text-foreground relative">
+      <MobileSidebar 
+        projects={projects}
+        selectedProjectId={selectedProjectId}
+        onSelectProject={handleProjectSelect}
+        onNewChat={handleNewChat}
+      />
 
-      <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 w-3/4 max-w-4xl">
-        <ChatInput 
-          onSendMessage={handleSendMessage} 
-          isLoading={isLoading}
-          projects={projects}
-          selectedProjectId={selectedProjectId}
-          onSelectProject={handleProjectSelect}
-          onAddNewProject={() => setShowProjectManager(true)}
-        />
-      </div>
+      <div className="flex-1 flex flex-col">
+        <div className="absolute top-4 right-4 z-50">
+          <ProfileMenuComponent />
+        </div>
 
-      {showProjectManager && (
-        <ProjectManager 
-          projects={projects} 
-          onProjectsUpdate={handleProjectsUpdate}
-          onClose={handleCloseApiKeyManager}
-          refreshInternalProjects={refreshInternalProjects}
-        />
-      )}
+        <SpatialTooltip />
+        
+        <div className="flex-grow overflow-hidden">
+          <Chat messages={messages} loadingMessage={loadingMessage} />
+        </div>
+
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 w-3/4 max-w-4xl">
+          <ChatInput 
+            onSendMessage={handleSendMessage} 
+            isLoading={isLoading}
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onSelectProject={handleProjectSelect}
+            onAddNewProject={() => setShowProjectManager(true)}
+          />
+        </div>
+
+        {showProjectManager && (
+          <ProjectManager 
+            projects={projects} 
+            onProjectsUpdate={handleProjectsUpdate}
+            onClose={handleCloseApiKeyManager}
+            refreshInternalProjects={refreshInternalProjects}
+          />
+        )}
+      </div>
     </div>
   )
 }
