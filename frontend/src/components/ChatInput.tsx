@@ -1,6 +1,7 @@
 import React, { useState, useRef, KeyboardEvent } from 'react';
 import ProjectSelector from './ProjectSelector';
 import { Project } from '@/types/project';
+import { useSearchParams } from 'next/navigation';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -21,6 +22,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
 }) => {
   const [message, setMessage] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchParams = useSearchParams();
+  const chatId = searchParams.get('chat_id');
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -97,15 +100,17 @@ const ChatInput: React.FC<ChatInputProps> = ({
             </button>
           </div>
 
-          {/* Project Selector - adăugăm logica de vizibilitate */}
-          <div className={`flex-shrink-0 ${message.trim() ? 'md:block hidden' : 'block'}`}>
-            <ProjectSelector
-              projects={projects}
-              selectedProjectId={selectedProjectId}
-              onSelectProject={onSelectProject}
-              onAddNewProject={onAddNewProject}
-            />
-          </div>
+          {/* Project Selector - afișăm doar dacă nu există chat_id */}
+          {!chatId && (
+            <div className={`flex-shrink-0 ${message.trim() ? 'md:block hidden' : 'block'}`}>
+              <ProjectSelector
+                projects={projects}
+                selectedProjectId={selectedProjectId}
+                onSelectProject={onSelectProject}
+                onAddNewProject={onAddNewProject}
+              />
+            </div>
+          )}
         </div>
       </div>
     </form>
