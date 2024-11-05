@@ -178,9 +178,8 @@ export default function ChatPage() {
   return (
     <div className="flex h-screen bg-background text-foreground relative">
       <MobileSidebar 
-        projects={projects}
-        selectedProjectId={selectedProjectId}
-        onSelectProject={handleProjectSelect}
+        selectedChatId={chatId || null}
+        onSelectChat={(chatId: string) => router.push(`/chat?chat_id=${chatId}`)}
         onNewChat={handleNewChat}
       />
 

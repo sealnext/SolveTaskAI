@@ -113,7 +113,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
                   }`}
                 >
                   {message.sender === 'ai' && (
-                    <div className="mr-2 mt-1">
+                    <div className="mt-2">
                       <div className="w-7 h-7 rounded-full border-2 border-muted flex items-center justify-center">
                         <MdSupportAgent className="text-foreground-secondary text-lg" />
                       </div>
@@ -137,7 +137,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
               
               {loadingMessage && (
                 <div className="flex justify-start items-start md:px-8 animate-fade-in">
-                  <div className="mr-2 mt-1">
+                  <div className="mt-2">
                     <div className="w-7 h-7 rounded-full border-2 border-muted flex items-center justify-center">
                       <MdSupportAgent className="text-foreground-secondary text-lg" />
                     </div>
