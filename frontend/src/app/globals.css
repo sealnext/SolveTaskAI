@@ -14,6 +14,7 @@ body {
 
 @layer base {
   :root {
+    --color-border: #dadada;
     --color-primary: #eca6a0;
     --color-primary-accent: #ee7368;
     --color-secondary: #8dbafd;
@@ -30,11 +31,12 @@ body {
     --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
+    --sidebar-border: 178 193 204;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
+    --color-border: #3a3a3a;
     --color-primary: #613733;
     --color-primary-accent: #86352c;
     --color-secondary: #3d87ee;
@@ -52,7 +54,7 @@ body {
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-border: 44 44 44;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
