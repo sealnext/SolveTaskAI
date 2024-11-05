@@ -10,12 +10,12 @@ from .prompts import (
     no_docs_prompt_template,
     final_answer_prompt_template
 )
-
+from config import OPENAI_MODEL
 logger = logging.getLogger(__name__)
 
 class ResponseGenerator:
     def __init__(self, llm: Optional[ChatOpenAI] = None, project: Project = None, api_key: APIKey = None):
-        self.llm = llm or ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        self.llm = llm or ChatOpenAI(model=OPENAI_MODEL, temperature=0)
         self.project = project
         self.api_key = api_key
         self.prompt = main_prompt_template

@@ -136,6 +136,8 @@ const Sidebar = React.forwardRef((
     collapsible = "offcanvas",
     className,
     children,
+    title,
+    description,
     ...props
   },
   ref
@@ -168,7 +170,10 @@ const Sidebar = React.forwardRef((
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE
             }
           }
-          side={side}>
+          side={side}
+          title={title}
+          description={description}
+        >
           <div className="flex h-full w-full flex-col">{children}</div>
         </SheetContent>
       </Sheet>)
