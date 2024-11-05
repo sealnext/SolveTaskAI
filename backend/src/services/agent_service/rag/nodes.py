@@ -1,4 +1,4 @@
-from config import OPENAI_EMBEDDING_MODEL, DATABASE_URL, NUMBER_OF_DOCS_TO_RETRIEVE
+from config import OPENAI_EMBEDDING_MODEL, DATABASE_URL, NUMBER_OF_DOCS_TO_RETRIEVE, OPENAI_MODEL
 from langchain_postgres import PGVector
 from langchain_openai import OpenAIEmbeddings
 from .state import AgentState
@@ -17,7 +17,7 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 embeddings_model = OpenAIEmbeddings(model=OPENAI_EMBEDDING_MODEL)
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+llm = ChatOpenAI(model=OPENAI_MODEL, temperature=0)
 llm_json_mode = llm.bind(response_format={"type": "json_object"})
 
 # Create a SQLAlchemy engine

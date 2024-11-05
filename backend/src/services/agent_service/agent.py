@@ -7,6 +7,7 @@ import uuid
 from .generation import ResponseGenerator
 from .chat_memory import ChatMemory
 from repositories.chat_session_repository import ChatSessionRepository
+from config import OPENAI_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,7 @@ class Agent:
     def __init__(self, project: Project, api_key: APIKey, chat_session_repository: ChatSessionRepository):
         self.project = project
         self.api_key = api_key
-        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        self.llm = ChatOpenAI(model=OPENAI_MODEL, temperature=0)
         self.generator = ResponseGenerator(self.llm, project=project, api_key=api_key)
         self.memory = ChatMemory(chat_session_repository)
 

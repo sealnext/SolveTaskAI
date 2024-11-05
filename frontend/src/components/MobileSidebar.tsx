@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useSession } from "next-auth/react"
 import ApiClient from "@/lib/apiClient"
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 
 interface ChatSession {
   id: string
@@ -216,7 +217,21 @@ export function MobileSidebar({
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
-      <Sidebar className="md:hidden fixed inset-y-0 left-0 z-50" collapsible="offcanvas">
+      <Sidebar 
+        className="md:hidden fixed inset-y-0 left-0 z-50" 
+        collapsible="offcanvas"
+        aria-label="Chat history sidebar"
+        title={
+          <VisuallyHidden asChild>
+            <h2>Chat History</h2>
+          </VisuallyHidden>
+        }
+        description={
+          <VisuallyHidden asChild>
+            <p>View and manage your chat history</p>
+          </VisuallyHidden>
+        }
+      >
         <SidebarHeader className="flex flex-row items-center justify-between h-14 px-4">
           <CloseButton />
           <NewChatButton onClick={onNewChat} />
@@ -233,7 +248,7 @@ export function MobileSidebar({
       </Sidebar>
       
       <div className="fixed top-4 left-4 z-50 md:hidden">
-        <SidebarTrigger />
+        <SidebarTrigger aria-label="Open chat history" />
       </div>
     </SidebarProvider>
   )
