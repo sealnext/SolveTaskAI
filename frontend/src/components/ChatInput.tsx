@@ -42,30 +42,44 @@ const ChatInput: React.FC<ChatInputProps> = ({
       <div className="h-full bg-backgroundSecondary bg-opacity-80 backdrop-filter backdrop-blur-md text-foreground rounded-2xl px-4 flex items-center justify-between shadow-lg border-muted border-2 transition-all duration-300">
         {/* Input field */}
         <div className="flex-grow flex items-center min-w-0">
-          <input
-            ref={inputRef}
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your message here..."
-            className="bg-transparent border-none focus:outline-none w-full h-full text-sm text-foreground placeholder-foreground-secondary"
-            disabled={isLoading}
-          />
+          <div className="w-full relative">
+            {/* Input pentru desktop */}
+            <input
+              ref={inputRef}
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type your message here..."
+              className="hidden md:block bg-transparent border-none focus:outline-none w-full h-full text-sm text-foreground placeholder-foreground-secondary"
+              disabled={isLoading}
+            />
+            
+            {/* Input pentru mobile */}
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={selectedProjectId ? `Send a message in ${projects.find(p => p.id === selectedProjectId)?.name}...` : 'Select a project...'}
+              className="md:hidden bg-transparent border-none focus:outline-none w-full h-full text-sm text-foreground placeholder-foreground-secondary"
+              disabled={isLoading}
+            />
+          </div>
         </div>
 
-        {/* Project Selector and Send button container - reordered */}
+        {/* Project Selector and Send button container */}
         <div className="flex items-center gap-2 ml-2">
-          {/* Send button - moved before Project Selector */}
+          {/* Send button */}
           <div className="flex-shrink-0">
             <button
               type="submit"
               disabled={isLoading || !message.trim()}
               className={`
                 gooey-button bg-primary text-foreground rounded-full
-                focus:outline-none transition-all duration-300 p-1.5 relative overflow-hidden
+                focus:outline-none p-1.5 relative overflow-hidden
                 ${isLoading || !message.trim()
-                  ? 'opacity-0 cursor-default pointer-events-none'
+                  ? 'hidden md:block md:opacity-0 md:transition-all md:duration-300'
                   : 'hover:bg-primaryAccent'
                 }
               `}
@@ -83,8 +97,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
             </button>
           </div>
 
-          {/* Project Selector - now after Send button */}
-          <div className="flex-shrink-0">
+          {/* Project Selector - adăugăm logica de vizibilitate */}
+          <div className={`flex-shrink-0 ${message.trim() ? 'md:block hidden' : 'block'}`}>
             <ProjectSelector
               projects={projects}
               selectedProjectId={selectedProjectId}

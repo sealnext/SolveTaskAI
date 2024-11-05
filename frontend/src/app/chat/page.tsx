@@ -195,7 +195,7 @@ export default function ChatPage() {
           <Chat messages={messages} loadingMessage={loadingMessage} />
         </div>
 
-        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 w-3/4 max-w-4xl">
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 w-3/4 max-w-4xl md:w-3/4 w-[95%]">
           <ChatInput 
             onSendMessage={handleSendMessage} 
             isLoading={isLoading}

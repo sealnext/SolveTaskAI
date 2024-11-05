@@ -72,7 +72,7 @@ export default function ProjectSelector({
               ) : !projects?.length ? (
                 <span>No Projects</span>
               ) : (
-                <span>{selectedProject?.name}</span>
+                <span className="hidden md:inline">{selectedProject?.name}</span>
               )}
             </div>
             <ChevronDown className="h-3 w-3 opacity-50" />
