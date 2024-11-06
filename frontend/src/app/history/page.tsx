@@ -8,14 +8,7 @@ import { ProfileMenuComponent } from "@/components/ProfileMenu";
 import SpatialTooltip from "@/components/SpatialTooltip"
 import ApiClient from "@/lib/apiClient";
 import { MdSupportAgent, MdAccessTime, MdMessage } from "react-icons/md";
-
-interface ChatSession {
-  id: string;
-  project_id: number;
-  created_at: string;
-  preview: string;
-  message_count: number;
-}
+import { ChatSession, groupChatsByDate, formatTime } from "@/lib/chatUtils"
 
 export default function HistoryPage() {
   const { data: session, status } = useSession();
@@ -24,17 +17,6 @@ export default function HistoryPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const apiclient = useMemo(() => ApiClient(), []);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -58,6 +40,8 @@ export default function HistoryPage() {
       fetchChatHistory();
     }
   }, [session, apiclient]);
+
+  const groupedChats = groupChatsByDate(chatSessions);
 
   const handleChatSelect = (chatId: string) => {
     router.push(`/chat?chat_id=${chatId}`);
@@ -84,34 +68,43 @@ export default function HistoryPage() {
             <h1 className="text-2xl font-bold">Chat History</h1>
           </div>
           
-          <div className="space-y-4">
-            {chatSessions.map((chat) => (
-              <div
-                key={chat.id}
-                onClick={() => handleChatSelect(chat.id)}
-                className="bg-backgroundSecondary rounded-xl p-4 shadow-md hover:shadow-lg transition-all hover:scale-[1.01] cursor-pointer border border-muted"
-              >
-                <div className="flex items-start space-x-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-muted flex items-center justify-center flex-shrink-0 bg-background">
-                    <MdSupportAgent className="text-foreground-secondary text-xl sm:text-2xl" />
-                  </div>
-                  
-                  <div className="flex-grow min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2">
-                      <div className="font-medium truncate flex-grow max-w-full sm:max-w-[70%]">
-                        {chat.preview}
-                      </div>
-                      <div className="text-xs sm:text-sm text-foreground-secondary flex items-center sm:ml-4 mt-1 sm:mt-0">
-                        <MdAccessTime className="mr-1" />
-                        {formatDate(chat.created_at)}
+          <div className="space-y-8">
+            {Object.entries(groupedChats).map(([dateGroup, chats]) => (
+              <div key={dateGroup}>
+                <h3 className="text-sm font-medium text-muted-foreground mb-4">
+                  {dateGroup}
+                </h3>
+                <div className="space-y-4">
+                  {chats.map((chat) => (
+                    <div
+                      key={chat.id}
+                      onClick={() => handleChatSelect(chat.id)}
+                      className="bg-backgroundSecondary rounded-xl p-4 shadow-md hover:shadow-lg transition-all hover:scale-[1.01] cursor-pointer border border-muted"
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-muted flex items-center justify-center flex-shrink-0 bg-background">
+                          <MdSupportAgent className="text-foreground-secondary text-xl sm:text-2xl" />
+                        </div>
+                        
+                        <div className="flex-grow min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2">
+                            <div className="font-medium truncate flex-grow max-w-full sm:max-w-[70%]">
+                              {chat.preview}
+                            </div>
+                            <div className="text-xs sm:text-sm text-foreground-secondary flex items-center sm:ml-4 mt-1 sm:mt-0">
+                              <MdAccessTime className="mr-1" />
+                              {formatTime(chat.created_at)}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center text-xs sm:text-sm text-foreground-secondary">
+                            <MdMessage className="mr-1" />
+                            {chat.message_count} messages
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center text-xs sm:text-sm text-foreground-secondary">
-                      <MdMessage className="mr-1" />
-                      {chat.message_count} messages
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             ))}
