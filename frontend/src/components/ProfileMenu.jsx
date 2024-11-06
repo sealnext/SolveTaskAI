@@ -146,15 +146,19 @@ export function ProfileMenuComponent() {
           </div>
           <Separator className="my-2 bg-muted" />
           <div className="p-2">
-            <LogoutButton className="w-full justify-between text-left px-4 py-3 flex items-center hover:bg-muted-20 transition-colors text-foreground font-medium rounded-lg">
+            <LogoutButton>
               {({ logout, isLoading }) => (
-                <>
+                <button
+                  onClick={logout}
+                  disabled={isLoading}
+                  className="w-full justify-between text-left px-4 py-3 flex items-center hover:bg-muted-20 transition-colors text-foreground font-medium rounded-lg"
+                >
                   <span className="flex items-center">
                     <LogOut className="h-4 w-4 mr-3 text-primary" />
                     {isLoading ? 'Logging out...' : 'Log out'}
                   </span>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </>
+                </button>
               )}
             </LogoutButton>
           </div>

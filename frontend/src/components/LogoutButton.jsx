@@ -2,8 +2,12 @@ import { Button } from "@/components/ui/button";
 import { useLogout } from "../app/hooks/useLogout";
 import { LogOut } from "lucide-react";
 
-export function LogoutButton({ className }) {
+export function LogoutButton({ className, showText = true, children }) {
   const { logout, isLoading, error } = useLogout();
+
+  if (children) {
+    return children({ logout, isLoading });
+  }
 
   return (
     <>
@@ -11,10 +15,14 @@ export function LogoutButton({ className }) {
         onClick={logout}
         disabled={isLoading}
         variant="ghost"
-        className={`w-full justify-between text-left ${className}`}
+        className={className}
       >
-        <span>{isLoading ? 'Logging out...' : 'Log out'}</span>
-        <LogOut className="h-4 w-4 text-gray-500" />
+        <LogOut className="h-4 w-4 text-muted-foreground" />
+        {showText && (
+          <span className="ml-2">
+            {isLoading ? 'Logging out...' : 'Log out'}
+          </span>
+        )}
       </Button>
       {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
     </>
