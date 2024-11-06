@@ -3,7 +3,6 @@
 import * as React from "react"
 import { X, PenSquare, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { isToday, isYesterday } from "date-fns"
 import {
   Sidebar,
   SidebarHeader,
@@ -20,13 +19,7 @@ import ApiClient from "@/lib/apiClient"
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { LogoutButton } from "@/components/LogoutButton"
-
-interface ChatSession {
-  id: string
-  created_at: string
-  preview: string
-  message_count: number
-}
+import { ChatSession, groupChatsByDate } from "@/lib/chatUtils"
 
 interface MobileSidebarProps {
   selectedChatId: string | null
@@ -69,26 +62,6 @@ function NewChatButton({ onClick }: { onClick?: () => void }) {
       <span className="sr-only">New Chat</span>
     </Button>
   )
-}
-
-function groupChatsByDate(chats: ChatSession[]) {
-  if (!chats || !Array.isArray(chats)) {
-    return {} as Record<string, ChatSession[]>;
-  }
-
-  const grouped = chats.reduce((acc, chat) => {
-    const date = new Date(chat.created_at)
-    let key = 'Older'
-    
-    if (isToday(date)) key = 'Today'
-    else if (isYesterday(date)) key = 'Yesterday'
-    
-    if (!acc[key]) acc[key] = []
-    acc[key].push(chat)
-    return acc
-  }, {} as Record<string, ChatSession[]>)
-
-  return grouped
 }
 
 function SidebarContent({ 
