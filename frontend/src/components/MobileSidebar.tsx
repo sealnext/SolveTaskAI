@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { X, PenSquare } from "lucide-react"
+import { X, PenSquare, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isToday, isYesterday } from "date-fns"
 import {
@@ -18,6 +18,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useSession } from "next-auth/react"
 import ApiClient from "@/lib/apiClient"
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
+import { SettingsDialog } from '@/components/SettingsDialog'
+import { LogoutButton } from "@/components/LogoutButton"
 
 interface ChatSession {
   id: string
@@ -105,6 +107,7 @@ function SidebarContent({
   session: any;
 }) {
   const { toggleSidebar } = useSidebar()
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const userName = session?.user?.full_name || session?.user?.name || "User"
   const userImage = session?.user?.image || "/path/to/default/avatar.png"
 
@@ -169,19 +172,45 @@ function SidebarContent({
       </ScrollArea>
 
       <div className="p-4">
-        <div className="flex items-center space-x-3">
-          <Avatar className="h-9 w-9 cursor-pointer bg-primary text-foreground ring-2 ring-offset-2 ring-offset-background ring-primary">
-            <AvatarImage src={userImage} alt={userName} />
-            <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{userName}</p>
-            <p className="text-xs text-muted-foreground truncate">
-              {session?.user?.email}
-            </p>
+        <div className="flex items-center justify-between">
+          <div 
+            className="flex items-center space-x-3 cursor-pointer"
+            onClick={() => setIsSettingsOpen(true)}
+          >
+            <Avatar className="h-9 w-9 bg-primary text-foreground ring-2 ring-offset-2 ring-offset-background ring-primary">
+              <AvatarImage src={userImage} alt={userName} />
+              <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{userName}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {session?.user?.email}
+              </p>
+            </div>
           </div>
+
+          <LogoutButton>
+            {({ logout, isLoading }) => (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={logout}
+                disabled={isLoading}
+                className="h-6 w-6"
+                aria-label="Log out"
+              >
+                <LogOut className="h-5 w-5 text-muted-foreground" />
+                <span className="sr-only">Log out</span>
+              </Button>
+            )}
+          </LogoutButton>
         </div>
       </div>
+
+      <SettingsDialog 
+        open={isSettingsOpen} 
+        onOpenChange={setIsSettingsOpen}
+      />
     </div>
   )
 }
