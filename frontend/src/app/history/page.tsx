@@ -78,7 +78,7 @@ export default function HistoryPage() {
       </div>
       <SpatialTooltip />
       
-      <div className="flex-grow overflow-auto p-6">
+      <div className="flex-grow overflow-auto p-6 sm:p-6 p-3">
         <div className="max-w-4xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-2xl font-bold">Chat History</h1>
@@ -92,22 +92,22 @@ export default function HistoryPage() {
                 className="bg-backgroundSecondary rounded-xl p-4 shadow-md hover:shadow-lg transition-all hover:scale-[1.01] cursor-pointer border border-muted"
               >
                 <div className="flex items-start space-x-3">
-                  <div className="w-10 h-10 rounded-full border-2 border-muted flex items-center justify-center flex-shrink-0 bg-background">
-                    <MdSupportAgent className="text-foreground-secondary text-2xl" />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-muted flex items-center justify-center flex-shrink-0 bg-background">
+                    <MdSupportAgent className="text-foreground-secondary text-xl sm:text-2xl" />
                   </div>
                   
-                  <div className="flex-grow">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="font-medium truncate flex-grow max-w-[70%]">
+                  <div className="flex-grow min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2">
+                      <div className="font-medium truncate flex-grow max-w-full sm:max-w-[70%]">
                         {chat.preview}
                       </div>
-                      <div className="text-sm text-foreground-secondary flex items-center ml-4">
+                      <div className="text-xs sm:text-sm text-foreground-secondary flex items-center sm:ml-4 mt-1 sm:mt-0">
                         <MdAccessTime className="mr-1" />
                         {formatDate(chat.created_at)}
                       </div>
                     </div>
                     
-                    <div className="flex items-center text-sm text-foreground-secondary">
+                    <div className="flex items-center text-xs sm:text-sm text-foreground-secondary">
                       <MdMessage className="mr-1" />
                       {chat.message_count} messages
                     </div>
