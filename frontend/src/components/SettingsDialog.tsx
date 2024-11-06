@@ -40,9 +40,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-background p-0 rounded-2xl shadow-xl max-w-xl w-[95vw] h-[80vh] flex flex-col fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%]">
-        {/* Header - Fixed */}
-        <div className="p-4 border-b border-border/10">
-          {/* Close button - Integrated in header */}
+        <div className="p-4 border-border/10">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Settings</h2>
             <button 
@@ -76,7 +74,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           </div>
         </div>
 
-        {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-4">
             {activeTab === 'general' && (
