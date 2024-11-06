@@ -26,10 +26,6 @@ export const metadata = {
   authors: [{ name: "Ovidiu Bachmatchi" }],
   viewport: "width=device-width, initial-scale=1",
   robots: "index, follow",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "white" },
-    { media: "(prefers-color-scheme: dark)", color: "black" }
-  ],
   manifest: "/manifest.json"
 };
 

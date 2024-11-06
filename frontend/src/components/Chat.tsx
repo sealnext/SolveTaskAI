@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { MdSupportAgent } from "react-icons/md";
+import { GridIcon } from '@/components/WaitingMessage';
 
 interface Message {
   id: string;
@@ -134,9 +135,9 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
           example="Help me understand the high-level implementation flow across these related tasks"
         />
         <ExampleCard
-          title="Best Practices"
-          description="Learn patterns"
-          example="What are the best practices for structuring a React/Next.js project?"
+          title="Documentation Search"
+          description="Find project info"
+          example="Can you search through our project docs and explain how we handle user roles and permissions?"
         />
       </div>
     </div>
@@ -217,7 +218,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
                         <MdSupportAgent className="text-foreground-secondary text-lg" />
                       </div>
                     </div>
-                    <div className="rounded-xl p-3 bg-backgroundSecondary text-foreground max-w-[70%]">
+                    <div className="rounded-xl p-3 text-foreground max-w-[70%]">
                       <div className="flex items-center space-x-1">
                         <span className="animate-bounce">.</span>
                         <span className="animate-bounce" style={{ animationDelay: "0.2s" }}>.</span>
