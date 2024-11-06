@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { SelectProps } from "@radix-ui/react-select";
 import ApiClient from "@/lib/apiClient";
 import { Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
@@ -243,63 +244,83 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-background/90 data-[theme=light]:bg-gray-700/50">
-      <div className="bg-background p-6 rounded-2xl shadow-xl max-w-md w-full">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Project Manager</h2>
-          <button 
-            onClick={onClose} 
-            className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
-            aria-label="Close"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-background/90 data-[theme=light]:bg-gray-700/50 overflow-hidden">
+      <div className="bg-background p-6 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
+        {/* Header - Always visible */}
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Project Manager</h2>
+            <button 
+              onClick={onClose} 
+              className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
+              aria-label="Close"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Selector - Always visible */}
+          {existingApiKeys.length > 0 && (
+            <div className="pb-4">
+              <Select
+                onValueChange={(value: 'new' | 'existing') => handleApiKeySourceChange(value)}
+                defaultValue={apiKeySource}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Choose API Key Source" />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="new">Add New API Key</SelectItem>
+                  <SelectItem value="existing">Use Existing API Key</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
-        
-        {existingApiKeys.length > 0 && (
-          <Select onValueChange={handleApiKeySourceChange} defaultValue={apiKeySource}>
-            <SelectTrigger>
-              <SelectValue placeholder="Choose API Key Source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="new">Add New API Key</SelectItem>
-              <SelectItem value="existing">Use Existing API Key</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
 
-        {apiKeySource === 'existing' && existingApiKeys.length > 0 && (
-          <ExistingApiKeySelector
-            existingApiKeys={existingApiKeys}
-            selectedApiKeyId={selectedApiKeyId}
-            onApiKeySelect={handleApiKeySelect}
-            onRemoveApiKey={handleRemoveApiKey}
-          />
-        )}
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto mt-[-15px]">
+          {apiKeySource === 'existing' && existingApiKeys.length > 0 && (
+            <div className="space-y-2">
+              <ExistingApiKeySelector
+                existingApiKeys={existingApiKeys}
+                selectedApiKeyId={selectedApiKeyId}
+                onApiKeySelect={handleApiKeySelect}
+                onRemoveApiKey={handleRemoveApiKey}
+              />
+            </div>
+          )}
 
-        {apiKeySource === 'new' && (
-          <NewApiKeyForm onSubmit={handleSubmit} isLoading={isLoading} />
-        )}
+          {apiKeySource === 'new' && (
+            <div className="pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+              <NewApiKeyForm onSubmit={handleSubmit} isLoading={isLoading} />
+            </div>
+          )}
 
-        {message && (
-          <p className={`mt-4 text-sm ${message.includes('Error') ? 'text-destructive' : 'text-foreground'}`}>
-            {message}
-          </p>
-        )}
+          {message && (
+            <p className={`mt-2 text-sm ${message.includes('Error') ? 'text-destructive' : 'text-foreground'}`}>
+              {message}
+            </p>
+          )}
 
-        {externalProjects.length > 0 && apiKeySource === 'existing' && (
-          <ExternalProjectsList
-            externalProjects={externalProjects}
-            projects={projects}
-            isLoading={isLoading}
-            newlyAddedProjects={newlyAddedProjects}
-            onAddInternalProject={handleAddInternalProject}
-            onReloadEmbeddings={handleReloadEmbeddings}
-            onDeleteProject={handleDeleteProject}
-          />
-        )}
+          {externalProjects.length > 0 && apiKeySource === 'existing' && (
+            <div className="mt-2">
+              <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                <ExternalProjectsList
+                  externalProjects={externalProjects}
+                  projects={projects}
+                  isLoading={isLoading}
+                  newlyAddedProjects={newlyAddedProjects}
+                  onAddInternalProject={handleAddInternalProject}
+                  onReloadEmbeddings={handleReloadEmbeddings}
+                  onDeleteProject={handleDeleteProject}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
