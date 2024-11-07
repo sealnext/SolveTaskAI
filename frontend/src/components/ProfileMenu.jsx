@@ -8,32 +8,9 @@ import { LogoutButton } from "@/components/LogoutButton"
 import { cn } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import { Separator } from "@/components/ui/separator"
-import * as SwitchPrimitives from "@radix-ui/react-switch"
-import { useTheme } from "@/contexts/ThemeContext"
-import { useRouter } from 'next/navigation'
+import { ThemeSwitch } from "@/components/ui/theme-switch"
 import { SettingsDialog } from '@/components/SettingsDialog'
-
-export const ThemeSwitch = ({ checked, onCheckedChange }) => (
-  <SwitchPrimitives.Root
-    checked={checked}
-    onCheckedChange={onCheckedChange}
-    className={cn(
-      "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
-      checked ? "bg-primary" : "bg-muted"
-    )}
-  >
-    <SwitchPrimitives.Thumb className={cn(
-      "pointer-events-none flex items-center justify-center h-5 w-5 rounded-full shadow-lg ring-0",
-      checked ? "translate-x-5 bg-white" : "translate-x-0 bg-white"
-    )}>
-      {checked ? (
-        <Moon className="h-3 w-3 text-primary" />
-      ) : (
-        <Sun className="h-3 w-3 text-primary" />
-      )}
-    </SwitchPrimitives.Thumb>
-  </SwitchPrimitives.Root>
-)
+import { useTheme } from "@/contexts/ThemeContext"
 
 const MenuItem = ({ icon: Icon, children, onClick, shortcut }) => {
   return (
