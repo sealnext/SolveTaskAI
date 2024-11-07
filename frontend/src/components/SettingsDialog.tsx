@@ -4,16 +4,16 @@ import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { useSession } from "next-auth/react"
+import { cn } from "@/lib/utils"
 import { 
   Settings, Shield, X, CreditCard, User, 
   Globe, Bell, Code, Archive, Trash2, 
   KeyRound, Mail, UserPlus, Lock,
   CreditCard as PaymentIcon, Receipt, Wallet, History
 } from 'lucide-react'
-import { Switch } from "@/components/ui/switch"
-import { cn } from "@/lib/utils"
 import { useTheme } from "@/contexts/ThemeContext"
-import { ThemeSwitch } from "./ProfileMenu"
+import { ThemeSwitch } from "@/components/ui/theme-switch"
+import { CustomSwitch } from "@/components/ui/custom-switch"
 
 interface SettingsDialogProps {
   open: boolean;
@@ -108,10 +108,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         </p>
                       </div>
                     </div>
-                    <Switch 
+                    <CustomSwitch 
                       checked={notifications}
                       onCheckedChange={setNotifications}
-                      className="data-[state=checked]:bg-primary"
                     />
                   </div>
 
@@ -125,10 +124,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         </p>
                       </div>
                     </div>
-                    <Switch 
+                    <CustomSwitch 
                       checked={showCode}
                       onCheckedChange={setShowCode}
-                      className="data-[state=checked]:bg-primary"
                     />
                   </div>
 
@@ -136,17 +134,13 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     <div className="flex items-center gap-3">
                       <Settings className="w-5 h-5 text-muted-foreground" />
                       <div>
-                        <h3 className="text-sm font-medium text-foreground">Auto-save chats</h3>
+                        <h3 className="text-sm font-medium text-foreground">Theme</h3>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Automatically save chat history
+                          Toggle between light and dark mode
                         </p>
                       </div>
                     </div>
-                    <Switch 
-                      checked={autoSave}
-                      onCheckedChange={setAutoSave}
-                      className="data-[state=checked]:bg-primary"
-                    />
+                    <ThemeSwitch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
                   </div>
                 </div>
 
