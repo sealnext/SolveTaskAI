@@ -1,4 +1,4 @@
-import { isToday, isYesterday } from "date-fns"
+import { isToday, isYesterday, isThisWeek, isThisMonth } from "date-fns"
 
 export interface ChatSession {
   id: string
@@ -17,8 +17,15 @@ export function groupChatsByDate(chats: ChatSession[]) {
     const date = new Date(chat.created_at)
     let key = 'Older'
     
-    if (isToday(date)) key = 'Today'
-    else if (isYesterday(date)) key = 'Yesterday'
+    if (isToday(date)) {
+      key = 'Today'
+    } else if (isYesterday(date)) {
+      key = 'Yesterday'
+    } else if (isThisWeek(date)) {
+      key = 'Last Week'
+    } else if (isThisMonth(date)) {
+      key = 'Last Month'
+    }
     
     if (!acc[key]) acc[key] = []
     acc[key].push(chat)
