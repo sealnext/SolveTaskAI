@@ -1,13 +1,13 @@
-from typing import Annotated, TypedDict, List, Optional, Any, Dict
-from pydantic import BaseModel, ConfigDict, Field
-from langchain_core.messages import ToolMessage
+from typing import Annotated, List, Optional
+from pydantic import BaseModel, Field
+from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
+import logging
+from .state import AgentState
 from .nodes import retrieve_documents, retry_retrieve_documents, grade_documents
 from .edges import decide_after_grading
 from models import Project
 from models.apikey import APIKey
-import logging
-from .state import AgentState
 
 logger = logging.getLogger(__name__)
 
@@ -39,77 +39,63 @@ def create_retrieve_workflow():
     logger.debug(f"Compiled graph nodes: {graph.nodes}")
     return graph
 
-class RetrieveInput(BaseModel):
-    """Input for the RetrieveDocuments tool."""
-    question: str = Field(
-        ...,
-        description="The question to search documents for"
-    )
+class RetrieveDocuments:
+    def __init__(self, project, api_key):
+        self.project = project
+        self.api_key = api_key
 
-class RetrieveDocuments(BaseModel):
-    """Tool for retrieving relevant documents from the project's knowledge base."""
-    name: str = "RetrieveDocuments"
-    description: str = """Retrieves relevant documents from the project's knowledge base.
-    When using this tool, provide an optimized search query that:
-    1. Focuses on key technical concepts
-    2. Includes relevant terminology
-    3. Removes conversational elements
-    4. Captures the semantic meaning of the search requirement"""
-    project: Any
-    api_key: Any
+    def to_tool(self):
+        """Convert the retriever to a LangChain tool."""
+        @tool
+        async def retrieve_documents(query: str) -> str:
+            """
+            Retrieve relevant documents based on the query.
+            
+            Args:
+                query: The search query to use for document retrieval
+            
+            Returns:
+                String containing the retrieved documents or empty if none found
+            """
+            logger.info(f"Retrieving documents for query: {query}")
+            
+            try:
+                documents = await self.invoke(query)
+                if not documents:
+                    return ""
+                
+                formatted_docs = [
+                    f"Document {i+1}:\n{doc.page_content}\nMetadata: {doc.metadata}"
+                    for i, doc in enumerate(documents)
+                ]
+                return "\n\n".join(formatted_docs)
+            except Exception as e:
+                logger.error(f"Error in retrieve_documents: {e}", exc_info=True)
+                return f"Error retrieving documents: {str(e)}"
+            
+        return retrieve_documents
 
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True
-    )
-
-    def to_tool(self) -> Dict:
-        """Convert to OpenAI tool format."""
-        return {
-            "type": "function",
-            "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "search_query": {
-                            "type": "string",
-                            "description": "The optimized search query to use for document retrieval"
-                        },
-                        "original_question": {
-                            "type": "string",
-                            "description": "The original user question for context"
-                        }
-                    },
-                    "required": ["search_query", "original_question"]
-                }
-            }
-        }
-
-    async def invoke(self, search_query: str, original_question: str) -> List[dict]:
+    async def invoke(self, query: str):
         """Execute the retrieve workflow."""
-        logger.info(f"Retrieving documents for optimized query: {search_query}")
-        logger.info(f"Original question: {original_question}")
-        
-        state = {
-            "question": search_query,  # Use the optimized query for embedding search
-            "original_question": original_question,  # Keep original for context
-            "project": self.project,
-            "api_key": self.api_key,
-            "documents": [],
-            "retry_retrieve_count": 0,
-            "ignore_tickets": [],
-            "messages": [],
-            "max_retries": 3,
-            "answers": 0,
-            "loop_step": 0,
-            "tickets": [],
-            "status": "started"
-        }
-        
-        workflow = create_retrieve_workflow()
-        result = await workflow.ainvoke(state)
-        
-        if result and isinstance(result, dict):
-            return result.get("documents", [])
-        return []
+        try:
+            state = {
+                "question": query,
+                "project": self.project,
+                "api_key": self.api_key,
+                "documents": [],
+                "retry_retrieve_count": 0,
+                "ignore_tickets": [],
+                "messages": [],
+                "max_retries": 3,
+                "status": "started"
+            }
+            
+            workflow = create_retrieve_workflow()
+            result = await workflow.ainvoke(state)
+            
+            if result and isinstance(result, dict):
+                return result.get("documents", [])
+            return []
+        except Exception as e:
+            logger.error(f"Error in invoke: {e}", exc_info=True)
+            raise

@@ -53,3 +53,16 @@ Enhanced Logging: Improve logging for tracking and error handling.
 - nu cred ca mai e nevoie de a trimite project_id in chat request, doar chat_id ar trebui sa fie suficient. 
 
 - ca atunci cand adaugi un proiect, sa poti optional sa pui si limba, pentru ca default noi avem in engleza transformarea si optimizarea query-ului pt embeddings. Asa putem lua limba proiectului si sa facem transformarea si optimizarea in functie de limba nu in engleza BY DEFAULT.
+
+- TODO VERY IMPORTANT, daca facem retreive la 5 documente, din care 2 sunt valide. Si eu continui sa vorbesc cu chatu, si ii zic sa mai dea retrieve la documente.. trebuie sa omita acele 2 documente deja returnate cumva, chiar daca la final sunt 0 documente noi retreived. Oricum noi salvam mereu ultimele 3 appeluri de retreived_docs in state-ul de la chat. Deci nu are sens sa salvam duplicatele. Daca le salvam pierdem si spatiu si chatul va da raspuns ca si cum
+acele 2 documente sunt noi si va zice si povesti de ele ca si cum nu a mai raspusn inainte :)))
+
+ex(BUT WE F SPOKE ABOUT THOSE TASKS BEFORE)
+
+ME: please search for more
+
+CHAT: Here are the details of the two tickets related to user registration issues:
+
+1. Ticket: Registration Form Fails for Some Users
+2. Ticket: User Registration is Not Functioning Properly
+

@@ -1,6 +1,7 @@
 from typing import List, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from langgraph.prebuilt import ToolNode
 import logging
 from .rag.specialized_rag import RetrieveDocuments
 from models import Project
@@ -11,6 +12,7 @@ from .prompts import (
     final_answer_prompt_template
 )
 from config import OPENAI_MODEL
+
 logger = logging.getLogger(__name__)
 
 class ResponseGenerator:
@@ -18,96 +20,106 @@ class ResponseGenerator:
         self.llm = llm or ChatOpenAI(model=OPENAI_MODEL, temperature=0)
         self.project = project
         self.api_key = api_key
-        self.prompt = main_prompt_template
+        self.retrieve_tool = RetrieveDocuments(project=project, api_key=api_key)
+        self.tool_node = ToolNode([self.retrieve_tool.to_tool()])
 
     async def generate_response(self, question: str, chat_history: List[dict]) -> tuple[str, Optional[str]]:
-        """Generate a response using filtered chat history and retrieving documents if needed."""
+        """Generate a response using document retrieval with integrated query optimization."""
         logger.info("="*50)
         logger.info("Starting response generation")
         logger.info("="*50)
         
         formatted_history = self._format_chat_history(chat_history) if chat_history else ""
+        logger.info(f"Original question: {question}")
         
-        retrieve_tool = RetrieveDocuments(
-            project=self.project,
-            api_key=self.api_key
-        )
-        
-        chain = self.prompt | self.llm.bind_tools(
-            [retrieve_tool.to_tool()],
+        # Create the retrieval tool and bind it to the LLM
+        llm_with_tools = self.llm.bind_tools(
+            [self.retrieve_tool.to_tool()],
             tool_choice="auto"
         )
         
-        logger.info(f"Original question: {question}")
-        if formatted_history:
-            logger.info("Chat history context available")
-            logger.debug(f"Chat history: {formatted_history}")
+        # Single LLM call that handles both query optimization and tool usage decision
+        prompt_content = main_prompt_template.format(
+            question=question,
+            chat_history=formatted_history
+        )
         
-        response = await chain.ainvoke({
-            "question": question,
-            "chat_history": formatted_history
-        })
+        response = await llm_with_tools.ainvoke(
+            [HumanMessage(content=prompt_content)]
+        )
         
-        logger.debug(f"Initial LLM response: {response}")
-        logger.debug(f"Response has tool calls: {bool(response.tool_calls)}")
-        
-        if response.tool_calls:
-            tool_call = response.tool_calls[0]
-            logger.info("-"*50)
-            logger.info("Document retrieval requested")
-            logger.info("-"*50)
+        if not response.tool_calls:
+            logger.info("Direct response without document retrieval")
+            return response.content, None
             
-            if tool_call["name"] == "RetrieveDocuments":
-                args = tool_call["args"]
-                search_query = args["search_query"]
-                original_question = args["original_question"]
-                
-                logger.info("Query transformation:")
-                logger.info(f"  Original: '{original_question}'")
-                logger.info(f"  Optimized: '{search_query}'")
-                
-                documents = await retrieve_tool.invoke(search_query, original_question)
-                logger.info(f"Retrieved {len(documents)} relevant documents")
-                
-                if not documents:
-                    logger.info("No documents found - generating no-docs response")
-                    no_docs_response = await self.llm.ainvoke([
-                        HumanMessage(content=no_docs_prompt_template.format(
-                            chat_history=formatted_history,
-                            question=original_question
-                        ))
-                    ])
-                    return no_docs_response.content, None
-                
-                context = self._format_docs(documents)
-                logger.info("Generating final response with retrieved context")
-                final_response = await self.llm.ainvoke([
-                    HumanMessage(content=final_answer_prompt_template.format(
-                        context=context,
-                        question=original_question
-                    ))
-                ])
-                logger.info("="*50)
-                logger.info("Response generation completed")
-                logger.info("="*50)
-                return final_response.content, context
+        # Extract the optimized query from the tool call
+        tool_call = response.tool_calls[0]
+        logger.debug(f"Tool call structure: {tool_call}")
         
-        logger.info("Direct response without document retrieval")
-        return response.content, None
-
-    def _format_docs(self, documents: List[dict]) -> str:
-        """Format documents for the prompt."""
-        if not documents:
-            return ""
+        # Safely extract the query from the tool call arguments
+        if isinstance(tool_call, dict):
+            args = tool_call.get("args", {})
+            if isinstance(args, str):
+                import json
+                try:
+                    args = json.loads(args)
+                except json.JSONDecodeError:
+                    args = {"query": args}
+            optimized_query = args.get("query", question)
+        else:
+            args = getattr(tool_call, "arguments", None)
+            if args and isinstance(args, str):
+                import json
+                try:
+                    args = json.loads(args)
+                except json.JSONDecodeError:
+                    args = {"query": args}
+            optimized_query = args.get("query", question) if isinstance(args, dict) else question
             
-        formatted_docs = [
-            f"Ticket {i+1}: '{doc.metadata.get('ticket_url', 'No URL provided')}'\n\n"
-            f"Content: {doc.page_content}\n\n"
-            f"Metadata: {doc.metadata}"
-            for i, doc in enumerate(documents)
+        logger.info(f"Optimized query: {optimized_query}")
+        
+        # Create proper message sequence for tool node
+        messages = [
+            HumanMessage(content=prompt_content),
+            response,  # This is the AIMessage containing tool calls
         ]
         
-        return f"Retrieved documents:\n\n" + "\n\n".join(formatted_docs)
+        # Execute retrieval with the optimized query
+        tool_result = await self.tool_node.ainvoke({
+            "messages": messages,
+            "config": {"run_name": "document_retrieval"}
+        })
+        
+        # Extract the retrieved documents from the tool result
+        if isinstance(tool_result, dict) and "output" in tool_result:
+            retrieved_docs = tool_result["output"]
+        else:
+            retrieved_docs = tool_result
+            
+        if not retrieved_docs:
+            logger.info("No documents found - generating no-docs response")
+            no_docs_response = await self.llm.ainvoke([
+                HumanMessage(content=no_docs_prompt_template.format(
+                    chat_history=formatted_history,
+                    question=question
+                ))
+            ])
+            return no_docs_response.content, None
+            
+        context = retrieved_docs
+        logger.info("Generating final response with retrieved context")
+        final_response = await self.llm.ainvoke([
+            HumanMessage(content=final_answer_prompt_template.format(
+                context=context,
+                question=question
+            ))
+        ])
+        
+        logger.info("="*50)
+        logger.info("Response generation completed")
+        logger.info("="*50)
+        
+        return final_response.content, context
 
     def _format_chat_history(self, messages: List[dict]) -> str:
         """Format chat history for the prompt."""
