@@ -42,16 +42,28 @@ MAIN_CONVERSATION_PROMPT = """Previous conversation and context:
 
 Current question: {question}
 
-Instructions for follow-up questions:
-1. If the current question is a follow-up (e.g., "search for that", "look it up"), use the previous question as context
-2. For search requests, ensure the query combines both the follow-up intent and the previous question's subject
-3. Always maintain the context of the conversation when generating search queries
+Instructions:
+1. Analyze the question and conversation context carefully
+2. If document retrieval is needed:
+   - Generate an optimized search query that:
+     * Extracts key technical concepts
+     * Removes conversational language
+     * Includes relevant synonyms
+     * Considers the full conversation context
+3. If the question can be answered from context:
+   - Respond directly without document retrieval
+4. For follow-up questions:
+   - Consider the previous context
+   - Combine relevant information from the conversation history
 
-Example:
-Previous: "Can I put Zokura knives in the dishwasher?"
-Follow-up: "search online"
-→ Should search for: "Zokura knives dishwasher safety cleaning instructions"
-"""
+Example of query optimization:
+Question: "Can you tell me if there are any issues with the login page not working on mobile devices?"
+Optimized Query: "login page mobile responsive issues authentication problems"
+
+Remember:
+- Use existing context when sufficient
+- Only retrieve new documents when necessary
+- Optimize queries based on full conversation context"""
 
 NO_DOCUMENTS_PROMPT = """No direct information was found in the project's documentation for this question.
 
@@ -89,6 +101,23 @@ Remember to:
 4. Provide information directly without mentioning "the existing context" or similar phrases
 5. Start your response with the actual information requested and keep the answer concise and to the point, simple and easy to understand"""
 
+QUERY_OPTIMIZATION_PROMPT = """Given the following user question, generate an optimized search query for retrieving relevant project tickets and documentation.
+
+User Question: {question}
+
+Instructions for Query Optimization:
+1. Extract key technical concepts and terms
+2. Remove conversational language
+3. Focus on specific technical details
+4. Include relevant synonyms or related terms
+5. Keep the query concise but comprehensive
+
+Example:
+User Question: "Can you tell me if there are any issues with the login page not working on mobile devices?"
+Optimized Query: "login page mobile responsive issues authentication problems"
+
+Generate an optimized search query for the given question."""
+
 # Create prompt templates
 main_prompt_template = ChatPromptTemplate.from_messages([
     ("system", SYSTEM_PROMPT),
@@ -101,4 +130,8 @@ no_docs_prompt_template = ChatPromptTemplate.from_messages([
 
 final_answer_prompt_template = ChatPromptTemplate.from_messages([
     ("system", FINAL_ANSWER_PROMPT)
+])
+
+query_optimization_template = ChatPromptTemplate.from_messages([
+    ("system", QUERY_OPTIMIZATION_PROMPT)
 ]) 

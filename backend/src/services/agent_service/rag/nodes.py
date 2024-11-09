@@ -13,6 +13,7 @@ import logging
 from services.data_extractor import create_data_extractor
 from .prompts import doc_grader_instructions, doc_grader_prompt
 import asyncio
+from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ def create_vector_store(unique_identifier_project: str):
         async_mode=True
     )
 
-async def retrieve_documents(state):
+async def retrieve_documents(state: Dict[str, Any]) -> AgentState:
     logger.info("--- Retrieving documents node ---")
     question = state["question"]
     retry_retrieve_count = state.get("retry_retrieve_count", 0)
