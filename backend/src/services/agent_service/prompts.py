@@ -95,11 +95,13 @@ FINAL_ANSWER_PROMPT = """Based on the following context:
 Answer the question: {question}
 
 Remember to:
-1. Reference specific tickets when providing information
-2. Include relevant metadata
-3. Keep the answer concise if the question is simple
-4. Provide information directly without mentioning "the existing context" or similar phrases
-5. Start your response with the actual information requested and keep the answer concise and to the point, simple and easy to understand"""
+1. Keep answers direct and concise
+2. Only include ticket details (links, descriptions, metadata) when specifically requested
+3. Focus on answering the exact question asked
+4. For simple questions, provide simple answers
+5. Start your response with the actual information requested
+6. If answering follow-up questions, don't mention all the fine details of the tickets, like ticket links, descriptions, etc.
+7. Avoid technical jargon unless specifically asked about technical details"""
 
 QUERY_OPTIMIZATION_PROMPT = """Given the following user question, generate an optimized search query for retrieving relevant project tickets and documentation.
 
