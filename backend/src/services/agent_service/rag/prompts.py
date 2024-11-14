@@ -25,16 +25,13 @@ If the document contains keyword(s) or semantic meaning related to the question,
 # Grader prompt
 doc_grader_prompt = """Please evaluate if this document is relevant for answering the user's question.
 
-Document Content:
+Document Content and Metadata:
 {document}
 
-Document Metadata:
-{metadata}
-
-User Question:
+User query to get this document above was:
 {question}
 
-Evaluate if this document and its metadata contain information that could help answer the question.
+Evaluate if this document and its metadata contain information that are relevant to the user query.
 Return a JSON object with a binary_score field that is either "yes" or "no".
 
 Example response:

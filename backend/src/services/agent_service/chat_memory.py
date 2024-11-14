@@ -57,11 +57,11 @@ class ChatMemory:
         # Convert stored messages to LangChain message objects
         converted_messages = []
         for msg in messages:
-            if msg["type"] == "human":
+            if msg["role"] == "human":
                 converted_messages.append(HumanMessage(content=msg["content"]))
-            elif msg["type"] == "ai":
+            elif msg["role"] == "ai":
                 converted_messages.append(AIMessage(content=msg["content"]))
-            elif msg["type"] == "system":
+            elif msg["role"] == "system":
                 converted_messages.append(SystemMessage(content=msg["content"]))
         
         # Filter messages before returning
@@ -77,13 +77,27 @@ class ChatMemory:
         return has_history
 
     async def add_to_chat_history(self, chat_id: str, question: str, answer: str, context: Optional[str] = None):
-        """Add a Q&A pair to chat history."""
-        messages = [
-            {"type": "human", "content": question}
-        ]
+        """Add messages to chat history."""
+        messages = []
+        
+        # First add user question
+        messages.append({
+            "role": "human",
+            "content": question
+        })
+        
+        # Then add context if available
         if context:
-            messages.append({"type": "system", "content": f"Context: {context}"})
-        messages.append({"type": "ai", "content": answer})
+            messages.append({
+                "role": "context",
+                "content": f"Context: {context}"
+            })
+        
+        # Finally add AI response
+        messages.append({
+            "role": "ai",
+            "content": answer
+        })
         
         await self.repository.add_messages(chat_id, messages)
         logger.debug(f"Added messages to chat history {chat_id}")

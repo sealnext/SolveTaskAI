@@ -36,19 +36,8 @@ async def get_chat_history(
         
         messages = await chat_session_repository.get_messages(chat_id)
         
-        formatted_messages = []
-        for msg in messages:
-            if msg.get("type") == "system":
-                continue
-                
-            formatted_message = {
-                "role": "user" if msg.get("type") == "human" else "ai",
-                "content": msg.get("content", "")
-            }
-            formatted_messages.append(formatted_message)
-        
         return {
-            "messages": formatted_messages,
+            "messages": messages,
             "project_id": chat_session.project_id
         }
         

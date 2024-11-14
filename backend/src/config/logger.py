@@ -31,5 +31,7 @@ logging.getLogger("sqlalchemy.pool").setLevel(sqlalchemy_log_level)
 logging.getLogger("openai").setLevel(logging.WARNING)
 logging.getLogger("openai._base_client").setLevel(logging.WARNING)
 logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
