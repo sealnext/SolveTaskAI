@@ -33,27 +33,19 @@ class ChatSessionRepository:
     async def add_messages(self, chat_id: str, new_messages: List[dict]) -> ChatSession:
         chat_session = await self.get_by_id(chat_id)
         if chat_session:
-            # Convert message objects to dict for JSON storage
-            messages_dict = [
-                {
-                    "type": msg["type"],
-                    "content": msg["content"]
-                } for msg in new_messages
-            ]
-            
             # Initialize messages if None
             if chat_session.messages is None:
                 chat_session.messages = []
             
-            # Add new messages
-            chat_session.messages = chat_session.messages + messages_dict
+            # Add new messages directly
+            chat_session.messages = chat_session.messages + new_messages
             
             # Explicitly mark as modified
             self.session.add(chat_session)
             await self.session.commit()
             await self.session.refresh(chat_session)
             
-            logger.debug(f"Added {len(messages_dict)} messages to chat {chat_id}. Total messages: {len(chat_session.messages)}")
+            logger.debug(f"Added {len(new_messages)} messages to chat {chat_id}. Total messages: {len(chat_session.messages)}")
         return chat_session
 
     async def get_messages(self, chat_id: str) -> List[dict]:

@@ -34,9 +34,15 @@ class DataExtractorJira(DataExtractor):
             
             data = await self.fetch_with_retry(session, ticket_url, params={})
             
+            logger.info(f"Fetched ticket data: {data}")
+            
             project_id = str(data.get('fields', {}).get('project', {}).get('id'))
             
+            logger.info(f"Project ID: {project_id}")
+            
             validated_ticket = JiraIssueContentSchema(**{**data, 'project_id': project_id})
+            
+            logger.info(f"Validated ticket: {validated_ticket}")
             
             return validated_ticket
 

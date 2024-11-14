@@ -16,6 +16,13 @@ class TicketContent(BaseModel):
     description: str = "No description provided"
     comments: List[str] = []
 
+    def __str__(self):
+        return json.dumps({
+            "title": self.title,
+            "description": self.description,
+            "comments": self.comments
+        }, indent=2)
+
 class JiraIssueContentSchema(BaseModel):
     content: TicketContent
     ticket_api: str
