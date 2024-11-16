@@ -93,9 +93,7 @@ class Agent:
             answer = result["messages"][-1].content
             context = next((msg.content for msg in reversed(result["messages"]) 
                           if isinstance(msg, ToolMessage)), None)
-            
-            logger.info(f"Context ------: {context}")
-            
+                        
             await self.memory.add_to_chat_history(chat_id, question, answer, context)
             return answer, chat_id
             

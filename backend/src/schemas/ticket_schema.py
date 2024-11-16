@@ -1,5 +1,6 @@
 import re
 from typing import Optional, List
+import json
 from pydantic import BaseModel, root_validator
 
 class Ticket(BaseModel):
@@ -12,13 +13,13 @@ class Ticket(BaseModel):
     embedding_vector: Optional[str] = None
 
 class TicketContent(BaseModel):
-    title: str = "No title provided"
+    summary: str = "No title provided"
     description: str = "No description provided"
     comments: List[str] = []
 
     def __str__(self):
         return json.dumps({
-            "title": self.title,
+            "summary": self.summary,
             "description": self.description,
             "comments": self.comments
         }, indent=2)
@@ -42,7 +43,7 @@ class JiraIssueContentSchema(BaseModel):
         values['ticket_api'] = api_self_url
 
         # Extract content components with default values
-        title = fields.get('summary') or "No title provided"
+        summary = fields.get('summary') or "No title provided"
         description = fields.get('description') or "No description provided"
         
         # Process comments with author names
@@ -54,7 +55,7 @@ class JiraIssueContentSchema(BaseModel):
 
         # Create content structure with default values
         values['content'] = {
-            "title": title,
+            "summary": summary,
             "description": description,
             "comments": comments_list
         }

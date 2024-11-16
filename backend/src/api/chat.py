@@ -103,10 +103,9 @@ async def get_chat_history_list(
         
         formatted_sessions = []
         for session in chat_sessions:
-            # Numărăm mesajele de la user și AI, excludem system
             message_count = sum(
                 1 for msg in session.messages 
-                if msg.get("type") in ["human", "ai"]
+                if msg.get("role") in ["human", "ai"]
             ) if session.messages else 0
             
             formatted_session = {
@@ -114,7 +113,7 @@ async def get_chat_history_list(
                 "project_id": session.project_id,
                 "created_at": session.updated_at.isoformat(),
                 "preview": session.messages[0].get("content", "") if session.messages and len(session.messages) > 0 else "No messages",
-                "message_count": message_count  # Folosim noul count pentru mesajele user și AI
+                "message_count": message_count
             }
             formatted_sessions.append(formatted_session)
             

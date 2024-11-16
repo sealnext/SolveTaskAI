@@ -117,8 +117,6 @@ async def grade_documents(state: AgentState) -> dict:
             question=question
         )
         
-        logger.info(f"Grading document prompt: {doc_grader_prompt_formatted}")
-        
         result = await llm_json_mode.ainvoke(
             [SystemMessage(content=doc_grader_instructions)]
             + [HumanMessage(content=doc_grader_prompt_formatted)]
