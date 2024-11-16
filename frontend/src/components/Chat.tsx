@@ -29,6 +29,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
 
   useEffect(() => {
     if (messages.length > 0) {
+      console.log(messages);
       const lastMessage = messages[messages.length - 1];
       setLastMessageId(lastMessage.id);
       if (lastMessage.sender === 'ai' && lastMessage.animate) {
@@ -38,8 +39,8 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
   }, [messages]);
 
   const formatJiraTickets = (text: string) => {
-    const jiraPattern = /\[(.*?)]\((https?:\/\/[^\s)]+)\)/g;
-    return text.replace(jiraPattern, (match, linkText, url) => 
+    const markdownLinkPattern = /\[([^\]]+)]\(([^)]+)\)/g;
+    return text.replace(markdownLinkPattern, (match, linkText, url) => 
       `<a href="${url}" target="_blank" class="text-blue-500 hover:underline">${linkText}</a>`
     );
   };

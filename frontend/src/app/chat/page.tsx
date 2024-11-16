@@ -126,7 +126,7 @@ export default function ChatPage() {
           const chatHistory = response.data.messages.map((msg: any) => ({
             id: uuidv4(),
             text: msg.content,
-            sender: msg.role === 'user' ? 'user' : 'ai',
+            sender: msg.role === 'human' ? 'user' : 'ai',
             isHtml: msg.role === 'ai',
             animate: false
           }));
@@ -164,7 +164,7 @@ export default function ChatPage() {
   }, [apiclient]);
 
   const handleNewChat = useCallback(() => {
-    router.push('/chat'); // Aceasta va reseta chat-ul prin navigare la ruta de bază
+    router.push('/chat');
   }, [router]);
 
   if (status === "loading") {

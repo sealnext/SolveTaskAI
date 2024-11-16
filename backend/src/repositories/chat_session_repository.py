@@ -4,6 +4,10 @@ from sqlalchemy import select
 from models import ChatSession
 import logging
 from sqlalchemy import desc
+from sqlalchemy import select, cast, func
+from sqlalchemy.dialects.postgresql import JSONB
+from typing import Optional
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +29,20 @@ class ChatSessionRepository:
         return chat_session
 
     async def get_by_id(self, chat_id: str) -> Optional[ChatSession]:
-        result = await self.session.execute(
-            select(ChatSession).where(ChatSession.id == chat_id)
-        )
-        return result.scalar_one_or_none()
-
+        """
+        Retrieve chat session and filter messages in Python
+        """
+        try:
+            query = select(ChatSession).where(ChatSession.id == chat_id)
+            result = await self.session.execute(query)
+            chat_session = result.scalar_one_or_none()
+                
+            return chat_session
+            
+        except Exception as e:
+            logger.error(f"Error in get_by_id for chat {chat_id}: {str(e)}")
+            raise
+        
     async def add_messages(self, chat_id: str, new_messages: List[dict]) -> ChatSession:
         chat_session = await self.get_by_id(chat_id)
         if chat_session:
@@ -51,8 +64,12 @@ class ChatSessionRepository:
     async def get_messages(self, chat_id: str) -> List[dict]:
         chat_session = await self.get_by_id(chat_id)
         if chat_session and chat_session.messages:
-            logger.debug(f"Retrieved {len(chat_session.messages)} messages from chat {chat_id}")
-            return chat_session.messages
+            filtered_messages = [
+                msg for msg in chat_session.messages 
+                if isinstance(msg, dict) and msg.get('role') in ['human', 'ai', 'system']
+            ]
+            logger.debug(f"Retrieved {len(filtered_messages)} filtered messages from chat {chat_id}")
+            return filtered_messages
         logger.debug(f"No messages found for chat {chat_id}")
         return []
 
