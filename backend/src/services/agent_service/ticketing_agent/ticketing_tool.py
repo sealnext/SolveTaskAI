@@ -46,7 +46,9 @@ def create_ticketing_tool(project: Project, api_key: APIKey):
         - Adding comments
         """
         try:
+            
             logger.info(f"🎯 TicketingTool: Processing request for ticket {ticket_id}")
+            logger.info(f"🎯 TicketingTool: Request: {request}")
             
             # Get available fields and their metadata
             ticket = await client.get_ticket_and_template_json(ticket_id)
@@ -89,7 +91,8 @@ def create_ticketing_tool(project: Project, api_key: APIKey):
             """
             
             user_message = f"""
-            Convert this request into a structured JSON payload.
+            Convert this request into a structured JSON payload in this format:
+            ```{OutputSchema.model_json_schema()}```
 
             -- Request by User:
             ```{request}```
