@@ -108,7 +108,7 @@ def create_retrieve_tool(project: Project, api_key: APIKey):
                     "metadata": doc.metadata,
                     "content": doc.page_content
                 }
-                doc_json = json.dumps(doc_data, indent=4)
+                doc_json = json.dumps(doc_data, indent=1)
                 doc_str = f"Document {doc_key}:\n{indent(doc_json, '    ')}"
                 formatted_docs.append(doc_str)
             return "\n\n".join(formatted_docs)

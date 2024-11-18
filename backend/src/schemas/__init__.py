@@ -2,7 +2,7 @@ from .user_schema import UserCreate, UserRead
 from .cookie_schema import CookieSettings
 from .project_schema import ExternalProjectSchema, ProjectUpdate, InternalProjectSchema, InternalProjectCreate  
 from .api_key_schema import APIKeySchema, APIKeyCreate, APIKeyResponse
-from .ticket_schema import JiraIssueSchema, Ticket, JiraIssueContentSchema
+from .ticket_schema import JiraIssueSchema, Ticket, JiraIssueContentSchema, EditableTicketSchema
 from .chat_schema import QuestionRequest, QuestionResponse
 
 __all__ = [
@@ -17,6 +17,7 @@ __all__ = [
     "JiraIssueSchema",
     "Ticket",
     "JiraIssueContentSchema",
+    "EditableTicketSchema",
     "QuestionRequest",
     "QuestionResponse"
 ]
