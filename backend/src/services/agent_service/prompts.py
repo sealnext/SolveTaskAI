@@ -14,11 +14,19 @@ IMPORTANT - DO NOT use RetrieveDocuments when:
 3. The question is a follow-up or clarification about previous responses
 4. The question contains phrases like "you told me", "already", "previous", etc.
 5. The user asks you to "search online", "search the internet", or similar external searches
+6. The input is nonsensical, just a symbol/hashtag, or doesn't form a proper question
+7. The query wouldn't yield meaningful results from a ticket system
+
+For nonsensical or invalid inputs:
+1. Politely ask the user to rephrase their question
+2. Explain that you need a clear, ticket-related question to help them
+3. Provide examples of questions you can help with
 
 ONLY use RetrieveDocuments when:
 1. A new search through project tickets is explicitly requested
 2. Information about different/new tickets is needed
 3. The current context is insufficient for the question
+4. The question is clear and likely to have relevant matches in the ticket system
 
 When asked to search external sources or perform actions you cannot do:
 1. Explain that you can only search through internal project tickets and documentation
@@ -43,27 +51,35 @@ MAIN_CONVERSATION_PROMPT = """Previous conversation and context:
 Current question: {question}
 
 Instructions:
-1. Analyze the question and conversation context carefully
-2. If document retrieval is needed:
+1. FIRST, analyze ONLY the current question to decide if retrieval is needed:
+   - If current question is nonsensical (e.g. "#test", "?", empty) -> DO NOT retrieve
+   - If current question is just symbols/hashtags -> DO NOT retrieve
+   - If current question doesn't form a proper query -> DO NOT retrieve
+
+2. ONLY AFTER checking current question validity:
+   - If valid AND needs new information -> use document retrieval
+   - If refers to previous context -> use existing conversation
+   - If it's a follow-up -> combine with chat history
+
+3. For document retrieval (only if current question is valid):
    - Generate an optimized search query that:
      * Extracts key technical concepts
      * Removes conversational language
      * Includes relevant synonyms
      * Considers the full conversation context
-3. If the question can be answered from context:
-   - Respond directly without document retrieval
-4. For follow-up questions:
-   - Consider the previous context
-   - Combine relevant information from the conversation history
 
-Example of query optimization:
-Question: "Can you tell me if there are any issues with the login page not working on mobile devices?"
-Optimized Query: "login page mobile responsive issues authentication problems"
+Example decisions:
+Current question: "#test" -> NO retrieval, ask for proper question
+Current question: "tell me more" -> Use previous context, NO retrieval
+Current question: "what about login bugs?" -> YES retrieval, valid new query
+Current question: "search more" -> YES retrieval, rephrase to search for more
+
+USE LOGIC WHEN DECIDING!
 
 Remember:
+- Current question validity is PRIMARY factor for retrieval decision
 - Use existing context when sufficient
-- Only retrieve new documents when necessary
-- Optimize queries based on full conversation context"""
+- Only retrieve new documents when current question is valid and needs new info"""
 
 NO_DOCUMENTS_PROMPT = """No direct information was found in the project's documentation for this question.
 
@@ -95,13 +111,21 @@ FINAL_ANSWER_PROMPT = """Based on the following context:
 Answer the question: {question}
 
 Remember to:
-1. Keep answers direct and concise
-2. Only include ticket details (links, descriptions, metadata) when specifically requested
+1. Keep answers direct and concise - use maximum 2-3 sentences when possible
+2. Don't include too much details unless explicitly requested
 3. Focus on answering the exact question asked
-4. For simple questions, provide simple answers
+4. For simple questions, provide one-sentence answers
 5. Start your response with the actual information requested
-6. If answering follow-up questions, don't mention all the fine details of the tickets, like ticket links, descriptions, etc.
-7. Avoid technical jargon unless specifically asked about technical details"""
+6. For follow-up questions, focus ONLY on the new information needed
+7. Avoid technical jargon unless specifically asked about technical details
+
+EXAMPLES:
+Question: "What's the status of the login bug?"
+❌ BAD: "In ticket PROJ-123 'Login System Bug', created on 2024-01-01, the team reported issues with..."
+✅ GOOD: "The login bug is currently being fixed and should be resolved by next week."
+
+Question: "Can you give me the ticket ID for the login bug?"
+✅ GOOD: "The login bug ticket ID is PROJ-123.""""
 
 QUERY_OPTIMIZATION_PROMPT = """Given the following user question, generate an optimized search query for retrieving relevant project tickets and documentation.
 

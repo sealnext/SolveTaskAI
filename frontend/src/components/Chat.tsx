@@ -51,6 +51,14 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
       .replace(/\\n/g, '\n');
     
     processedText = processedText
+      .replace(/\n### (.*?)$/gm, '\n<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>')
+      .replace(/\n## (.*?)$/gm, '\n<h2 class="text-xl font-bold mt-4 mb-2">$1</h2>')
+      .replace(/\n# (.*?)$/gm, '\n<h1 class="text-2xl font-bold mt-4 mb-2">$1</h1>')
+      .replace(/^### (.*?)$/gm, '<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>')
+      .replace(/^## (.*?)$/gm, '<h2 class="text-xl font-bold mt-4 mb-2">$1</h2>')
+      .replace(/^# (.*?)$/gm, '<h1 class="text-2xl font-bold mt-4 mb-2">$1</h1>');
+    
+    processedText = processedText
       .replace(/\n\n/g, '<br><br>')
       .replace(/\n/g, '<br>');
     

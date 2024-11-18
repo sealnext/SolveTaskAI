@@ -1,15 +1,24 @@
-import json
-from typing import Dict, Any
-from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
-from models import Project, APIKey
-from config.enums import TicketingSystemType
-from config import OPENAI_MODEL
-import logging
-from .jira_client import JiraClient
 from pydantic import BaseModel, Field
 
+import json
+import logging
+from typing import Dict, Any, Optional
+
+from config import OPENAI_MODEL
+from config.enums import TicketingSystemType
+from models import Project, APIKey
+
+from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
+
+from .jira_client import JiraClient
+
 logger = logging.getLogger(__name__)
+
+class OutputSchema(BaseModel):
+    operation: str = Field(description="The operation to perform on the ticket")
+    id: Optional[str] = Field(description="The ID of the element to update")
+    fields: Dict[str, Any] = Field(description="The fields to update on the ticket")
 
 def create_ticketing_tool(project: Project, api_key: APIKey):
     """Creates a ticketing tool with project and api_key context."""
@@ -19,7 +28,7 @@ def create_ticketing_tool(project: Project, api_key: APIKey):
     
     # Initialize LLM for parsing requests
     llm = ChatOpenAI(model=OPENAI_MODEL, temperature=0)
-    parser_llm = llm.bind(response_format={"type": "json_object"})
+    parser_llm = llm.with_structured_output(OutputSchema)
     
     @tool("manage_tickets")
     async def manage_tickets(request: str, ticket_id: str) -> str:
@@ -40,35 +49,69 @@ def create_ticketing_tool(project: Project, api_key: APIKey):
             logger.info(f"🎯 TicketingTool: Processing request for ticket {ticket_id}")
             
             # Get available fields and their metadata
-            template = await client.get_editmeta_template(ticket_id)
+            ticket = await client.get_ticket_and_template_json(ticket_id)
+            
+            logger.info(f"🎯 TicketingTool: Ticket: {ticket.model_dump_json(indent=1)}")
             
             # Create system message with template structure
-            system_message = f"""You are a ticket management assistant. Your task is to convert natural language requests into structured json updates.
-            The available fields and their required format are:
-            {json.dumps(template, indent=2)}
+            system_message = """
+            You are a ticket management assistant. Convert user requests into structured JSON updates for tickets.
+
+            -- RULES:
+            1. Match Operation: Ensure the requested operation (`add`, `set`, `remove`, `edit`, `copy`) is supported for the field in `modifiable_fields`.
+            2. Extract Value: Use the `value` field in `modifiable_fields` as the current state when constructing the update payload.
+            3. Include Operation: Include the `operation` key in the response to reflect the user's requested action.
+            4. Payload Structure: Format the payload based on the operation:
+            - For `add`, `set`, and `remove`: Use `fields` to reference the field `key`.
+            - For `edit` and `copy`: Include additional details like `id` or `resource` fields as needed.
+            5. Handle Errors: If the field or operation is unsupported, provide a clear error message.
+
+            -- EXAMPLES:
+
+            1. Add, Set, Remove Operations:
+            Request: Add a label "urgent" or set the title to "Updated title" or remove the label "high-priority".
+            EditableSchema:
+                - { "labels": { "key": "labels", "operations": ["add", "set", "remove"], "value": ["bug", "high-priority"] } }
+                - { "summary": { "key": "summary", "operations": ["set"], "value": "Registration Form Fails for Users" } }
+            Response (Add): { "operation": "add", "fields": { "labels": ["urgent"] } }
+            Response (Set): { "operation": "set", "fields": { "summary": "Updated title" } }
+            Response (Remove): { "operation": "remove", "fields": { "labels": ["high-priority"] } }
+
+            2. Edit Operation:
+            Request: Edit the comment with ID "10001" to say "Updated text".
+            EditableSchema: { "comment": { "key": "comment", "operations": ["add", "edit", "remove"] } }
+            Response: { "operation": "edit", "id": "10001", "fields": { "comment": { "body": "Updated text" } } }
+
+            3. Copy Operation:
+            Request: Copy the file with ID "file-1234" to this task.
+            EditableSchema: { "attachment": { "key": "attachment", "operations": ["set", "copy"] } }
+            Response: { "operation": "copy", "fields": { "attachment": { "fileId": "file-1234" } } }
+            """
             
-            Example:
-            User request: "Add `[FIXED]` at the end of the current title: `Registration Form Fails for Users`"
-            Response: {{"fields": {{"summary": "Registration Form Fails for Users [FIXED]"}}}}
+            user_message = f"""
+            Convert this request into a structured JSON payload.
+
+            -- Request by User:
+            ```{request}```
             
-            Return ONLY a JSON object with the updates, no explanation."""
-            
-            # Get structured updates from LLM
+            -- EditableSchema (their values and what operations are supported on each field):
+            ```{ticket.model_dump_json(indent=1)}```
+            """
+
             messages = [
                 {"role": "system", "content": system_message},
-                {"role": "user", "content": f"Convert this request into field updates: {request}"}
+                {"role": "user", "content": user_message}
             ]
-            
-            logger.debug(f"TicketingTool: Parsing request messages: {messages}")
-            
+                        
             response = await parser_llm.ainvoke(messages)
-            updates = json.loads(response.content)
+            # Convert Pydantic model to dictionary
+            updates = response.model_dump()
             
             logger.debug(f"TicketingTool: Parsed response updates: {updates}")
             
             # Apply updates
-            result = await client.update_task(ticket_id, updates)
-            return f"Successfully updated ticket {result['key']}"
+            result = await client.operation(ticket_id, updates)
+            return f"Successfully updated ticket {result['ticket_id']}"
             
         except Exception as e:
             error_msg = f"Failed to process ticketing request: {str(e)}"

@@ -58,6 +58,8 @@ async def access_documents_with_api_key(state: AgentState) -> AgentState:
     data_extractor = create_data_extractor(api_key)
     tickets = await data_extractor.get_all_tickets(project_key, project_id)
     
+    logger.info(f"🎯 AccessDocumentsWithApiKey: Tickets: {tickets}")
+    
     state["tickets"] = tickets
     return state
 
@@ -95,6 +97,12 @@ async def generate_embeddings(state: dict) -> dict:
                 'priority': ticket.priority,
                 'sprint': ticket.sprint,
                 'key': ticket.ticket_api,
+                'labels': ticket.labels,
+                'resolution': ticket.resolution,
+                'parent': ticket.parent,
+                'assignee': ticket.assignee,
+                'reporter': ticket.reporter,
+                'resolutiondate': ticket.resolutiondate,
                 'created_at': datetime.now(timezone.utc).isoformat(),
                 'updated_at': datetime.now(timezone.utc).isoformat(),
             } for ticket in batch_tickets]
