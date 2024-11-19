@@ -1,6 +1,7 @@
 import re
 from typing import Optional, List
 import json
+from textwrap import indent
 from pydantic import BaseModel, root_validator
 
 import logging
@@ -8,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 from pydantic import BaseModel, root_validator
 from typing import Optional, List, Dict, Any
+from langchain_core.documents import Document
 
 
 class EditableTicketSchema(BaseModel):
@@ -65,6 +67,49 @@ class Ticket(BaseModel):
     reporter: Optional[str] = None
     resolutiondate: Optional[str] = None
 
+class DocumentWrapper(BaseModel):
+    metadata: Dict[str, str]
+    page_content: str
+
+    @classmethod
+    def from_langchain_doc(cls, doc: Document) -> 'DocumentWrapper':
+        """Create a document wrapper from a langchain Document"""
+        logger.debug(f"Converting document to wrapper. Content type: {type(doc.page_content)}")
+        logger.debug(f"Content: {doc.page_content}")
+        
+        # Ensure all metadata values are strings
+        cleaned_metadata = {
+            k: str(v) if v is not None else ""
+            for k, v in doc.metadata.items()
+            if k in ['ticket_url', 'ticket_api']  # Only keep relevant metadata
+        }
+        
+        # Check if page_content is a string representation of a dict
+        if isinstance(doc.page_content, str):
+            try:
+                content_dict = eval(doc.page_content)
+                if isinstance(content_dict, dict):
+                    formatted_content = f"""Summary: {content_dict.get('summary', '')}
+Description: {content_dict.get('description', '')}
+Comments: {' '.join(content_dict.get('comments', []))}"""
+                    return cls(metadata=cleaned_metadata, page_content=formatted_content)
+            except:
+                pass
+        
+        return cls(
+            metadata=cleaned_metadata,
+            page_content=str(doc.page_content)
+        )
+
+    def format_for_display(self) -> str:
+        """Format document for display in chat"""
+        doc_key = self.metadata['ticket_url'].split('/')[-1]
+        doc_data = {
+            "metadata": self.metadata,
+            "content": self.page_content
+        }
+        return f"Document {doc_key}:\n{indent(json.dumps(doc_data, indent=1), '    ')}"
+
 class TicketContent(BaseModel):
     summary: str = "No title provided"
     description: str = "No description provided"
@@ -76,6 +121,12 @@ class TicketContent(BaseModel):
             "description": self.description,
             "comments": self.comments
         }, indent=1)
+    
+    def to_page_content(self) -> str:
+        """Convert ticket content to a formatted string for document representation"""
+        return f"""Summary: {self.summary}
+Description: {self.description}
+Comments: {' '.join(self.comments)}"""
 
 class JiraIssueContentSchema(BaseModel):
     content: TicketContent
@@ -114,6 +165,24 @@ class JiraIssueContentSchema(BaseModel):
         }
 
         return values
+
+    def to_document_wrapper(self) -> DocumentWrapper:
+        """Convert ticket to document wrapper format"""
+        return DocumentWrapper(
+            metadata={
+                "ticket_url": self.ticket_url,
+                "ticket_api": self.ticket_api
+            },
+            page_content=self.content.to_page_content()
+        )
+
+    @staticmethod
+    def from_langchain_doc(doc: Document) -> DocumentWrapper:
+        """Create a document wrapper from a langchain Document"""
+        return DocumentWrapper(
+            metadata=doc.metadata,
+            page_content=doc.page_content
+        )
 
 class JiraIssueSchema(Ticket):
     class Config:

@@ -1,8 +1,11 @@
 import json
+import re
 from textwrap import indent
-from typing import Annotated, List, Optional, Dict, Any
+from typing import Annotated, List, Optional, Dict, Any, Union
+from services.data_extractor.data_extractor_factory import create_data_extractor
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
+from langchain_core.documents import Document
 from langgraph.graph import StateGraph, END
 import logging
 from .state import AgentState
@@ -10,6 +13,7 @@ from .nodes import retrieve_documents, retry_retrieve_documents, grade_documents
 from .edges import decide_after_grading
 from models import Project
 from models.apikey import APIKey
+from schemas.ticket_schema import DocumentWrapper, JiraIssueContentSchema
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +45,21 @@ def create_retrieve_workflow():
     logger.debug(f"Compiled graph nodes: {graph.nodes}")
     return graph
 
-async def execute_retrieve_workflow(query: str, project: Project, api_key: APIKey) -> List[Any]:
+async def execute_retrieve_workflow(query: str, project: Project, api_key: APIKey) -> List[DocumentWrapper]:
     """Execute the retrieve workflow with given parameters."""
     try:
+        ticket_id_pattern = r'^([A-Z][A-Z0-9_]{1,}-\d+|\d+)$'
+        
+        if re.match(ticket_id_pattern, query.upper()):
+            logger.info(f"Direct ticket retrieval for ID: {query}")
+            data_extractor = create_data_extractor(api_key)
+            link = f"{project.domain}/rest/api/2/issue/{query}"
+            ticket = await data_extractor.get_ticket(link)
+            logger.info(f"Ticket to document wrapper: {ticket.to_document_wrapper()}")
+            logger.info(f"Ticket: {ticket}")
+            return [ticket.to_document_wrapper()]
+        
+        # RAG workflow path
         state = {
             "question": query,
             "project": project,
@@ -60,7 +76,10 @@ async def execute_retrieve_workflow(query: str, project: Project, api_key: APIKe
         result = await workflow.ainvoke(state)
         
         if result and isinstance(result, dict):
-            return result.get("documents", [])
+            documents = result.get("documents", [])
+            logger.info(f"Documents retrieved: {documents}")
+            logger.info(f"Documents to document wrapper: {[DocumentWrapper.from_langchain_doc(doc) for doc in documents]}")
+            return [DocumentWrapper.from_langchain_doc(doc) for doc in documents]
         return []
     except Exception as e:
         logger.error(f"Error in execute_retrieve_workflow: {e}", exc_info=True)
@@ -92,7 +111,6 @@ def create_retrieve_tool(project: Project, api_key: APIKey):
         Returns:
             String containing the retrieved documents or empty if none found
         """
-        
         logger.info(f"Tool retrieve called with query: {query}")
         
         try:
@@ -100,18 +118,7 @@ def create_retrieve_tool(project: Project, api_key: APIKey):
             if not documents:
                 return ""
             
-            formatted_docs = []
-            for i, doc in enumerate(documents):
-                doc_key = doc.metadata['ticket_url'].split('/')[-1]  # Extrage PZ-2 din URL
-                
-                doc_data = {
-                    "metadata": doc.metadata,
-                    "content": doc.page_content
-                }
-                doc_json = json.dumps(doc_data, indent=1)
-                doc_str = f"Document {doc_key}:\n{indent(doc_json, '    ')}"
-                formatted_docs.append(doc_str)
-            return "\n\n".join(formatted_docs)
+            return "\n\n".join(doc.format_for_display() for doc in documents)
         except Exception as e:
             logger.error(f"Error in retrieve: {e}", exc_info=True)
             return f"Error retrieving documents: {str(e)}"
