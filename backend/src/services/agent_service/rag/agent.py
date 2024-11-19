@@ -55,9 +55,9 @@ async def execute_retrieve_workflow(query: str, project: Project, api_key: APIKe
             data_extractor = create_data_extractor(api_key)
             link = f"{project.domain}/rest/api/2/issue/{query}"
             ticket = await data_extractor.get_ticket(link)
-            logger.info(f"Ticket to document wrapper: {ticket.to_document_wrapper()}")
-            logger.info(f"Ticket: {ticket}")
-            return [ticket.to_document_wrapper()]
+            doc_wrapper = ticket.to_document_wrapper()
+            logger.info(f"Manual flow metadata: {doc_wrapper.metadata}")
+            return [doc_wrapper]
         
         # RAG workflow path
         state = {
@@ -77,9 +77,9 @@ async def execute_retrieve_workflow(query: str, project: Project, api_key: APIKe
         
         if result and isinstance(result, dict):
             documents = result.get("documents", [])
-            logger.info(f"Documents retrieved: {documents}")
-            logger.info(f"Documents to document wrapper: {[DocumentWrapper.from_langchain_doc(doc) for doc in documents]}")
-            return [DocumentWrapper.from_langchain_doc(doc) for doc in documents]
+            doc_wrappers = [DocumentWrapper.from_langchain_doc(doc) for doc in documents]
+            logger.info(f"RAG flow metadata: {[d.metadata for d in doc_wrappers]}")
+            return doc_wrappers
         return []
     except Exception as e:
         logger.error(f"Error in execute_retrieve_workflow: {e}", exc_info=True)

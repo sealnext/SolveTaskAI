@@ -68,23 +68,33 @@ class Ticket(BaseModel):
     resolutiondate: Optional[str] = None
 
 class DocumentWrapper(BaseModel):
-    metadata: Dict[str, str]
+    metadata: Dict[str, Any]
     page_content: str
 
     @classmethod
     def from_langchain_doc(cls, doc: Document) -> 'DocumentWrapper':
         """Create a document wrapper from a langchain Document"""
-        logger.debug(f"Converting document to wrapper. Content type: {type(doc.page_content)}")
-        logger.debug(f"Content: {doc.page_content}")
         
-        # Ensure all metadata values are strings
-        cleaned_metadata = {
-            k: str(v) if v is not None else ""
-            for k, v in doc.metadata.items()
-            if k in ['ticket_url', 'ticket_api']  # Only keep relevant metadata
+        # Keep all metadata fields and ensure they match our expected format
+        metadata = {
+            "ticket_url": doc.metadata.get('ticket_url', ''),
+            "ticket_api": doc.metadata.get('key', ''),  # In RAG flow, 'key' is used for ticket_api
+            "key": doc.metadata.get('key', ''),
+            "labels": doc.metadata.get('labels', []),
+            "parent": doc.metadata.get('parent'),
+            "sprint": doc.metadata.get('sprint'),
+            "status": doc.metadata.get('status'),
+            "assignee": doc.metadata.get('assignee'),
+            "priority": doc.metadata.get('priority'),
+            "reporter": doc.metadata.get('reporter'),
+            "issue_type": doc.metadata.get('issue_type'),
+            "resolution": doc.metadata.get('resolution'),
+            "resolutiondate": doc.metadata.get('resolutiondate'),
+            "created_at": doc.metadata.get('created_at'),
+            "updated_at": doc.metadata.get('updated_at')
         }
         
-        # Check if page_content is a string representation of a dict
+        # Process page_content
         if isinstance(doc.page_content, str):
             try:
                 content_dict = eval(doc.page_content)
@@ -92,18 +102,18 @@ class DocumentWrapper(BaseModel):
                     formatted_content = f"""Summary: {content_dict.get('summary', '')}
 Description: {content_dict.get('description', '')}
 Comments: {' '.join(content_dict.get('comments', []))}"""
-                    return cls(metadata=cleaned_metadata, page_content=formatted_content)
+                    return cls(metadata=metadata, page_content=formatted_content)
             except:
                 pass
         
         return cls(
-            metadata=cleaned_metadata,
+            metadata=metadata,
             page_content=str(doc.page_content)
         )
 
     def format_for_display(self) -> str:
         """Format document for display in chat"""
-        doc_key = self.metadata['ticket_url'].split('/')[-1]
+        doc_key = self.metadata.get('ticket_url', '').split('/')[-1]
         doc_data = {
             "metadata": self.metadata,
             "content": self.page_content
@@ -132,6 +142,7 @@ class JiraIssueContentSchema(BaseModel):
     content: TicketContent
     ticket_api: str
     ticket_url: str
+    fields: Dict[str, Any] = {}  # Add this to store original fields
     
     class Config:
         populate_by_name = True
@@ -139,6 +150,8 @@ class JiraIssueContentSchema(BaseModel):
     @root_validator(pre=True)
     def flatten_fields(cls, values):
         fields = values.get('fields', {})
+        # Store original fields for metadata
+        values['fields'] = fields
 
         api_self_url = values.get('self', "")
         base_url = "/".join(api_self_url.split("/")[:3])
@@ -146,18 +159,16 @@ class JiraIssueContentSchema(BaseModel):
         values['ticket_url'] = f"{base_url}/browse/{ticket_key}"
         values['ticket_api'] = api_self_url
 
-        # Extract content components with default values
+        # Rest of the validator...
         summary = fields.get('summary') or "No title provided"
         description = fields.get('description') or "No description provided"
         
-        # Process comments with author names
         comments = fields.get('comment', {}).get('comments', [])
         comments_list = [
             f"{comment.get('author', {}).get('displayName', 'Unknown')}: {comment.get('body', '')}"
             for comment in comments
         ] if comments else []
 
-        # Create content structure with default values
         values['content'] = {
             "summary": summary,
             "description": description,
@@ -168,11 +179,26 @@ class JiraIssueContentSchema(BaseModel):
 
     def to_document_wrapper(self) -> DocumentWrapper:
         """Convert ticket to document wrapper format"""
+        metadata = {
+            "ticket_url": self.ticket_url,
+            "ticket_api": self.ticket_api,
+            "key": self.ticket_api,
+            "labels": self.fields.get('labels', []),
+            "parent": self.fields.get('parent', {}).get('fields', {}).get('summary'),
+            "sprint": self.fields.get('customfield_10020', [{}])[0].get('name') if self.fields.get('customfield_10020') else None,
+            "status": self.fields.get('status', {}).get('name'),
+            "assignee": self.fields.get('assignee', {}).get('displayName'),
+            "priority": self.fields.get('priority', {}).get('name'),
+            "reporter": self.fields.get('reporter', {}).get('displayName'),
+            "issue_type": self.fields.get('issuetype', {}).get('name'),
+            "resolution": self.fields.get('resolution', {}).get('name'),
+            "resolutiondate": self.fields.get('resolutiondate'),
+            "created_at": self.fields.get('created'),
+            "updated_at": self.fields.get('updated')
+        }
+        
         return DocumentWrapper(
-            metadata={
-                "ticket_url": self.ticket_url,
-                "ticket_api": self.ticket_api
-            },
+            metadata=metadata,
             page_content=self.content.to_page_content()
         )
 

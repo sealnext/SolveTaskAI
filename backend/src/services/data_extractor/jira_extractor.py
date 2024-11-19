@@ -42,8 +42,6 @@ class DataExtractorJira(DataExtractor):
             
             validated_ticket = JiraIssueContentSchema(**{**data, 'project_id': project_id})
             
-            logger.info(f"Validated ticket: {validated_ticket}")
-            
             return validated_ticket
 
     async def get_all_projects(self) -> List[ExternalProjectSchema]:
