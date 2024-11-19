@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { MdSupportAgent } from "react-icons/md";
-import { GridIcon } from '@/components/WaitingMessage';
 
 interface Message {
   id: string;
@@ -120,7 +119,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
       
       <div className="space-y pb-2 max-w-xl px-2">
         <h3 className="text-lg md:text-xl font-bold text-foreground">
-          Hello! I'm your AI Development Assistant
+          Hello! I&apos;m your AI Development Assistant
         </h3>
         <p className="text-sm md:text-base text-muted-foreground">
           I can help you with code analysis, task management, and development best practices

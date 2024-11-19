@@ -34,7 +34,7 @@ class DataExtractorJira(DataExtractor):
             
             data = await self.fetch_with_retry(session, ticket_url, params={})
             
-            logger.info(f"Fetched ticket data: {data}")
+            logger.info(f"Successfully fetched ticket {ticket_url}")
             
             project_id = str(data.get('fields', {}).get('project', {}).get('id'))
             

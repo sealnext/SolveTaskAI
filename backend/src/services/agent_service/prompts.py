@@ -125,7 +125,7 @@ Question: "What's the status of the login bug?"
 ✅ GOOD: "The login bug is currently being fixed and should be resolved by next week."
 
 Question: "Can you give me the ticket ID for the login bug?"
-✅ GOOD: "The login bug ticket ID is PROJ-123.""""
+✅ GOOD: "The login bug ticket ID is PROJ-123."""
 
 QUERY_OPTIMIZATION_PROMPT = """Given the following user question, generate an optimized search query for retrieving relevant project tickets and documentation.
 
