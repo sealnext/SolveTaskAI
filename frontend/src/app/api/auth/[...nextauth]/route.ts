@@ -73,12 +73,24 @@ export const authOptions: NextAuthOptions = {
           token.accessTokenExpires = decodedNewToken.exp;
         } catch (error) {
           console.error("Error refreshing token:", error);
+          if (error.message === 'UNAUTHORIZED') {
+            // Return minimal token to trigger signOut
+            return {
+              ...token,
+              error: 'RefreshAccessTokenError'
+            };
+          }
         }
       }
 
       return token;
     },
     async session({ session, token }) {
+      if (token.error === 'RefreshAccessTokenError') {
+        // Force sign out if we have a refresh token error
+        return null;
+      }
+      
       session.user = {
         ...session.user,
         full_name: token.full_name as string,
@@ -104,6 +116,10 @@ async function refreshAccessToken(refreshToken: string) {
     });
     
     if (!res.ok) {
+      if (res.status === 401) {
+        // Force sign out on 401 Unauthorized
+        throw new Error('UNAUTHORIZED');
+      }
       throw new Error('Failed to refresh token');
     }
     const cookies = extractCookies(res.headers.get("Set-Cookie"));

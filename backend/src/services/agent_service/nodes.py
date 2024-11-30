@@ -10,6 +10,8 @@ async def call_model(state: MessagesState, config: RunnableConfig):
     llm = config["configurable"]["llm"]
     
     logger.debug(f"Calling main agent LLM with {len(messages)} messages")
+
+    
     response = await llm.ainvoke(messages, config)
     
     return {"messages": state["messages"] + [response]}

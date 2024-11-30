@@ -10,7 +10,7 @@ from models import Project, APIKey
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 
-from .jira_client import JiraClient
+from ..jira_client import JiraClient
 from .prompts import TICKET_MANAGEMENT_SYSTEM_MESSAGE, create_user_message
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ class OutputSchema(BaseModel):
     id: Optional[str] = Field(description="The ID of the element to update")
     fields: Dict[str, Any] = Field(description="The fields to update on the ticket")
 
-def create_ticketing_tool(project: Project, api_key: APIKey):
+def create_edit_ticketing_tool(project: Project, api_key: APIKey):
     """Creates a ticketing tool with project and api_key context."""
     
     # Initialize the client
