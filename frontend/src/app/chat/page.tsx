@@ -70,6 +70,7 @@ export default function ChatPage() {
   const handleSendMessage = useCallback(async (message: string) => {
     if (!selectedProjectId) {
       throw new Error("Please select a project before sending a message");
+      // TODO: IMPLEMENT A POPUP TO SELECT A PROJECT
     }
 
     const newUserMessage: Message = {

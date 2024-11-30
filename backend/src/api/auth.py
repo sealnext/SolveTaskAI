@@ -44,6 +44,8 @@ async def refresh_token(
     request: Request,
     auth_service: AuthService = Depends(get_auth_service),
 ):
+    logger.debug("REFRESH POST CALLED")
+    logger.debug(request.cookies)
     expired_refresh_token = request.cookies.get("refresh-token")
     new_access_token, new_refresh_token = auth_service.refresh_token_pair(expired_refresh_token, request)
     
