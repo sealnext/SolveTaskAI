@@ -112,9 +112,6 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
     <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
       <div className="relative mb-2">
         <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-primary/40 rounded-full blur-2xl" />
-        <div className="relative bg-background/95 backdrop-blur-sm rounded-full p-3">
-          <MdSupportAgent className="text-4xl md:text-5xl text-primary" />
-        </div>
       </div>
       
       <div className="space-y pb-2 max-w-xl px-2">
@@ -180,34 +177,44 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
     </div>
   );
 
+  const BotIcon = () => (
+    <div className="w-[32px] h-[32px] mt-[6px] bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center shadow-sm">
+      <svg
+        className="w-4 h-4 text-primary"
+        viewBox="0 0 20 20 "
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <polyline points="9 6 15 12 9 18" />
+      </svg>
+    </div>
+  );
+
   return (
-    <div className="bg-background fixed inset-0 flex items-center justify-center px-4 pt-6 pb-28">
-      <div className="w-3/4 max-w-4xl h-full flex flex-col md:w-3/4 w-full">
-        <div className="flex-grow border-muted md:border-2 overflow-hidden bg-backgroundSecondary rounded-xl md:border-2 md:bg-backgroundSecondary md:rounded-xl md:shadow-md border-0 bg-transparent">
-          <div className="h-full overflow-y-auto custom-scrollbar">
+    <div className="h-full w-full">
+      <div className="h-full w-full">
+        <div className="h-full w-full bg-transparent overflow-hidden">
+          <div className="h-full w-full overflow-y-auto custom-scrollbar">
             {messages.length === 0 ? (
               <EmptyStateMessage />
             ) : (
-              <div className="space-y-2 md:px-8 py-8">
+              <div className="space-y-2 px-4 py-8">
                 {messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start items-start'} md:px-8 ${
+                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start items-start'} ${
                       message.id === lastMessageId ? 'animate-fade-in' : ''
                     }`}
                   >
-                    {message.sender === 'ai' && (
-                      <div className="mt-2">
-                        <div className="w-7 h-7 rounded-full border-2 border-muted flex items-center justify-center">
-                          <MdSupportAgent className="text-foreground-secondary text-lg" />
-                        </div>
-                      </div>
-                    )}
+                    {message.sender === 'ai' && <BotIcon />}
                     <div
                       className={`rounded-xl p-3 ${
                         message.sender === 'ai' 
-                          ? 'md:bg-backgroundSecondary bg-transparent md:max-w-[90%] max-w-[90%]' 
-                          : 'bg-accent md:max-w-[70%] max-w-[70%]'
+                          ? 'bg-transparent max-w-[90%]' 
+                          : 'bg-accent max-w-[70%]'
                       } text-foreground`}
                     >
                       {message.sender === 'ai' && message.animate && typingMessage?.id === message.id ? (
@@ -220,12 +227,8 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
                 ))}
                 
                 {loadingMessage && (
-                  <div className="flex justify-start items-start md:px-8 animate-fade-in">
-                    <div className="mt-2">
-                      <div className="w-7 h-7 rounded-full border-2 border-muted flex items-center justify-center">
-                        <MdSupportAgent className="text-foreground-secondary text-lg" />
-                      </div>
-                    </div>
+                  <div className="flex justify-start items-start gap-3 animate-fade-in">
+                    <BotIcon />
                     <div className="rounded-xl p-3 text-foreground max-w-[70%]">
                       <div className="flex items-center space-x-1">
                         <span className="animate-bounce">.</span>

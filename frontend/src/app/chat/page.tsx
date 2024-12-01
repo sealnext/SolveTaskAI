@@ -177,25 +177,33 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground relative">
-      <MobileSidebar 
-        selectedChatId={chatId || null}
-        onSelectChat={(chatId: string) => router.push(`/chat?chat_id=${chatId}`)}
-        onNewChat={handleNewChat}
-      />
+    <div className="relative min-h-screen bg-background text-foreground">
+      {/* Sidebar overlay */}
+      <div className="absolute top-0 left-0 z-50">
+        <MobileSidebar 
+          selectedChatId={chatId || null}
+          onSelectChat={(chatId: string) => router.push(`/chat?chat_id=${chatId}`)}
+          onNewChat={handleNewChat}
+        />
+      </div>
 
-      <div className="flex-1 flex flex-col">
+      {/* Main content */}
+      <main className="min-h-screen flex flex-col">
         <div className="absolute top-4 right-4 z-50">
           <ProfileMenuComponent />
         </div>
 
         <SpatialTooltip />
         
-        <div className="flex-grow overflow-hidden">
-          <Chat messages={messages} loadingMessage={loadingMessage} />
+        {/* Chat container - using absolute positioning to maximize height */}
+        <div className="absolute inset-0 pt-16 pb-32">
+          <div className="h-full w-[95%] md:w-3/4 max-w-4xl mx-auto">
+            <Chat messages={messages} loadingMessage={loadingMessage} />
+          </div>
         </div>
 
-        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 w-3/4 max-w-4xl md:w-3/4 w-[95%]">
+        {/* Chat input */}
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[95%] md:w-3/4 max-w-4xl z-10">
           <ChatInput 
             onSendMessage={handleSendMessage} 
             isLoading={isLoading}
@@ -214,7 +222,7 @@ export default function ChatPage() {
             refreshInternalProjects={refreshInternalProjects}
           />
         )}
-      </div>
+      </main>
     </div>
   )
 }
