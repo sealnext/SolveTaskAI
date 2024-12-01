@@ -49,12 +49,13 @@ def create_edit_ticketing_tool(project: Project, api_key: APIKey):
         - Modify planning fields (sprint, custom fields)
         """
         try:
-            
             logger.info(f"🎯 TicketingTool: Processing request for ticket {ticket_id}")
             logger.info(f"🎯 TicketingTool: Request: {request}")
             
             # Get available fields and their metadata
+            logger.info(f"🎯 TicketingTool: Fetching ticket and template data for {ticket_id}")
             ticket = await client.get_ticket_and_template_json(ticket_id)
+            logger.info(f"🎯 TicketingTool: Received ticket data: {ticket}")
             
             messages = [
                 {"role": "system", "content": TICKET_MANAGEMENT_SYSTEM_MESSAGE},
@@ -63,15 +64,19 @@ def create_edit_ticketing_tool(project: Project, api_key: APIKey):
                     schema_json=ticket.model_dump_json(indent=1)
                 )}
             ]
-                        
-            response = await parser_llm.ainvoke(messages)
-
-            updates = response.model_dump()
             
-            logger.debug(f"TicketingTool: Parsed response updates: {updates}")
+            logger.info(f"🎯 TicketingTool: Sending messages to LLM: {messages}")
+            response = await parser_llm.ainvoke(messages)
+            logger.info(f"🎯 TicketingTool: Received LLM response: {response}")
+            
+            updates = response.model_dump()
+            logger.info(f"🎯 TicketingTool: Parsed updates: {updates}")
             
             # Apply updates
+            logger.info(f"🎯 TicketingTool: Applying updates to ticket {ticket_id}")
             result = await client.operation(ticket_id, updates)
+            logger.info(f"🎯 TicketingTool: Update result: {result}")
+            
             return f"Successfully updated ticket {result['ticket_id']}"
             
         except Exception as e:

@@ -186,43 +186,47 @@ class JiraClient:
         headers['Content-Type'] = 'application/json'  # Ensure Content-Type header is set
 
         if operation in ["set", "edit", "add", "remove", "copy"]:
-            # Build the update payload
-            update_payload = {}
-
-            for field, value in fields.items():
-                operation_entries = []
-
-                # Handle 'add', 'remove', 'set', 'edit', 'copy' operations
-                if operation == "set":
-                    operation_entries.append({"set": value})
-                elif operation == "add":
-                    if isinstance(value, list):
-                        for item in value:
-                            operation_entries.append({"add": item})
+            # For direct field updates (set operation), use fields payload
+            if operation == "set":
+                field_updates = {}
+                for field_name, value in fields.items():
+                    # For fields that need a key-based structure (like parent, assignee, etc)
+                    if isinstance(value, (str, int)) and field_name not in ['summary', 'description']:
+                        field_updates[field_name] = {"key": value}
                     else:
-                        operation_entries.append({"add": value})
-                elif operation == "remove":
-                    if isinstance(value, list):
-                        for item in value:
-                            operation_entries.append({"remove": item})
-                    else:
-                        operation_entries.append({"remove": value})
-                elif operation == "edit":
-                    if not operation_id:
-                        raise ValueError("Missing 'id' for edit operation.")
-                    # Assuming 'edit' operation is for comments or similar fields
-                    edit_content = {"id": operation_id}
-                    if isinstance(value, dict):
-                        edit_content.update(value)
-                    else:
-                        edit_content["body"] = value
-                    operation_entries.append({"edit": edit_content})
-                elif operation == "copy":
-                    operation_entries.append({"copy": value})
+                        field_updates[field_name] = value
+                payload = {"fields": field_updates}
+            else:
+                # For other operations (add, remove, edit, copy), use update payload
+                update_payload = {}
+                for field, value in fields.items():
+                    operation_entries = []
+                    if operation == "add":
+                        if isinstance(value, list):
+                            for item in value:
+                                operation_entries.append({"add": item})
+                        else:
+                            operation_entries.append({"add": value})
+                    elif operation == "remove":
+                        if isinstance(value, list):
+                            for item in value:
+                                operation_entries.append({"remove": item})
+                        else:
+                            operation_entries.append({"remove": value})
+                    elif operation == "edit":
+                        if not operation_id:
+                            raise ValueError("Missing 'id' for edit operation.")
+                        edit_content = {"id": operation_id}
+                        if isinstance(value, dict):
+                            edit_content.update(value)
+                        else:
+                            edit_content["body"] = value
+                        operation_entries.append({"edit": edit_content})
+                    elif operation == "copy":
+                        operation_entries.append({"copy": value})
 
-                update_payload[field] = operation_entries
-
-            payload = {"update": update_payload}
+                    update_payload[field] = operation_entries
+                payload = {"update": update_payload}
 
         else:
             raise ValueError(f"Unsupported operation '{operation}'.")

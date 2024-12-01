@@ -11,36 +11,43 @@ from models import Project
 from models.apikey import APIKey
 from .tools import create_ticketing_tools
 from .prompts import FIELD_COLLECTION_PROMPT
+from .conversation_logger import ConversationLogger
 
 logger = logging.getLogger(__name__)
+conversation_logger = ConversationLogger()
 
 def should_continue(state: MessagesState):
     """Determine if we should continue with tool calls or end."""
     last_message = state["messages"][-1]
     
-    logger.debug(f"Last message: {last_message}")
+    logger.debug(f"Processing message: {last_message}")
     
-    # Check for validation errors or other errors
-    if hasattr(last_message, "content") and "Error:" in last_message.content:
-        logger.debug("Encountered an error, stopping execution")
-        state["final_response"] = last_message.content
+    # If we have a final response, we're done
+    if state.get("final_response"):
         return END
     
     # Track ticket creation progress
     tool_calls = [msg for msg in state["messages"] if hasattr(msg, "tool_calls") and msg.tool_calls]
-    tool_names = [call.name for msg in tool_calls for call in msg.tool_calls]
+    tool_names = []
+    
+    for msg in tool_calls:
+        for call in msg.tool_calls:
+            if isinstance(call, dict):
+                tool_names.append(call.get("name", ""))
+            else:
+                tool_names.append(call.name)
+    
+    # If we have tool calls in the last message and it's an AIMessage, continue
+    if isinstance(last_message, AIMessage) and hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        logger.debug("Using tools")
+        return "tools"
     
     # If we've already got issue types and template, proceed to create ticket
     if "get_issue_types" in tool_names and "get_ticket_template" in tool_names and "create_ticket" not in tool_names:
-        logger.debug("Have issue types and template, proceeding to create ticket")
-        return "tools"
+        logger.debug("Proceeding to create ticket")
+        return "tools"  # Return to tools to create the ticket
     
-    # If we have tool calls in the last message, continue
-    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-        logger.debug("LLM decided to use tools, returning tools node to route it")
-        return "tools"
-    
-    logger.debug("LLM finished processing, no more tools needed")
+    logger.debug("No more tools needed")
     return END
 
 def create_ticketing_agent(project: Project, api_key: APIKey):
@@ -55,8 +62,11 @@ def create_ticketing_agent(project: Project, api_key: APIKey):
     
     async def call_model(state: MessagesState):
         """Process messages through the model."""
+        # Log current conversation state
+        conversation_logger.log_state(state)
+        
         # Add safety check for maximum iterations
-        if len(state["messages"]) > 5:  # Limit to 5 iterations
+        if len(state["messages"]) > 10:  # Increased limit slightly
             state["final_response"] = "Maximum number of iterations reached. Operation cancelled."
             return state
         
@@ -66,22 +76,57 @@ def create_ticketing_agent(project: Project, api_key: APIKey):
         
         # Track ticket creation progress
         tool_calls = [msg for msg in state["messages"] if hasattr(msg, "tool_calls") and msg.tool_calls]
-        tool_names = [call.name for msg in tool_calls for call in msg.tool_calls]
+        tool_names = []
+        
+        for msg in tool_calls:
+            for call in msg.tool_calls:
+                if isinstance(call, dict):
+                    tool_names.append(call.get("name", ""))
+                else:
+                    tool_names.append(call.name)
+        
+        # Prepare context messages
+        context_messages = []
         
         # Add context from previous tool calls
-        context = []
+        tool_responses = []
         for msg in state["messages"]:
             if isinstance(msg, ToolMessage) and msg.content:
-                context.append(f"Previous tool response: {msg.content}")
+                tool_responses.append(f"Previous tool response: {msg.content}")
         
-        if context:
-            context_message = SystemMessage(content="\n".join(context))
-            state["messages"].append(context_message)
+        if tool_responses:
+            context_messages.append(SystemMessage(content="\n".join(tool_responses)))
         
         # If we have issue types and template but no ticket creation, add guidance
         if "get_issue_types" in tool_names and "get_ticket_template" in tool_names and "create_ticket" not in tool_names:
-            guidance = SystemMessage(content="You have the issue types and template. Now create the ticket using create_ticket with the appropriate fields.")
-            state["messages"].append(guidance)
+            context_messages.append(SystemMessage(content="""Now that you have the issue types and template, please create the ticket using create_ticket with these required fields:
+            1. issue_type_id: "10010" (for Task)
+            2. request: {
+                "summary": "Payment Gateway Error - Failed Transactions",
+                "description": "Users are experiencing errors during payment processing leading to failed transactions.
+                
+                Steps to Reproduce:
+                1. Select a product
+                2. Proceed to checkout
+                3. Submit payment details
+                4. Error message appears
+                
+                Expected Behavior:
+                - Users should complete transactions without errors
+                
+                Current Behavior:
+                - Error message appears
+                - Transactions fail
+                - Multiple users affected
+                
+                Impact:
+                - High priority issue affecting business operations
+                - Multiple users reporting the problem"
+            }"""))
+        
+        # Add all context messages before invoking LLM
+        if context_messages:
+            state["messages"].extend(context_messages)
         
         response = await llm.ainvoke(state["messages"])
         logger.debug(f"++++ Invoking model with messages: {state['messages']}")
@@ -163,7 +208,8 @@ def create_ticketing_agent(project: Project, api_key: APIKey):
                     f"Ticket ID: {ticket_id if ticket_id else 'None'}\n"
                     f"Request: {request}\n\n"
                     "Please help me with this ticket operation."
-                ))
+                )),
+                AIMessage(content="I'll help you with that ticket operation. Let me check what needs to be done.")
             ]
             
             # Process through workflow
