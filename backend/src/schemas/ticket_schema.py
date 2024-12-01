@@ -142,15 +142,14 @@ class JiraIssueContentSchema(BaseModel):
     content: TicketContent
     ticket_api: str
     ticket_url: str
-    fields: Dict[str, Any] = {}  # Add this to store original fields
-    
+    fields: Dict[str, Any] = {}
+
     class Config:
         populate_by_name = True
 
     @root_validator(pre=True)
     def flatten_fields(cls, values):
-        fields = values.get('fields', {})
-        # Store original fields for metadata
+        fields = values.get('fields', {}) or {}
         values['fields'] = fields
 
         api_self_url = values.get('self', "")
@@ -159,7 +158,6 @@ class JiraIssueContentSchema(BaseModel):
         values['ticket_url'] = f"{base_url}/browse/{ticket_key}"
         values['ticket_api'] = api_self_url
 
-        # Rest of the validator...
         summary = fields.get('summary') or "No title provided"
         description = fields.get('description') or "No description provided"
         
@@ -178,23 +176,35 @@ class JiraIssueContentSchema(BaseModel):
         return values
 
     def to_document_wrapper(self) -> DocumentWrapper:
-        """Convert ticket to document wrapper format"""
+        """Convert ticket to document wrapper format with safe field access"""
+        fields = self.fields or {}
+        
+        def safe_get(d: Dict, *keys, default=None):
+            current = d
+            for key in keys:
+                if not isinstance(current, dict):
+                    return default
+                current = current.get(key, default)
+                if current is None:
+                    return default
+            return current
+
         metadata = {
             "ticket_url": self.ticket_url,
             "ticket_api": self.ticket_api,
             "key": self.ticket_api,
-            "labels": self.fields.get('labels', []),
-            "parent": self.fields.get('parent', {}).get('fields', {}).get('summary'),
-            "sprint": self.fields.get('customfield_10020', [{}])[0].get('name') if self.fields.get('customfield_10020') else None,
-            "status": self.fields.get('status', {}).get('name'),
-            "assignee": self.fields.get('assignee', {}).get('displayName'),
-            "priority": self.fields.get('priority', {}).get('name'),
-            "reporter": self.fields.get('reporter', {}).get('displayName'),
-            "issue_type": self.fields.get('issuetype', {}).get('name'),
-            "resolution": self.fields.get('resolution', {}).get('name'),
-            "resolutiondate": self.fields.get('resolutiondate'),
-            "created_at": self.fields.get('created'),
-            "updated_at": self.fields.get('updated')
+            "labels": fields.get('labels', []),
+            "parent": safe_get(fields, 'parent', 'fields', 'summary'),
+            "sprint": safe_get(fields, 'customfield_10020', 0, 'name') if fields.get('customfield_10020') else None,
+            "status": safe_get(fields, 'status', 'name'),
+            "assignee": safe_get(fields, 'assignee', 'displayName'),
+            "priority": safe_get(fields, 'priority', 'name'),
+            "reporter": safe_get(fields, 'reporter', 'displayName'),
+            "issue_type": safe_get(fields, 'issuetype', 'name'),
+            "resolution": safe_get(fields, 'resolution', 'name'),
+            "resolutiondate": fields.get('resolutiondate'),
+            "created_at": fields.get('created'),
+            "updated_at": fields.get('updated')
         }
         
         return DocumentWrapper(

@@ -110,11 +110,11 @@ def create_ticketing_tools(project: Project, api_key: APIKey) -> List[Any]:
             request: A dictionary containing the ticket fields
             issue_type_id: The ID of the issue type (get this from get_issue_types response)
         """
-        logger.debug(f"TOOL CALLED: ++++----------------------- Creating ticket with issue type ID: {issue_type_id}")
+        logger.debug(f"Creating ticket with issue type ID: {issue_type_id}")
         
         try:
-            result = await client.create_issue(issue_type_id, request)
-            return f"Successfully created ticket: {result['key']}"
+            result = await client.create_ticket(issue_type_id, request)
+            return f"Successfully created ticket: {result['ticket_id']}"
         except Exception as e:
             logger.error(f"Error creating ticket: {e}", exc_info=True)
             return f"Failed to create ticket: {str(e)}"
@@ -132,7 +132,7 @@ def create_ticketing_tools(project: Project, api_key: APIKey) -> List[Any]:
             ticket_id: The ID of the ticket to edit (e.g., 'PZ-123')
             changes: Description of changes to make (e.g., "Add label 'urgent', change status to 'In Progress'")
         """
-        logger.info(f" tool called ++++----------------------- Editing ticket: {ticket_id}")
+        logger.debug(f"Editing ticket: {ticket_id}")
         return await edit_tool.ainvoke({
             "request": changes,
             "ticket_id": ticket_id
