@@ -55,7 +55,7 @@ def create_edit_ticketing_tool(project: Project, api_key: APIKey):
             # Get available fields and their metadata
             logger.info(f"🎯 TicketingTool: Fetching ticket and template data for {ticket_id}")
             ticket = await client.get_ticket_and_template_json(ticket_id)
-            logger.info(f"🎯 TicketingTool: Received ticket data: {ticket}")
+            logger.info(f"🎯 TicketingTool: Received ticket modifiable_fields")
             
             messages = [
                 {"role": "system", "content": TICKET_MANAGEMENT_SYSTEM_MESSAGE},
@@ -65,10 +65,7 @@ def create_edit_ticketing_tool(project: Project, api_key: APIKey):
                 )}
             ]
             
-            logger.info(f"🎯 TicketingTool: Sending messages to LLM: {messages}")
             response = await parser_llm.ainvoke(messages)
-            logger.info(f"🎯 TicketingTool: Received LLM response: {response}")
-            
             updates = response.model_dump()
             logger.info(f"🎯 TicketingTool: Parsed updates: {updates}")
             

@@ -3,7 +3,7 @@ import colorlog
 from config import DEBUG_MODE, SQL_LOGGING
 
 log_format = (
-    "%(log_color)s%(levelname)s: %(message)s"
+    "%(log_color)s%(levelname)s: %(asctime)s - %(name)s - %(message)s"
 )
 
 log_colors = {
