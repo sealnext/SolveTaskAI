@@ -2,6 +2,7 @@ import React, { useState, useRef, KeyboardEvent } from 'react';
 import ProjectSelector from './ProjectSelector';
 import { Project } from '@/types/project';
 import { useSearchParams } from 'next/navigation';
+import { FilterCommand } from "@/components/FilterCommand"
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -25,6 +26,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const searchParams = useSearchParams();
   const chatId = searchParams.get('chat_id');
   const MAX_CHARS = 3000;
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -41,8 +43,12 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
+  const handleFilterClick = () => {
+    setIsFilterOpen(!isFilterOpen)
+  }
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="relative">
       <form onSubmit={handleSubmit}>
         <div className="bg-backgroundSecondary bg-opacity-80 backdrop-filter backdrop-blur-md rounded-2xl shadow-lg border-2 border-muted overflow-hidden">
           {/* Main input container */}
@@ -127,7 +133,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
           <div className="px-4 py-2 bg-black/5 dark:bg-white/5 flex justify-between items-center">
             {/* Left side - Filters */}
             <div className="flex items-center gap-2">
-              <button className="flex items-center gap-2 text-sm text-foreground-secondary hover:text-foreground transition-colors">
+              <button 
+                onClick={handleFilterClick}
+                className="flex items-center gap-2 text-sm text-foreground-secondary hover:text-foreground transition-colors"
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
@@ -142,6 +151,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
           </div>
         </div>
       </form>
+
+      <FilterCommand 
+        open={isFilterOpen}
+        onOpenChange={setIsFilterOpen}
+      />
     </div>
   );
 };
