@@ -43,7 +43,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
-  const handleFilterClick = () => {
+  const handleFilterClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsFilterOpen(!isFilterOpen)
   }
 
@@ -135,6 +136,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             <div className="flex items-center gap-2">
               <button 
                 onClick={handleFilterClick}
+                data-filter-trigger="true"
                 className="flex items-center gap-2 text-sm text-foreground-secondary hover:text-foreground transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
