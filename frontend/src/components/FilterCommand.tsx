@@ -97,6 +97,27 @@ export function FilterCommand({ open, onOpenChange }: FilterCommandProps) {
   const [activeFilters, setActiveFilters] = React.useState<Filter[]>([])
   const ref = React.useRef<HTMLDivElement>(null)
 
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.closest('[data-filter-trigger="true"]')) {
+        return;
+      }
+      
+      if (ref.current && !ref.current.contains(target)) {
+        onOpenChange(false)
+      }
+    }
+
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [open, onOpenChange])
+
   const handleQuickFilter = (filter: Filter) => {
     if (!activeFilters.find(f => f.id === filter.id)) {
       setActiveFilters([...activeFilters, filter])
@@ -106,6 +127,8 @@ export function FilterCommand({ open, onOpenChange }: FilterCommandProps) {
   const removeFilter = (filterId: string) => {
     setActiveFilters(activeFilters.filter(f => f.id !== filterId))
   }
+
+  if (!open) return null
 
   return (
     <div ref={ref} className="absolute bottom-full left-0 right-0 mb-4 w-full">
