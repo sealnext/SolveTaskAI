@@ -33,7 +33,7 @@
     ".next/types/**/*.ts",
     "**/*.ts",
     "**/*.tsx"
-, "src/components/Sidebar.jsx", "src/components/ProfileMenu.jsx", "src/components/ProjectSelector.tsx"  ],
+  ],
   "exclude": [
     "node_modules"
   ]

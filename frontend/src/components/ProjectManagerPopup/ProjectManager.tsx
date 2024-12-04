@@ -36,7 +36,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
       const response = await apiClient.get('/api-keys');
       const keys: ApiKey[] = response.data.data;
       setExistingApiKeys(keys);
-      if (keys.length > 0) {
+      if (keys?.length > 0) {
         setApiKeySource('existing');
       }
     } catch (error) {
@@ -262,7 +262,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
           </div>
 
           {/* Selector - Always visible */}
-          {existingApiKeys.length > 0 && (
+          {existingApiKeys?.length > 0 && (
             <div className="pb-4">
               <Select
                 onValueChange={(value: 'new' | 'existing') => handleApiKeySourceChange(value)}
@@ -282,7 +282,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto mt-[-15px]">
-          {apiKeySource === 'existing' && existingApiKeys.length > 0 && (
+          {apiKeySource === 'existing' && existingApiKeys?.length > 0 && (
             <div className="space-y-2">
               <ExistingApiKeySelector
                 existingApiKeys={existingApiKeys}
