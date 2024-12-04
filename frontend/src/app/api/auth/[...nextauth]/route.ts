@@ -3,7 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { NextAuthOptions } from "next-auth";
 
 export const authOptions: NextAuthOptions = {
-  
+
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -11,7 +11,7 @@ export const authOptions: NextAuthOptions = {
         username: { label: "Username", type: "text", placeholder: "jsmith" },
         password: { label: "Password", type: "password" }
       },
-      
+
       async authorize(credentials, req) {
         if (!credentials?.username || !credentials?.password) {
           throw new Error("Please enter both the username and password.");
@@ -90,7 +90,7 @@ export const authOptions: NextAuthOptions = {
         // Force sign out if we have a refresh token error
         return null;
       }
-      
+
       session.user = {
         ...session.user,
         full_name: token.full_name as string,
@@ -114,7 +114,7 @@ async function refreshAccessToken(refreshToken: string) {
         'Cookie': `refresh-token=${refreshToken}`
       },
     });
-    
+
     if (!res.ok) {
       if (res.status === 401) {
         // Force sign out on 401 Unauthorized
@@ -144,7 +144,7 @@ function decodeJwt(token: string) {
 
 function extractCookies(setCookieHeader: string) {
   const cookies: Record<string, string> = {};
-  
+
   if (setCookieHeader) {
     const cookiesArray = setCookieHeader.split(', ');
 

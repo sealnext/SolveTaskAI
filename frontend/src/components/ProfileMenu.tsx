@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { LogOut, Moon, Sun, Command, ChevronRight, User, CreditCard, LifeBuoy, Settings } from "lucide-react"
+import { LogOut, Command, ChevronRight, CreditCard, LifeBuoy, Settings } from "lucide-react"
 import { LogoutButton } from "@/components/LogoutButton"
 import { cn } from "@/lib/utils"
 import { useSession } from "next-auth/react"
@@ -101,7 +101,6 @@ export function ProfileMenuComponent() {
               <p className="text-muted-foreground text-xs mt-1">{userEmail}</p>
             </div>
             <div className="p-2 space-y-1">
-              <MenuItem icon={User}>Dashboard</MenuItem>
               <MenuItem icon={CreditCard}>Billing</MenuItem>
               <MenuItem icon={LifeBuoy}>Support</MenuItem>
             </div>
@@ -111,9 +110,9 @@ export function ProfileMenuComponent() {
               <ThemeSwitch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
             </div>
             <div className="p-2 space-y-1">
-              <MenuItem 
-                icon={Settings} 
-                shortcut="S" 
+              <MenuItem
+                icon={Settings}
+                shortcut="S"
                 onClick={() => {
                   setIsSettingsOpen(true);
                   setIsOpen(false);
@@ -153,8 +152,8 @@ export function ProfileMenuComponent() {
           </div>
         )}
 
-        <SettingsDialog 
-          open={isSettingsOpen} 
+        <SettingsDialog
+          open={isSettingsOpen}
           onOpenChange={setIsSettingsOpen}
         />
       </div>

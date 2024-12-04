@@ -45,7 +45,7 @@ function CloseButton() {
 
 function NewChatButton({ onClick }: { onClick?: () => void }) {
   const { toggleSidebar } = useSidebar()
-  
+
   const handleClick = () => {
     toggleSidebar()
     onClick?.()
