@@ -4,7 +4,6 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandInput,
-  CommandItem,
   CommandList,
 } from "./ui/command"
 import { Button } from "./ui/button"
@@ -17,35 +16,25 @@ import {
   Calendar,
   MessageSquare,
   CheckCircle2,
-  Hash,
+  Type,
   Flag,
-  Bookmark,
   X,
   Search,
-  Plus,
   Timer,
-  Type,
+  XCircle,
   CheckSquare,
-  XCircle
 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Filter, FilterGroup } from "./filters/types"
+import { FilterStatusCommand } from "./filters/FilterStatusCommand"
+import { FilterLabelsCommand } from "./filters/FilterLabelsCommand"
 
 interface FilterCommandProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-}
-
-interface Filter {
-  id: string
-  label: string
-  icon: React.ElementType
-  count?: number
-  options?: string[]
-  isMulti?: boolean
-}
-
-interface FilterGroup {
-  group: string
-  items: Filter[]
+  activeFilters: Filter[]
+  onActiveFiltersChange: (filters: Filter[]) => void
+  projectId: number
 }
 
 const quickFilters: Filter[] = [
@@ -92,9 +81,15 @@ const metaTags: FilterGroup[] = [
   }
 ]
 
-export function FilterCommand({ open, onOpenChange }: FilterCommandProps) {
+export function FilterCommand({ 
+  open, 
+  onOpenChange, 
+  activeFilters, 
+  onActiveFiltersChange, 
+  projectId 
+}: FilterCommandProps) {
   const [searchTerm, setSearchTerm] = React.useState("")
-  const [activeFilters, setActiveFilters] = React.useState<Filter[]>([])
+  const [selectedFilter, setSelectedFilter] = React.useState<Filter | null>(null)
   const ref = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
@@ -120,40 +115,66 @@ export function FilterCommand({ open, onOpenChange }: FilterCommandProps) {
 
   const handleQuickFilter = (filter: Filter) => {
     if (!activeFilters.find(f => f.id === filter.id)) {
-      setActiveFilters([...activeFilters, filter])
+      onActiveFiltersChange([...activeFilters, filter])
     }
   }
 
   const removeFilter = (filterId: string) => {
-    setActiveFilters(activeFilters.filter(f => f.id !== filterId))
+    onActiveFiltersChange(activeFilters.filter(f => f.id !== filterId))
   }
 
-  if (!open) return null
-
-  return (
-    <div ref={ref} className="absolute bottom-full left-0 right-0 mb-4 w-full">
-      <Command className="w-full rounded-2xl border-2 border-muted overflow-hidden bg-backgroundSecondary bg-opacity-80 backdrop-filter backdrop-blur-md shadow-lg">
-        {/* Header with search */}
-        <div className="w-full p-1">
-          <div className="relative flex items-center w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 z-10" />
-            <div className="w-full">
-              <CommandInput 
-                placeholder="Search filters..."
-                value={searchTerm}
-                onValueChange={setSearchTerm}
-                className="w-full pl-9 pr-4 py-2 text-sm bg-muted/10 hover:bg-muted/20 focus:bg-muted/20 
-                          rounded-xl border-0 ring-0 ring-offset-0 ring-accent/20 
-                          placeholder:text-muted-foreground/50 text-foreground outline-none focus:outline-none
-                          transition-all duration-150 ease-in-out data-[cmdk-input]:w-full"
-              />
-            </div>
+  const renderMainScreen = () => (
+    <>
+      {/* Header with search */}
+      <div className="w-full p-1">
+        <div className="relative flex items-center w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 z-10" />
+          <div className="w-full">
+            <CommandInput 
+              placeholder="Search filters..."
+              value={searchTerm}
+              onValueChange={setSearchTerm}
+              className="w-full pl-9 pr-4 py-2 text-sm bg-muted/10 hover:bg-muted/20 focus:bg-muted/20 
+                        rounded-xl border-0 ring-0 ring-offset-0 ring-accent/20 
+                        placeholder:text-muted-foreground/50 text-foreground outline-none focus:outline-none
+                        transition-all duration-150 ease-in-out"
+            />
           </div>
         </div>
+      </div>
 
-        {/* Active filters */}
-        {activeFilters.length > 0 && (
-          <div className="w-full flex items-center gap-1 p-1.5 px-2 border-b border-muted/30 bg-muted/5 overflow-x-auto">
+      {/* Active filters */}
+      {activeFilters.length > 0 && (
+        <div className="w-full flex items-center gap-1 p-1.5 px-2 border-b border-muted/30 bg-muted/5">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-xs h-5 px-2 hover:bg-muted/10 flex-shrink-0"
+            onClick={() => onActiveFiltersChange([])}
+          >
+            Clear
+          </Button>
+          <div className="flex items-center gap-1 overflow-x-auto
+            [&::-webkit-scrollbar]:h-1.5
+            [&::-webkit-scrollbar-track]:bg-muted/5
+            [&::-webkit-scrollbar-thumb]:bg-muted/40
+            [&::-webkit-scrollbar-thumb]:hover:bg-muted/60
+            [&::-webkit-scrollbar-thumb]:rounded-full
+            [&::-webkit-scrollbar-track]:rounded-full
+            dark:[&::-webkit-scrollbar-track]:bg-muted/5
+            dark:[&::-webkit-scrollbar-thumb]:bg-white/20
+            dark:[&::-webkit-scrollbar-thumb]:hover:bg-white/30
+            scrollbar
+            scrollbar-track-rounded-full
+            scrollbar-thumb-rounded-full
+            scrollbar-track-muted/5
+            scrollbar-thumb-muted/40
+            hover:scrollbar-thumb-muted/60
+            dark:scrollbar-thumb-white/20
+            dark:hover:scrollbar-thumb-white/30
+            px-0.5
+            py-2"
+          >
             {activeFilters.map(filter => (
               <Badge 
                 key={filter.id} 
@@ -170,62 +191,74 @@ export function FilterCommand({ open, onOpenChange }: FilterCommandProps) {
                 </button>
               </Badge>
             ))}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-xs h-5 px-2 ml-1 hover:bg-muted/10"
-              onClick={() => setActiveFilters([])}
-            >
-              Clear
-            </Button>
           </div>
-        )}
+        </div>
+      )}
 
-        <CommandList className="w-full max-h-[300px] overflow-y-auto">
-          {/* Quick Filters */}
-          <CommandGroup heading="Quick Filters" className="w-full pb-2">
-            <div className="w-full flex flex-wrap items-center gap-1 p-1.5 px-2">
-              {quickFilters.map(filter => (
-                <button
-                  key={filter.id}
-                  onClick={() => handleQuickFilter(filter)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <filter.icon className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-foreground">{filter.label}</span>
-                  {filter.count && (
-                    <span className="text-muted-foreground">({filter.count})</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </CommandGroup>
-
-          {/* Meta Tags */}
-          <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 px-2">
-            {metaTags.map(group => (
-              <CommandGroup key={group.group} heading={group.group} className="w-full py-2">
-                {group.items.map(item => (
-                  <CommandItem 
-                    key={item.id}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm"
-                    onSelect={() => handleQuickFilter(item)}
-                  >
-                    <item.icon className="h-3.5 w-3.5 text-primary" />
-                    <span>{item.label}</span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+      <CommandList className="w-full max-h-[300px] overflow-y-auto">
+        {/* Quick Filters */}
+        <CommandGroup heading="Quick Filters" className="w-full pb-2">
+          <div className="w-full flex flex-wrap items-center gap-1 p-1.5 px-2">
+            {quickFilters.map(filter => (
+              <button
+                key={filter.id}
+                onClick={() => handleQuickFilter(filter)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg hover:bg-muted/50 transition-colors"
+              >
+                <filter.icon className="h-3.5 w-3.5 text-primary" />
+                <span className="text-foreground">{filter.label}</span>
+                {filter.count && (
+                  <span className="text-muted-foreground">({filter.count})</span>
+                )}
+              </button>
             ))}
           </div>
+        </CommandGroup>
 
-          {searchTerm && (
-            <CommandGroup heading="Search Results" className="w-full">
-              <CommandEmpty>No filters found.</CommandEmpty>
-              {/* Filter results will be rendered here */}
+        {/* Complex Filters */}
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 px-2">
+          {metaTags.map(group => (
+            <CommandGroup key={group.group} heading={group.group} className="w-full py-2">
+              {group.items.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedFilter(item)}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg
+                    text-left hover:bg-muted/20 transition-colors"
+                >
+                  <item.icon className="h-3.5 w-3.5 text-primary" />
+                  <span>{item.label}</span>
+                </button>
+              ))}
             </CommandGroup>
-          )}
-        </CommandList>
+          ))}
+        </div>
+      </CommandList>
+    </>
+  )
+
+  if (!open) return null
+
+  return (
+    <div ref={ref} className="absolute bottom-full left-0 right-0 mb-4 w-full">
+      <Command className="w-full rounded-2xl border-2 border-muted overflow-hidden bg-backgroundSecondary bg-opacity-80 backdrop-filter backdrop-blur-md shadow-lg">
+        {selectedFilter?.id === 'status' ? (
+          <FilterStatusCommand
+            projectId={projectId}
+            activeFilters={activeFilters}
+            onActiveFiltersChange={onActiveFiltersChange}
+            onBack={() => setSelectedFilter(null)}
+          />
+        ) : selectedFilter?.id === 'labels' ? (
+          <FilterLabelsCommand
+            projectId={projectId}
+            activeFilters={activeFilters}
+            onActiveFiltersChange={onActiveFiltersChange}
+            onBack={() => setSelectedFilter(null)}
+          />
+        ) : (
+          renderMainScreen()
+        )}
       </Command>
     </div>
   )

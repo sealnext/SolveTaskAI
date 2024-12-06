@@ -2,7 +2,6 @@ import localFont from "next/font/local";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Provider from "./Provider";
-import { ThemeProvider } from "@/contexts/ThemeContext";
 import { Toaster } from "@/components/ui/toaster"
 
 const geistSans = localFont({
@@ -34,10 +33,8 @@ export default function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} ${geistSans.variable} ${geistMono.variable} min-h-screen bg-background`}>
         <Provider>
-          <ThemeProvider>
-            {children}
-            <Toaster />
-          </ThemeProvider>
+          {children}
+          <Toaster />
         </Provider>
       </body>
     </html>
