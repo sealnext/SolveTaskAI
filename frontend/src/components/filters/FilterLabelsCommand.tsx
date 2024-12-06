@@ -1,8 +1,8 @@
 import * as React from "react"
 import { Search, Tag, ChevronLeft, Plus, AlertCircle, X } from "lucide-react"
-import { CommandList } from "../ui/command"
+import { CommandList } from "cmdk"
 import { cn } from "@/lib/utils"
-import { Filter, BaseFilterCommandProps } from "./types"
+import { BaseFilterCommandProps } from "./types"
 
 interface Label {
   id: string;
@@ -29,8 +29,7 @@ const POPULAR_LABELS = [
   { id: "bug", name: "bug"},
   { id: "feature", name: "feature"},
   { id: "urgent", name: "urgent" },
-  { id: "backend", name: "backend",}
-  // { id: "backend", name: "backend", count: 12 }
+  { id: "backend", name: "backend"}
 ]
 
 // Adăugăm culori predefinite pentru label groups
@@ -142,13 +141,16 @@ export function FilterLabelsCommand({
       ...Object.values(PREDEFINED_GROUPS).flatMap(group => group.labels)
     ])
     
-    return activeFilters.filter(filter => !predefinedLabels.has(filter.id))
+    return activeFilters.filter(filter => 
+      // Verificăm dacă e un label (are icon Tag) și nu e în lista predefinită
+      filter.icon === Tag && !predefinedLabels.has(filter.id)
+    )
   }, [activeFilters])
 
   return (
     <>
       {/* Header with search and back */}
-      <div className="w-full p-2 border-b border-muted/30 bg-gradient-to-b from-muted/10 to-transparent">
+      <div className="flex-none w-full p-2 border-b border-muted/30 bg-gradient-to-b from-muted/10 to-transparent">
         <div className="flex items-center gap-3 px-2">
           <button
             onClick={onBack}
@@ -163,30 +165,30 @@ export function FilterLabelsCommand({
         </div>
       </div>
 
-      {/* Filter Content */}
-      <CommandList className="w-full">
-        <div className="p-4">
-          {/* Search input - Sticky */}
-          <div className="sticky top-0 z-10 pb-4 backdrop-blur-sm">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
-              <input
-                type="text"
-                placeholder="Search or create label..."
-                className={cn(
-                  "w-full pl-9 pr-4 py-1.5 text-sm",
-                  "bg-muted/5 hover:bg-muted/10 focus:bg-muted/10",
-                  "rounded-lg border border-muted/20 focus:border-primary/30",
-                  "outline-none ring-2 ring-transparent focus:ring-primary/10",
-                  "transition-all duration-150 ease-in-out",
-                  "h-[32px]"
-                )}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
+      {/* Search input - Sticky */}
+      <div className="flex-none w-full p-4 pb-2 bg-background/80 backdrop-blur-sm">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
+          <input
+            type="text"
+            placeholder="Search or create label..."
+            className={cn(
+              "w-full pl-9 pr-4 py-1.5 text-sm",
+              "bg-muted/5 hover:bg-muted/10 focus:bg-muted/10",
+              "rounded-lg border border-muted/20 focus:border-primary/30",
+              "outline-none ring-2 ring-transparent focus:ring-primary/10",
+              "transition-all duration-150 ease-in-out",
+              "h-[32px]"
+            )}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
 
+      {/* Filter Content - Scrollable */}
+      <CommandList className="flex-1 min-h-0 overflow-auto">
+        <div className="p-4 pt-2">
           {/* Content Container */}
           <div className="space-y-6">
             {searchTerm ? (
@@ -198,7 +200,7 @@ export function FilterLabelsCommand({
                       <div className="text-xs font-medium text-muted-foreground">Matching Labels</div>
                       <div className="h-px flex-1 bg-muted/20"></div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {filteredLabels.map(label => {
                         const isSelected = activeFilters.some(f => f.id === label.id)
                         return (
@@ -223,7 +225,7 @@ export function FilterLabelsCommand({
                             </span>
                             {label.count && (
                               <span className={cn(
-                                "text-xs px-1.5 py-0.5 rounded-md ml-auto",
+                                "text-xs px-1.5 py-0.5 rounded-md",
                                 isSelected ? "bg-primary/20 text-primary" : "bg-muted/20 text-muted-foreground"
                               )}>
                                 {label.count}
@@ -283,7 +285,7 @@ export function FilterLabelsCommand({
               <>
                 {/* Active Custom Labels Section */}
                 {customLabels.length > 0 && (
-                  <div className="space-y-3 mb-6">
+                  <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-2 text-xs font-medium text-primary-accent">
                         <div className="h-1.5 w-1.5 rounded-full animate-pulse bg-primary-accent"></div>
@@ -321,7 +323,7 @@ export function FilterLabelsCommand({
                 )}
 
                 {/* Quick Add Section */}
-                <div className="space-y-3 mb-6">
+                <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <div className="text-xs font-medium text-muted-foreground">Quick Add</div>
                     <div className="h-px flex-1 bg-muted/20"></div>

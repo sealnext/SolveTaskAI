@@ -2,7 +2,7 @@ import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import ProjectSelector from './ProjectSelector';
 import { Project } from '@/types/project';
 import { useSearchParams } from 'next/navigation';
-import { FilterCommand } from "@/components/FilterCommand"
+import { FilterCommand } from "@/components/filters/FilterCommand"
 import { Badge } from "./ui/badge"
 import { X, ChevronRight } from "lucide-react"
 import { Button } from "./ui/button"

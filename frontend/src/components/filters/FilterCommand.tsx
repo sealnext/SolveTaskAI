@@ -5,9 +5,9 @@ import {
   CommandGroup,
   CommandInput,
   CommandList,
-} from "./ui/command"
-import { Button } from "./ui/button"
-import { Badge } from "./ui/badge"
+} from "@/components/ui/command"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { 
   Tag, 
   AlertCircle, 
@@ -22,12 +22,12 @@ import {
   Search,
   Timer,
   XCircle,
-  CheckSquare,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Filter, FilterGroup } from "./filters/types"
-import { FilterStatusCommand } from "./filters/FilterStatusCommand"
-import { FilterLabelsCommand } from "./filters/FilterLabelsCommand"
+import { Filter, FilterGroup } from "./types"
+import { FilterStatusCommand } from "./FilterStatusCommand"
+import { FilterLabelsCommand } from "./FilterLabelsCommand"
+import { FilterPriorityCommand } from "./FilterPriorityCommand"
+import { CommandDialog } from "@/components/ui/command-dialog"
 
 interface FilterCommandProps {
   open: boolean
@@ -53,7 +53,6 @@ const metaTags: FilterGroup[] = [
     group: "Status",
     items: [
       { id: 'status', label: 'Status', icon: CheckCircle2, options: ['Open', 'In Progress', 'Resolved', 'Closed'] },
-      { id: 'resolution', label: 'Resolution', icon: CheckSquare, options: ['Done', 'Won\'t Do', 'Duplicate', 'Cannot Reproduce'] },
       { id: 'priority', label: 'Priority', icon: Flag, options: ['Critical', 'High', 'Medium', 'Low'] }
     ]
   },
@@ -240,8 +239,8 @@ export function FilterCommand({
   if (!open) return null
 
   return (
-    <div ref={ref} className="absolute bottom-full left-0 right-0 mb-4 w-full">
-      <Command className="w-full rounded-2xl border-2 border-muted overflow-hidden bg-backgroundSecondary bg-opacity-80 backdrop-filter backdrop-blur-md shadow-lg">
+    <div ref={ref}>
+      <CommandDialog>
         {selectedFilter?.id === 'status' ? (
           <FilterStatusCommand
             projectId={projectId}
@@ -256,10 +255,17 @@ export function FilterCommand({
             onActiveFiltersChange={onActiveFiltersChange}
             onBack={() => setSelectedFilter(null)}
           />
+        ) : selectedFilter?.id === 'priority' ? (
+          <FilterPriorityCommand
+            projectId={projectId}
+            activeFilters={activeFilters}
+            onActiveFiltersChange={onActiveFiltersChange}
+            onBack={() => setSelectedFilter(null)}
+          />
         ) : (
           renderMainScreen()
         )}
-      </Command>
+      </CommandDialog>
     </div>
   )
 } 
