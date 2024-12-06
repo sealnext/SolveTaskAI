@@ -60,3 +60,7 @@ class ProjectNotFoundError(BaseCustomException):
 class ProjectAlreadyExistsError(BaseCustomException):
     def __init__(self, detail: str = "Project already exists"):
         super().__init__(detail, status.HTTP_400_BAD_REQUEST)
+        
+class NotImplementedException(BaseCustomException):
+    def __init__(self, detail: str = "Not implemented"):
+        super().__init__(detail, status.HTTP_501_NOT_IMPLEMENTED)

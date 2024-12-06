@@ -3,6 +3,8 @@ import aiohttp
 import logging
 from aiohttp import BasicAuth
 from schemas.ticket_schema import EditableTicketSchema
+from schemas.status_schema import StatusSchema
+from pydantic import parse_obj_as
 
 logger = logging.getLogger(__name__)
 
@@ -501,3 +503,42 @@ class JiraClient:
             error_msg = f"Error creating Jira ticket: {str(e)}"
             logger.error(error_msg)
             raise Exception(error_msg)
+
+    async def get_project_statuses(self) -> List[StatusSchema]:
+        """
+        Fetches available statuses for a specific issue type.
+        
+        Args:
+            issue_type_id: The ID of the issue type
+            
+        Returns:
+            List of StatusSchema objects
+        """
+        url = f"{self.base_url}/project/{self.project_key}/statuses"
+        logger.debug(f"Fetching statuses for issue types")
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    headers=self.headers,
+                    auth=self.auth
+                ) as response:
+                    if response.status >= 400:
+                        error_data = await response.json()
+                        logger.error(f"Failed to get issue type statuses: {error_data}")
+                        raise Exception(f"Jira API error: {error_data}")
+                    
+                    data = await response.json()
+                    
+                    # Find statuses for the specific issue type
+                    for issue_type in data:
+                        statuses = issue_type.get("statuses", [])
+                        # Use Pydantic to parse the list of statuses
+                        return parse_obj_as(List[StatusSchema], statuses)
+                    
+                    return []
+                    
+        except Exception as e:
+            logger.error(f"Error getting issue type statuses: {str(e)}")
+            raise

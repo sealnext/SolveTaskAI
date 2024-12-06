@@ -4,6 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi_csrf_protect.exceptions import CsrfProtectError
 from .custom_exceptions import BaseCustomException
 from fastapi import HTTPException
+from .custom_exceptions import NotImplementedException
 
 def register_exception_handlers(app: FastAPI):
     @app.exception_handler(BaseCustomException)
@@ -12,6 +13,10 @@ def register_exception_handlers(app: FastAPI):
             status_code=exc.status_code,
             content={"message": exc.detail}
         )
+        
+    @app.exception_handler(NotImplementedError)
+    async def not_implemented_exception_handler(request: Request, exc: NotImplementedError):
+        return NotImplementedException()
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):

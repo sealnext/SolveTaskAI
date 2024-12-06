@@ -1,8 +1,12 @@
-import React, { useState, useRef, KeyboardEvent } from 'react';
+import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import ProjectSelector from './ProjectSelector';
 import { Project } from '@/types/project';
 import { useSearchParams } from 'next/navigation';
 import { FilterCommand } from "@/components/FilterCommand"
+import { Badge } from "./ui/badge"
+import { X, ChevronRight } from "lucide-react"
+import { Button } from "./ui/button"
+import { Filter } from "./filters/types"
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -11,6 +15,22 @@ interface ChatInputProps {
   selectedProjectId: number | null;
   onSelectProject: (projectId: number) => void;
   onAddNewProject: () => void;
+}
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    if (media.matches !== matches) {
+      setMatches(media.matches);
+    }
+    const listener = () => setMatches(media.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, [matches, query]);
+
+  return matches;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({ 
@@ -27,6 +47,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const chatId = searchParams.get('chat_id');
   const MAX_CHARS = 3000;
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<Filter[]>([]);
+  const filtersContainerRef = useRef<HTMLDivElement>(null);
+  const [showScrollButtons, setShowScrollButtons] = useState(false);
+  const isDesktop = useMediaQuery('(min-width: 768px)');
+  const visibleFilters = isDesktop ? 3 : 1;
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -46,6 +71,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const handleFilterClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsFilterOpen(!isFilterOpen)
+  }
+
+  const removeFilter = (filterId: string) => {
+    setActiveFilters(activeFilters.filter(f => f.id !== filterId))
   }
 
   return (
@@ -91,7 +120,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 <button
                   type="submit"
                   disabled={isLoading || !message.trim()}
-                  className={`
+                className={`
                     gooey-button bg-primary text-foreground rounded-full
                     focus:outline-none p-1.5 relative overflow-hidden
                     ${isLoading || !message.trim()
@@ -144,6 +173,50 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 </svg>
                 Filters
               </button>
+
+              {/* Active filters */}
+              <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 overflow-x-auto 
+                  [&::-webkit-scrollbar]:h-0.5
+                  [&::-webkit-scrollbar-track]:bg-transparent
+                  [&::-webkit-scrollbar-thumb]:bg-foreground/5
+                  [&::-webkit-scrollbar-thumb]:hover:bg-foreground/10
+                  [&::-webkit-scrollbar-thumb]:rounded-full
+                  [&::-webkit-scrollbar-track]:rounded-full
+                  dark:[&::-webkit-scrollbar-thumb]:bg-white/5
+                  dark:[&::-webkit-scrollbar-thumb]:hover:bg-white/10
+                  scrollbar-thin
+                  scrollbar-track-transparent
+                  scrollbar-thumb-foreground/5
+                  hover:scrollbar-thumb-foreground/10"
+                >
+                  {activeFilters.slice(0, visibleFilters).map(filter => (
+                    <Badge 
+                      key={filter.id} 
+                      variant="secondary" 
+                      className="flex-shrink-0 flex items-center gap-1 whitespace-nowrap py-0.5 text-xs bg-muted/10"
+                    >
+                      {filter.icon && <filter.icon className="h-3 w-3" />}
+                      {filter.label}
+                      <button
+                        onClick={() => removeFilter(filter.id)}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  {activeFilters.length > visibleFilters && (
+                    <Badge 
+                      variant="secondary"
+                      className="flex-shrink-0 whitespace-nowrap py-0.5 text-xs bg-muted/10 cursor-pointer"
+                      onClick={handleFilterClick}
+                    >
+                      +{activeFilters.length - visibleFilters} more
+                    </Badge>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Right side - Character counter */}
@@ -155,8 +228,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
       </form>
 
       <FilterCommand 
+        projectId={selectedProjectId}
         open={isFilterOpen}
         onOpenChange={setIsFilterOpen}
+        activeFilters={activeFilters}
+        onActiveFiltersChange={setActiveFilters}
       />
     </div>
   );

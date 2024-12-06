@@ -6,7 +6,7 @@ from api.projects import router as projects_router
 from api.auth import router as auth_router
 from api.apikey import router as api_keys_router
 from api.chat import router as chat_router
-
+from api.ticketing import router as ticketing_router
 from db import sync_database, init_db
 from exceptions.handlers import register_exception_handlers
 
@@ -21,6 +21,7 @@ app.add_middleware(
 )
 
 # Routers
+app.include_router(ticketing_router)
 app.include_router(auth_router)
 app.include_router(projects_router)
 app.include_router(api_keys_router)
