@@ -27,6 +27,7 @@ import { Filter, FilterGroup } from "./types"
 import { FilterStatusCommand } from "./FilterStatusCommand"
 import { FilterLabelsCommand } from "./FilterLabelsCommand"
 import { FilterPriorityCommand } from "./FilterPriorityCommand"
+import { FilterIssueTypeCommand } from "./FilterIssueTypeCommand"
 import { CommandDialog } from "@/components/ui/command-dialog"
 
 interface FilterCommandProps {
@@ -257,6 +258,13 @@ export function FilterCommand({
           />
         ) : selectedFilter?.id === 'priority' ? (
           <FilterPriorityCommand
+            projectId={projectId}
+            activeFilters={activeFilters}
+            onActiveFiltersChange={onActiveFiltersChange}
+            onBack={() => setSelectedFilter(null)}
+          />
+        ) : selectedFilter?.id === 'issue_type' ? (
+          <FilterIssueTypeCommand
             projectId={projectId}
             activeFilters={activeFilters}
             onActiveFiltersChange={onActiveFiltersChange}
