@@ -29,6 +29,11 @@ import { FilterLabelsCommand } from "./FilterLabelsCommand"
 import { FilterPriorityCommand } from "./FilterPriorityCommand"
 import { FilterIssueTypeCommand } from "./FilterIssueTypeCommand"
 import { CommandDialog } from "@/components/ui/command-dialog"
+import { FilterSprintCommand } from "./FilterSprintCommand"
+import { FilterAssigneeCommand } from "./FilterAssigneeCommand"
+import { FilterReporterCommand } from "./FilterReporterCommand"
+import { FilterCreatedCommand } from "./FilterCreatedCommand"
+import { FilterResolvedCommand } from "./FilterResolvedCommand"
 
 interface FilterCommandProps {
   open: boolean
@@ -76,7 +81,7 @@ const metaTags: FilterGroup[] = [
     group: "Time",
     items: [
       { id: 'created', label: 'Created', icon: Calendar },
-      { id: 'resolutiondate', label: 'Resolved', icon: Clock }
+      { id: 'resolved', label: 'Resolved', icon: Clock }
     ]
   }
 ]
@@ -216,7 +221,7 @@ export function FilterCommand({
         </CommandGroup>
 
         {/* Complex Filters */}
-        <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 px-2">
+        <div className="w-full grid grid-cols-2 sm:grid-cols-3  md:grid-cols-4 gap-2 px-2">
           {metaTags.map(group => (
             <CommandGroup key={group.group} heading={group.group} className="w-full py-2">
               {group.items.map(item => (
@@ -270,9 +275,42 @@ export function FilterCommand({
             onActiveFiltersChange={onActiveFiltersChange}
             onBack={() => setSelectedFilter(null)}
           />
-        ) : (
-          renderMainScreen()
-        )}
+        ) : selectedFilter?.id === 'sprint' ? (
+          <FilterSprintCommand
+            projectId={projectId}
+            activeFilters={activeFilters}
+            onActiveFiltersChange={onActiveFiltersChange}
+            onBack={() => setSelectedFilter(null)}
+          />
+        ) : selectedFilter?.id === 'assignee' ? (
+          <FilterAssigneeCommand
+            projectId={projectId}
+            activeFilters={activeFilters}
+            onActiveFiltersChange={onActiveFiltersChange}
+            onBack={() => setSelectedFilter(null)}
+          />
+        ) : selectedFilter?.id === 'reporter' ? (
+          <FilterReporterCommand
+            projectId={projectId}
+            activeFilters={activeFilters}
+            onActiveFiltersChange={onActiveFiltersChange}
+            onBack={() => setSelectedFilter(null)}
+          />
+        ) : selectedFilter?.id === 'created' ? (
+          <FilterCreatedCommand
+            projectId={projectId}
+            activeFilters={activeFilters}
+            onActiveFiltersChange={onActiveFiltersChange}
+            onBack={() => setSelectedFilter(null)}
+          />
+        ) : selectedFilter?.id === 'resolved' ? (
+          <FilterResolvedCommand
+            projectId={projectId}
+            activeFilters={activeFilters}
+            onActiveFiltersChange={onActiveFiltersChange}
+            onBack={() => setSelectedFilter(null)}
+          />
+        ) : renderMainScreen()}
       </CommandDialog>
     </div>
   )
