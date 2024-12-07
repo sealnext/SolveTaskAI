@@ -5,6 +5,7 @@ import {
   CommandGroup,
   CommandInput,
   CommandList,
+  CommandItem,
 } from "@/components/ui/command"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -44,14 +45,14 @@ interface FilterCommandProps {
 }
 
 const quickFilters: Filter[] = [
-  { id: 'my-tickets', label: 'Assigned to me', icon: User, count: 12 },
-  { id: 'unresolved', label: 'Unresolved', icon: AlertCircle, count: 8 },
-  { id: 'critical', label: 'Critical Priority', icon: AlertCircle, count: 3 },
-  { id: 'blocked', label: 'Blocked', icon: XCircle, count: 3 },
-  { id: 'due-today', label: 'Due Today', icon: Calendar, count: 2 },
-  { id: 'overdue', label: 'Overdue', icon: Clock, count: 5 },
-  { id: 'in-progress', label: 'In Progress', icon: Timer, count: 6 },
-  { id: 'needs-review', label: 'Needs Review', icon: Search, count: 4 },
+  { id: 'my-tickets', label: 'Assigned to me', icon: User },
+  { id: 'unresolved', label: 'Unresolved', icon: AlertCircle},
+  { id: 'critical', label: 'Highest Priority', icon: AlertCircle},
+  { id: 'blocked', label: 'Blocked', icon: XCircle},
+  { id: 'due-today', label: 'Due Today', icon: Calendar},
+  { id: 'overdue', label: 'Overdue', icon: Clock},
+  { id: 'in-progress', label: 'In Progress', icon: Timer},
+  { id: 'needs-review', label: 'Needs Review', icon: Search},
 ]
 
 const metaTags: FilterGroup[] = [
@@ -97,6 +98,29 @@ export function FilterCommand({
   const [selectedFilter, setSelectedFilter] = React.useState<Filter | null>(null)
   const ref = React.useRef<HTMLDivElement>(null)
 
+  // Filter function for both quick filters and meta tags
+  const filterItems = (items: Filter[], term: string) => {
+    if (!term) return items
+    return items.filter(item => 
+      item.label.toLowerCase().includes(term.toLowerCase())
+    )
+  }
+
+  // Filter meta tags groups
+  const filterMetaTags = (groups: FilterGroup[], term: string) => {
+    if (!term) return groups
+    return groups.map(group => ({
+      ...group,
+      items: group.items.filter(item =>
+        item.label.toLowerCase().includes(term.toLowerCase()) ||
+        group.group.toLowerCase().includes(term.toLowerCase())
+      )
+    })).filter(group => group.items.length > 0)
+  }
+
+  const filteredQuickFilters = filterItems(quickFilters, searchTerm)
+  const filteredMetaTags = filterMetaTags(metaTags, searchTerm)
+
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -129,23 +153,19 @@ export function FilterCommand({
   }
 
   const renderMainScreen = () => (
-    <>
+    <Command className="w-full" shouldFilter={false}>
       {/* Header with search */}
-      <div className="w-full p-1">
-        <div className="relative flex items-center w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 z-10" />
-          <div className="w-full">
-            <CommandInput 
-              placeholder="Search filters..."
-              value={searchTerm}
-              onValueChange={setSearchTerm}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-muted/10 hover:bg-muted/20 focus:bg-muted/20 
-                        rounded-xl border-0 ring-0 ring-offset-0 ring-accent/20 
-                        placeholder:text-muted-foreground/50 text-foreground outline-none focus:outline-none
-                        transition-all duration-150 ease-in-out"
-            />
-          </div>
-        </div>
+      <div className="w-full">
+        <CommandInput 
+          placeholder="Search filters..."
+          value={searchTerm}
+          onValueChange={setSearchTerm}
+          className="w-full px-4 py-3 text-sm bg-transparent hover:bg-muted/10 focus:bg-muted/10 
+                    border-0 border-b border-muted/30 rounded-none
+                    ring-0 ring-offset-0 ring-accent/20 
+                    placeholder:text-muted-foreground/50 text-foreground outline-none focus:outline-none
+                    transition-all duration-150 ease-in-out"
+        />
       </div>
 
       {/* Active filters */}
@@ -201,45 +221,53 @@ export function FilterCommand({
       )}
 
       <CommandList className="w-full max-h-[300px] overflow-y-auto">
+        {filteredQuickFilters.length === 0 && filteredMetaTags.length === 0 && (
+          <CommandEmpty>No filters found.</CommandEmpty>
+        )}
+        
         {/* Quick Filters */}
-        <CommandGroup heading="Quick Filters" className="w-full pb-2">
-          <div className="w-full flex flex-wrap items-center gap-1 p-1.5 px-2">
-            {quickFilters.map(filter => (
-              <button
-                key={filter.id}
-                onClick={() => handleQuickFilter(filter)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <filter.icon className="h-3.5 w-3.5 text-primary" />
-                <span className="text-foreground">{filter.label}</span>
-                {filter.count && (
-                  <span className="text-muted-foreground">({filter.count})</span>
-                )}
-              </button>
-            ))}
-          </div>
-        </CommandGroup>
+        {filteredQuickFilters.length > 0 && (
+          <CommandGroup heading="Quick Filters">
+            <div className="w-full flex flex-wrap items-center gap-1 p-1.5 px-2">
+              {filteredQuickFilters.map(filter => (
+                <CommandItem
+                  key={filter.id}
+                  onSelect={() => handleQuickFilter(filter)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <filter.icon className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-foreground">{filter.label}</span>
+                  {filter.count && (
+                    <span className="text-muted-foreground">({filter.count})</span>
+                  )}
+                </CommandItem>
+              ))}
+            </div>
+          </CommandGroup>
+        )}
 
         {/* Complex Filters */}
-        <div className="w-full grid grid-cols-2 sm:grid-cols-3  md:grid-cols-4 gap-2 px-2">
-          {metaTags.map(group => (
-            <CommandGroup key={group.group} heading={group.group} className="w-full py-2">
-              {group.items.map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => setSelectedFilter(item)}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg
-                    text-left hover:bg-muted/20 transition-colors"
-                >
-                  <item.icon className="h-3.5 w-3.5 text-primary" />
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </CommandGroup>
-          ))}
-        </div>
+        {filteredMetaTags.length > 0 && (
+          <div className="w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 px-2">
+            {filteredMetaTags.map(group => (
+              <CommandGroup key={group.group} heading={group.group}>
+                {group.items.map(item => (
+                  <CommandItem
+                    key={item.id}
+                    onSelect={() => setSelectedFilter(item)}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg
+                      text-left hover:bg-muted/20 transition-colors"
+                  >
+                    <item.icon className="h-3.5 w-3.5 text-primary" />
+                    <span>{item.label}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+          </div>
+        )}
       </CommandList>
-    </>
+    </Command>
   )
 
   if (!open) return null
