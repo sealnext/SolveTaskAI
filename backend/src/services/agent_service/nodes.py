@@ -20,9 +20,9 @@ def should_continue(state: MessagesState):
     """Determine if we should continue with tool calls or end."""
     last_message = state["messages"][-1]
     if last_message.tool_calls:
-        logger.debug("LLM decided to use tools, returning tools node to route it")
+        logger.info("LLM decided to use tools, returning tools node to route it")
         return "tools"
     
-    logger.debug("LLM finished processing, no more tools needed")
+    logger.info("LLM finished processing, no more tools needed")
     return END 
 

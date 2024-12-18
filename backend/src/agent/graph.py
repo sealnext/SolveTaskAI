@@ -1,0 +1,74 @@
+from langchain_openai import ChatOpenAI
+from langgraph.graph import END, START, StateGraph
+from langchain_core.tools import tool
+from langchain_core.runnables import RunnableConfig
+from typing import Optional
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.prebuilt import tools_condition
+from langgraph.prebuilt import ToolNode
+
+from agent.state import AgentState
+from agent.configuration import AgentConfiguration
+from config.logger import auto_log, log_message
+import logging
+
+logger = logging.getLogger(__name__)
+
+@tool
+@auto_log("graph.mock_retrieve_tool")
+def mock_retrieve_tool(query: str, config: RunnableConfig) -> str:
+    """
+        Use this tool for searching and retrieving information from tickets and documentation.
+        ALWAYS use this tool for:
+        - Finding information about bugs, issues, or features
+        - Searching through ticket content
+        - Getting context about specific topics
+        - Answering questions about existing tickets
+        - Finding how many tickets match certain criteria
+        
+        Do NOT use this tool for:
+        - Creating new tickets
+        - Updating existing tickets
+        - Any actions that modify tickets
+        - Questions about ability to modify tickets
+        
+        Args:
+            query: The search query to use for document retrieval
+        
+        Returns:
+            String containing the retrieved documents or empty if none found
+        """
+    return "The weather is 30grade celsius"
+
+@auto_log("graph.call_model")
+async def call_model(state: AgentState, config: RunnableConfig):
+    """Node that calls the LLM with the current state."""
+    messages = state.messages
+    agent_config = AgentConfiguration()
+    llm = ChatOpenAI(model=agent_config.model, temperature=agent_config.temperature)
+    llm_with_tools = llm.bind_tools([mock_retrieve_tool])
+    
+    log_message(f"Model: {agent_config.model} | Temp: {agent_config.temperature}", "CONFIG", "graph.call_model")
+    
+    response = await llm_with_tools.ainvoke(messages)
+    return {"messages": [response]}
+
+def create_agent_graph(checkpointer: Optional[AsyncPostgresSaver] = None) -> StateGraph:
+    """Create a new agent graph instance."""
+    builder = StateGraph(AgentState)
+    tool_node = ToolNode([mock_retrieve_tool])
+    
+    # Add nodes
+    builder.add_node("agent", call_model)
+    builder.add_node("tools", tool_node)
+    
+    # Add edges
+    builder.set_entry_point("agent")
+    builder.add_conditional_edges("agent", tools_condition)
+    builder.add_edge("tools", "agent")
+    builder.add_edge("agent", END)
+    
+    logger.info(f"Creating graph with checkpointer: {checkpointer is not None}")
+    graph = builder.compile(checkpointer=checkpointer)
+    logger.info(f"Graph created successfully: {graph}")
+    return graph

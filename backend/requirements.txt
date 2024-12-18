@@ -16,3 +16,5 @@ langgraph==0.2.39
 langchain-postgres==0.0.12
 langchain-openai==0.2.3
 langchain==0.3.4
+langgraph-sdk==0.1.45
+langgraph-checkpoint-postgres==2.0.8
