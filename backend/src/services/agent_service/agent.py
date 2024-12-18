@@ -99,4 +99,4 @@ class Agent:
             
         except Exception as e:
             logger.error(f"Error processing question: {e}", exc_info=True)
-            return ("I apologize, but I encountered an error. Please try again.", chat_id)
+            return "I apologize, but I encountered an error. Please try again.", chat_id
