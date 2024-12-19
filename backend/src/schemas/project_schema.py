@@ -12,7 +12,7 @@ class ExternalProjectSchema(BaseModel):
 
     class Config:
         populate_by_name = True
-        
+
 class InternalProjectSchema(BaseModel):
     id: int
     name: str
@@ -23,7 +23,7 @@ class InternalProjectSchema(BaseModel):
 
     class Config:
         from_attributes = True
-    
+
 class ProjectBase(BaseModel):
     name: str
     domain: str

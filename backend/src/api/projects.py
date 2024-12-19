@@ -41,7 +41,7 @@ async def get_external_project_by_id(
     api_key = await user_service.get_api_key_by_id(project_id, user.id)
     if not api_key:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     data_extractor = create_data_extractor(api_key)
     projects = await data_extractor.get_all_projects()
     if not projects:
@@ -59,7 +59,7 @@ async def add_internal_project(
     new_project = await project_service.save_project(project, user_id)
     # TODO: use api key service instead of repository, here and in chat api
     api_key = await api_key_repository.get_by_project_id(new_project.id)
-    
+
     agent_state = {
         "project": new_project,
         "api_key": api_key,
@@ -67,16 +67,16 @@ async def add_internal_project(
         "tickets": [],
         "status": "pending"
     }
-    
+
     final_state = await process_documents(agent_state)
-    
+
     logger.info(f"Final state: {final_state}")
-    
+
     tickets = len(final_state['tickets'])
-    
+
     if tickets > 0:
         return {"message": f"There are now {tickets} tickets available in this project context.", "project_id": new_project.id}
-    
+
     return {"message": final_state["status"]}
 
 @router.get("/internal", response_model=List[InternalProjectSchema])
@@ -102,7 +102,7 @@ async def delete_internal_project(
     await project_service.delete_project_by_external_id(user_id, external_project_id)
     logger.debug(f"Checking if embeddings are still associated with project: {external_project_id}")
     still_associated = await project_service.delete_embeddings_by_external_id(user_id, external_project_id)
-    
+
     logger.debug(f"Embeddings still associated: {still_associated}")
     if still_associated is False:
         logger.debug(f"Project: {project}")

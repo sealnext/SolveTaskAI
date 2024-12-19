@@ -26,22 +26,22 @@ class DataExtractorJira(DataExtractor):
                 if attempt == retries - 1:
                     raise
                 await asyncio.sleep(delay)
-                delay *= 2 
-                
+                delay *= 2
+
     async def get_ticket(self, ticket_url: str) -> JiraIssueContentSchema:
         async with aiohttp.ClientSession(auth=self.auth) as session:
             logger.info(f"Fetching ticket from {ticket_url}")
-            
+
             data = await self.fetch_with_retry(session, ticket_url, params={})
-            
+
             logger.info(f"Successfully fetched ticket {ticket_url}")
-            
+
             project_id = str(data.get('fields', {}).get('project', {}).get('id'))
-            
+
             logger.info(f"Project ID: {project_id}")
-            
+
             validated_ticket = JiraIssueContentSchema(**{**data, 'project_id': project_id})
-            
+
             return validated_ticket
 
     async def get_all_projects(self) -> List[ExternalProjectSchema]:
@@ -56,19 +56,19 @@ class DataExtractorJira(DataExtractor):
                     'startAt': start_at,
                     'maxResults': max_results
                 }
-                
+
                 logger.info(f"Fetching projects starting at {start_at}")
-                
+
                 data = await self.fetch_with_retry(session, api_route, params=params)
                 all_projects.extend(self._standardize_project_data(data['values']))
-                
+
                 if len(data['values']) < max_results:  # No more pages
                     break
-                
+
                 start_at += max_results
 
         return all_projects
-      
+
     async def get_all_tickets(self, project_key: str, project_id: str) -> List[JiraIssueSchema]:
         api_route = urljoin(self.base_api_url, "search")
         all_tickets = []
@@ -81,13 +81,13 @@ class DataExtractorJira(DataExtractor):
                     'jql': f'project={project_key}',
                     'startAt': start_at,
                     'maxResults': max_results,
-                    'fields': '*all' 
+                    'fields': '*all'
                 }
 
                 logger.info(f"Fetching tickets starting at {start_at} for project {project_key}")
 
                 data = await self.fetch_with_retry(session, api_route, params=params)
-                
+
                 # Convert and validate tickets as we receive them
                 validated_tickets = [
                     JiraIssueSchema(**{**issue, 'project_id': str(project_id)})
@@ -101,7 +101,7 @@ class DataExtractorJira(DataExtractor):
                 start_at += max_results
 
         return all_tickets
-      
+
     def _standardize_project_data(self, projects: List[Dict[str, Any]]) -> List[ExternalProjectSchema]:
         return [
             ExternalProjectSchema(

@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from models.user import User
 from schemas import UserCreate
@@ -27,12 +27,17 @@ class UserRepository:
             hashed_password=user_create.password
         )
         self.db_session.add(new_user)
-        
+
         try:
             await self.db_session.commit()
             await self.db_session.refresh(new_user)
         except IntegrityError:
             await self.db_session.rollback()
             raise UserAlreadyExistsException
-        
+
         return new_user
+
+    async def update_password(self, user_id: int, new_password: str) -> None:
+        query = update(User).where(User.id == user_id).values(hashed_password=new_password)
+        await self.db_session.execute(query)
+        await self.db_session.commit()

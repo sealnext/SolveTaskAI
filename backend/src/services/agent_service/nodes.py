@@ -8,12 +8,11 @@ async def call_model(state: MessagesState, config: RunnableConfig):
     """Node that calls the LLM with the current state."""
     messages = state["messages"]
     llm = config["configurable"]["llm"]
-    
+
     logger.debug(f"Calling main agent LLM with {len(messages)} messages")
 
-    
     response = await llm.ainvoke(messages, config)
-    
+
     return {"messages": state["messages"] + [response]}
 
 def should_continue(state: MessagesState):
@@ -22,7 +21,7 @@ def should_continue(state: MessagesState):
     if last_message.tool_calls:
         logger.debug("LLM decided to use tools, returning tools node to route it")
         return "tools"
-    
+
     logger.debug("LLM finished processing, no more tools needed")
-    return END 
+    return END
 

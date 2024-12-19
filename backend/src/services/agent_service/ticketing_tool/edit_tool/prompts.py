@@ -57,7 +57,7 @@ def create_user_message(request: str, schema_json: str) -> str:
 
     -- Request by User:
     ```{request}```
-    
+
     -- EditableSchema (their values and what operations are supported on each field):
     ```{schema_json}```
-    """ 
+    """

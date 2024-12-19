@@ -8,7 +8,7 @@ class ConversationLogger:
         self.logger = logging.getLogger("conversation")
         self.logger.setLevel(logging.INFO)
         self.seen_messages = set()  # Track seen messages to avoid duplicates
-        
+
         # Create console handler with custom formatting
         console_handler = logging.StreamHandler()
         formatter = logging.Formatter('%(message)s')  # Simplified format
@@ -19,7 +19,7 @@ class ConversationLogger:
         """Format a tool call message."""
         if not hasattr(message, 'tool_calls') or not message.tool_calls:
             return ""
-            
+
         tool_calls = []
         for call in message.tool_calls:
             if isinstance(call, dict):
@@ -46,27 +46,27 @@ class ConversationLogger:
         """Log only tool calls and their responses."""
         if "messages" not in state:
             return
-            
+
         messages = state["messages"]
         for i, message in enumerate(messages):
             msg_id = self._get_message_id(message)
             if msg_id in self.seen_messages:
                 continue
-                
+
             self.seen_messages.add(msg_id)
-            
+
             # Only process AIMessage with tool calls and their ToolMessage responses
             if isinstance(message, AIMessage) and hasattr(message, 'tool_calls') and message.tool_calls:
                 tool_call = self._format_tool_call(message)
                 if tool_call:
                     self.logger.info(tool_call)
-                    
+
                 # Look for the tool response in the next message
                 if i + 1 < len(messages) and isinstance(messages[i + 1], ToolMessage):
                     tool_response = self._format_tool_response(messages[i + 1])
                     if tool_response:
                         self.logger.info(tool_response)
-        
+
         if "final_response" in state and str(state["final_response"]) not in self.seen_messages:
             self.seen_messages.add(str(state["final_response"]))
             self.logger.info(f"Final: {state['final_response']}")

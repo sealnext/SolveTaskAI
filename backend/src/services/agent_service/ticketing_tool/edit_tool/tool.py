@@ -22,23 +22,23 @@ class OutputSchema(BaseModel):
 
 def create_edit_ticketing_tool(project: Project, api_key: APIKey):
     """Creates a ticketing tool with project and api_key context."""
-    
+
     # Initialize the client
     client = _initialize_client(project, api_key)
-    
+
     # Initialize LLM for parsing requests
     llm = ChatOpenAI(model=OPENAI_MODEL, temperature=0)
     parser_llm = llm.with_structured_output(OutputSchema)
-    
+
     @tool("manage_tickets")
     async def manage_tickets(request: str, ticket_id: str) -> str:
         """
         Manages ticket operations (create/update/modify tickets).
-        
+
         Args:
             request: The action to perform on the ticket (e.g., 'Add label TEST')
             ticket_id: The ID of the ticket to update (e.g., 'PZ-2')
-            
+
         Use this tool to update existing tickets with changes like:
         - Update ticket content (title, description, etc)
         - Manage labels and tags
@@ -51,12 +51,12 @@ def create_edit_ticketing_tool(project: Project, api_key: APIKey):
         try:
             logger.info(f"🎯 TicketingTool: Processing request for ticket {ticket_id}")
             logger.info(f"🎯 TicketingTool: Request: {request}")
-            
+
             # Get available fields and their metadata
             logger.info(f"🎯 TicketingTool: Fetching ticket and template data for {ticket_id}")
             ticket = await client.get_ticket_and_template_json(ticket_id)
             logger.info(f"🎯 TicketingTool: Received ticket modifiable_fields")
-            
+
             messages = [
                 {"role": "system", "content": TICKET_MANAGEMENT_SYSTEM_MESSAGE},
                 {"role": "user", "content": create_user_message(
@@ -64,18 +64,18 @@ def create_edit_ticketing_tool(project: Project, api_key: APIKey):
                     schema_json=ticket.model_dump_json(indent=1)
                 )}
             ]
-            
+
             response = await parser_llm.ainvoke(messages)
             updates = response.model_dump()
             logger.info(f"🎯 TicketingTool: Parsed updates: {updates}")
-            
+
             # Apply updates
             logger.info(f"🎯 TicketingTool: Applying updates to ticket {ticket_id}")
             result = await client.operation(ticket_id, updates)
             logger.info(f"🎯 TicketingTool: Update result: {result}")
-            
+
             return f"Successfully updated ticket {result['ticket_id']}"
-            
+
         except Exception as e:
             error_msg = f"Failed to process ticketing request: {str(e)}"
             logger.error(error_msg, exc_info=True)

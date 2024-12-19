@@ -38,10 +38,10 @@ async def get_issue_statuses(
 
         # Get the appropriate ticketing client
         ticketing_client = await create_ticketing_client(api_key, project)
-        
+
         if not ticketing_client:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Unsupported ticketing system: {project.service_type}"
             )
 
@@ -50,4 +50,4 @@ async def get_issue_statuses(
         return statuses
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))

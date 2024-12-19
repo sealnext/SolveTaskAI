@@ -74,7 +74,7 @@ class DocumentWrapper(BaseModel):
     @classmethod
     def from_langchain_doc(cls, doc: Document) -> 'DocumentWrapper':
         """Create a document wrapper from a langchain Document"""
-        
+
         # Keep all metadata fields and ensure they match our expected format
         metadata = {
             "ticket_url": doc.metadata.get('ticket_url', ''),
@@ -93,7 +93,7 @@ class DocumentWrapper(BaseModel):
             "created_at": doc.metadata.get('created_at'),
             "updated_at": doc.metadata.get('updated_at')
         }
-        
+
         # Process page_content
         if isinstance(doc.page_content, str):
             try:
@@ -105,7 +105,7 @@ Comments: {' '.join(content_dict.get('comments', []))}"""
                     return cls(metadata=metadata, page_content=formatted_content)
             except:
                 pass
-        
+
         return cls(
             metadata=metadata,
             page_content=str(doc.page_content)
@@ -131,7 +131,7 @@ class TicketContent(BaseModel):
             "description": self.description,
             "comments": self.comments
         }, indent=1)
-    
+
     def to_page_content(self) -> str:
         """Convert ticket content to a formatted string for document representation"""
         return f"""Summary: {self.summary}
@@ -160,7 +160,7 @@ class JiraIssueContentSchema(BaseModel):
 
         summary = fields.get('summary') or "No title provided"
         description = fields.get('description') or "No description provided"
-        
+
         comments = fields.get('comment', {}).get('comments', [])
         comments_list = [
             f"{comment.get('author', {}).get('displayName', 'Unknown')}: {comment.get('body', '')}"
@@ -178,7 +178,7 @@ class JiraIssueContentSchema(BaseModel):
     def to_document_wrapper(self) -> DocumentWrapper:
         """Convert ticket to document wrapper format with safe field access"""
         fields = self.fields or {}
-        
+
         def safe_get(d: Dict, *keys, default=None):
             current = d
             for key in keys:
@@ -206,7 +206,7 @@ class JiraIssueContentSchema(BaseModel):
             "created_at": fields.get('created'),
             "updated_at": fields.get('updated')
         }
-        
+
         return DocumentWrapper(
             metadata=metadata,
             page_content=self.content.to_page_content()
@@ -233,7 +233,7 @@ class JiraIssueSchema(Ticket):
         base_url = "/".join(api_self_url.split("/")[:3])
         ticket_key = values.get('key', None)
         values['ticket_url'] = f"{base_url}/browse/{ticket_key}"
-            
+
         values['ticket_api'] = api_self_url
         values['issue_type'] = fields.get('issuetype', {}).get('name') if fields.get('issuetype') else None
         values['status'] = fields.get('status', {}).get('name') if fields.get('status') else None
@@ -245,7 +245,7 @@ class JiraIssueSchema(Ticket):
         values['assignee'] = fields.get('assignee', {}).get('displayName') if fields.get('assignee') else None
         values['reporter'] = fields.get('reporter', {}).get('displayName') if fields.get('reporter') else None
         values['resolutiondate'] = fields.get('resolutiondate')
-        
+
         customfield_10020 = fields.get('customfield_10020', [])
         values['sprint'] = customfield_10020[0].get('name') if customfield_10020 and len(customfield_10020) > 0 else None
 
@@ -273,11 +273,11 @@ class JiraIssueSchema(Ticket):
 
         cleaned_embedding_data = [cls.clean_text(data) for data in embedding_data]
         values['embedding_vector'] = " | ".join(cleaned_embedding_data)
-        
+
         logger.info(f"🎯 JiraIssueSchema: Ticket: {values}")
 
         return values
-    
+
     @classmethod
     def clean_text(cls, text):
         """

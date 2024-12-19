@@ -40,7 +40,7 @@ class ValidationErrorException(BaseCustomException):
 class UnexpectedErrorException(BaseCustomException):
     def __init__(self, detail: str = "An unexpected error occurred"):
         super().__init__(detail, status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
 class APIKeyNotFoundException(BaseCustomException):
     def __init__(self, detail: str = "No API keys found"):
         super().__init__({"message": "No API keys found", "data": []}, status.HTTP_200_OK)
@@ -52,15 +52,15 @@ class APIKeyExpiredException(BaseCustomException):
 class APIKeyAlreadyExistsError(BaseCustomException):
     def __init__(self, detail: str = "An API key with this value already exists"):
         super().__init__(detail, status.HTTP_403_FORBIDDEN)
-        
+
 class ProjectNotFoundError(BaseCustomException):
     def __init__(self, detail: str = "Project not found"):
         super().__init__(detail, status.HTTP_404_NOT_FOUND)
-        
+
 class ProjectAlreadyExistsError(BaseCustomException):
     def __init__(self, detail: str = "Project already exists"):
         super().__init__(detail, status.HTTP_400_BAD_REQUEST)
-        
+
 class NotImplementedException(BaseCustomException):
     def __init__(self, detail: str = "Not implemented"):
         super().__init__(detail, status.HTTP_501_NOT_IMPLEMENTED)

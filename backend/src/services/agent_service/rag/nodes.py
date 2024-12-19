@@ -41,30 +41,29 @@ async def retrieve_documents(state: Dict[str, Any]) -> AgentState:
     question = state["question"]
     retry_retrieve_count = state.get("retry_retrieve_count", 0)
     ignore_tickets = state.get("ignore_tickets", [])
-    
+
     logger.info(f"Question: {question}, Retry count: {retry_retrieve_count}")
 
     query_embedding = await embeddings_model.aembed_query(question)
-    
+
     unique_identifier_project = f"{re.sub(r'^https?://|/$', '', state['project'].domain)}/{state['project'].key}/{state['project'].internal_id}"
     vector_store = create_vector_store(unique_identifier_project)
-    
+
     k = NUMBER_OF_DOCS_TO_RETRIEVE * (retry_retrieve_count + 1)
     documents_with_scores = await vector_store.asimilarity_search_with_score_by_vector(
         query_embedding,
         k=k,
     )
-    
+
     # Filter out ignored tickets
     documents_with_scores = [
         (doc, score) for doc, score in documents_with_scores 
         if doc.metadata["key"] not in ignore_tickets
     ][:NUMBER_OF_DOCS_TO_RETRIEVE]
-    
+
     documents = await fetch_documents(state, documents_with_scores)
-    
+
     logger.info(f"Retrieved {len(documents)} documents")
-    
 
     state["documents"] = documents
     state["retry_retrieve_count"] = retry_retrieve_count + 1
@@ -74,55 +73,55 @@ async def retry_retrieve_documents(state):
     logger.info("--- Retry Retrieve Documents Node ---")
     question = state["question"]
     ignore_tickets = state.get("ignore_tickets", [])
-    
+
     query_embedding = await embeddings_model.aembed_query(question)
-    
+
     unique_identifier_project = f"{re.sub(r'^https?://|/$', '', state['project'].domain)}/{state['project'].key}/{state['project'].internal_id}"
     vector_store = create_vector_store(unique_identifier_project)
-    
+
     k = NUMBER_OF_DOCS_TO_RETRIEVE * 2  # Try with double the documents on retry
     documents_with_scores = await vector_store.asimilarity_search_with_score_by_vector(
         query_embedding,
         k=k,
     )
-    
+
     # Filter out ignored tickets
     documents_with_scores = [
-        (doc, score) for doc, score in documents_with_scores 
+        (doc, score) for doc, score in documents_with_scores
         if doc.metadata["key"] not in ignore_tickets
     ][:NUMBER_OF_DOCS_TO_RETRIEVE]
-    
+
     documents = await fetch_documents(state, documents_with_scores)
-    
+
     logger.info(f"Retrieved {len(documents)} documents on retry")
     state["documents"] = documents
     state["retry_retrieve_count"] = state.get("retry_retrieve_count", 0) + 1
-    
+
     return state
 
 async def grade_documents(state: AgentState) -> dict:
     logger.info("--- Grading documents node ---")
-    
+
     question = state["question"]
     documents = state["documents"]
-    
+
     ignore_tickets = state.get("ignore_tickets", [])
 
     async def grade_single_document(doc):
 
         logger.info(f"Grading document: {doc.metadata['key']}")
-        
+
         doc_grader_prompt_formatted = doc_grader_prompt.format(
             document=doc,
             question=question
         )
-        
+
         result = await llm_json_mode.ainvoke(
             [SystemMessage(content=doc_grader_instructions)]
             + [HumanMessage(content=doc_grader_prompt_formatted)]
         )
         grade = json.loads(result.content)["binary_score"]
-        
+
         return doc, grade.lower() == "yes"
 
     # Run grading for all documents in parallel
@@ -145,13 +144,13 @@ async def grade_documents(state: AgentState) -> dict:
 
 async def fetch_documents(state, documents_with_scores):
     data_extractor = create_data_extractor(state["api_key"])
-    
+
     ticket_urls = [doc.metadata["key"] for doc, _ in documents_with_scores]
     fetched_documents = await data_extractor.get_tickets_parallel(ticket_urls)
-    
+
     documents = []
     for (doc, score), fetched_doc in zip(documents_with_scores, fetched_documents):
         doc.page_content = fetched_doc.content.model_dump()
         documents.append(doc)
-    
+
     return documents
