@@ -1,4 +1,3 @@
-from config import logger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

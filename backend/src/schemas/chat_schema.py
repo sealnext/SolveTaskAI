@@ -6,7 +6,7 @@ class QuestionRequest(BaseModel):
     question: str = Field(..., description="The question to be answered")
     project_id: int = Field(..., description="ID of the project")
     chat_id: Optional[str] = Field(None, description="ID of the chat session")
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -20,11 +20,11 @@ class QuestionResponse(BaseModel):
     """Schema for chat response"""
     answer: str = Field(..., description="The answer to the question")
     chat_id: str = Field(..., description="ID of the chat session")
-    
+
     class Config:
         json_schema_extra = {
             "example": {
                 "answer": "Based on the project documentation, in the last sprint the team implemented...",
                 "chat_id": "chat_123"
             }
-        } 
+        }

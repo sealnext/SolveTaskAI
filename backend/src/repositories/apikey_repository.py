@@ -9,7 +9,7 @@ from models.associations import api_key_project_association
 class APIKeyRepository:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
-        
+
     async def get_by_project_id(self, project_id: int) -> APIKey | None:
         result = await self.db_session.execute(
             select(APIKey).join(api_key_project_association).where(api_key_project_association.c.project_id == project_id)
@@ -30,7 +30,7 @@ class APIKeyRepository:
                 api_key.id = None  # Reset the ID to let the database assign a new one
                 return await self.create_api_key(api_key)
             raise
-        
+
     async def delete_api_key(self, user_id: int, api_key_id: int) -> None:
         api_key = await self.get_by_id(api_key_id, user_id)
         if api_key:
@@ -42,7 +42,7 @@ class APIKeyRepository:
             select(APIKey).where(APIKey.user_id == user_id)
         )
         return result.scalars().all()
-    
+
     async def get_by_id(self, api_key_id: int, user_id: int) -> APIKey | None:
         result = await self.db_session.execute(
             select(APIKey).where(

@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 def create_retrieve_workflow():
     """Creates a specialized workflow for document retrieval."""
     logger.info("Creating retrieve workflow")
-    
+
     workflow = StateGraph(AgentState)
-    
+
     workflow.add_node("retrieve", retrieve_documents)
     workflow.add_node("retry_retrieval", retry_retrieve_documents)
     workflow.add_node("grade_documents", grade_documents)
@@ -49,7 +49,7 @@ async def execute_retrieve_workflow(query: str, project: Project, api_key: APIKe
     """Execute the retrieve workflow with given parameters."""
     try:
         ticket_id_pattern = r'^([A-Z][A-Z0-9_]{1,}-\d+|\d+)$'
-        
+
         if re.match(ticket_id_pattern, query.upper()):
             logger.info(f"Direct ticket retrieval for ID: {query}")
             data_extractor = create_data_extractor(api_key)
@@ -58,7 +58,7 @@ async def execute_retrieve_workflow(query: str, project: Project, api_key: APIKe
             doc_wrapper = ticket.to_document_wrapper()
             logger.info(f"Manual flow metadata: {doc_wrapper.metadata}")
             return [doc_wrapper]
-        
+
         # RAG workflow path
         state = {
             "question": query,
@@ -71,10 +71,10 @@ async def execute_retrieve_workflow(query: str, project: Project, api_key: APIKe
             "max_retries": 3,
             "status": "started"
         }
-        
+
         workflow = create_retrieve_workflow()
         result = await workflow.ainvoke(state)
-        
+
         if result and isinstance(result, dict):
             documents = result.get("documents", [])
             doc_wrappers = [DocumentWrapper.from_langchain_doc(doc) for doc in documents]
@@ -87,7 +87,7 @@ async def execute_retrieve_workflow(query: str, project: Project, api_key: APIKe
 
 def create_retrieve_tool(project: Project, api_key: APIKey):
     """Creates a retrieve tool with project and api_key context."""
-    
+
     @tool
     async def retrieve(query: str) -> str:
         """
@@ -98,29 +98,29 @@ def create_retrieve_tool(project: Project, api_key: APIKey):
         - Getting context about specific topics
         - Answering questions about existing tickets
         - Finding how many tickets match certain criteria
-        
+
         Do NOT use this tool for:
         - Creating new tickets
         - Updating existing tickets
         - Any actions that modify tickets
         - Questions about ability to modify tickets
-        
+
         Args:
             query: The search query to use for document retrieval
-        
+
         Returns:
             String containing the retrieved documents or empty if none found
         """
         logger.info(f"Tool retrieve called with query: {query}")
-        
+
         try:
             documents = await execute_retrieve_workflow(query, project, api_key)
             if not documents:
                 return ""
-            
+
             return "\n\n".join(doc.format_for_display() for doc in documents)
         except Exception as e:
             logger.error(f"Error in retrieve: {e}", exc_info=True)
             return f"Error retrieving documents: {str(e)}"
-            
+
     return retrieve

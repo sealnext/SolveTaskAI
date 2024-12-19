@@ -14,7 +14,7 @@ async def get_project_repository(db_session: AsyncSession):
 class ProjectRepository:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
-        
+
     async def get_by_external_id(self, user_id: int, external_project_id: int) -> Optional[Project]:
         query = select(Project).join(user_project_association).where(and_(Project.internal_id == cast(str(external_project_id), String), user_project_association.c.user_id == user_id))
         result = await self.db_session.execute(query)
@@ -29,7 +29,7 @@ class ProjectRepository:
 
             api_key_id = project.api_key_id
             project_data = project.model_dump(exclude={'api_key_id'})
-            
+
             db_project = Project(**project_data)
             self.db_session.add(db_project)
             await self.db_session.flush()
@@ -49,7 +49,7 @@ class ProjectRepository:
             )
 
             await self.db_session.flush()
-            
+
             # Reload the project with all its relations
             stmt = select(Project).options(
                 selectinload(Project.api_keys),
@@ -111,7 +111,7 @@ class ProjectRepository:
                 await self.db_session.execute(
                     delete(ChatSession).where(ChatSession.project_id == project_id)
                 )
-                
+
                 # Delete user-project associations
                 await self.db_session.execute(
                     delete(user_project_association).where(
@@ -121,19 +121,19 @@ class ProjectRepository:
                         )
                     )
                 )
-                
+
                 # Delete api-key-project associations
                 await self.db_session.execute(
                     delete(api_key_project_association).where(
                         api_key_project_association.c.project_id == project_id
                     )
                 )
-                
+
                 # Finally delete the project
                 await self.db_session.execute(
                     delete(Project).where(Project.id == project_id)
                 )
-                
+
                 await self.db_session.commit()
                 return True
         except Exception as e:
@@ -197,7 +197,7 @@ class ProjectRepository:
         stmt = select(Project).where(Project.internal_id == str(internal_id))
         result = await self.db_session.execute(stmt)
         return result.scalar_one_or_none()
-    
+
     async def is_project_associated(self, project_id: int) -> bool:
         query = select(user_project_association).where(user_project_association.c.project_id == project_id)
         result = await self.db_session.execute(query)

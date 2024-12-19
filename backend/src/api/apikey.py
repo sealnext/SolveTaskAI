@@ -13,7 +13,7 @@ router = APIRouter(
 
 @router.get("/")
 async def retrieve_api_keys(
-    request: Request, 
+    request: Request,
     user_service: UserService = Depends(get_user_service)
 ):
     user = request.state.user
