@@ -12,6 +12,7 @@ from services import APIKeyService
 from psycopg_pool import AsyncConnectionPool
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from db.pool import db_pool
+from repositories.thread_repository import ThreadRepository
 
 # User dependencies
 async def get_api_key_repository(db: AsyncSession = Depends(get_db)):
@@ -48,3 +49,8 @@ async def get_db_checkpointer() -> AsyncPostgresSaver:
     if db_pool.checkpointer is None:
         await db_pool.create_pool()
     return db_pool.checkpointer
+
+# Thread Repository
+async def get_thread_repository(db: AsyncSession = Depends(get_db)) -> ThreadRepository:
+    """Get thread repository."""
+    return ThreadRepository(db)

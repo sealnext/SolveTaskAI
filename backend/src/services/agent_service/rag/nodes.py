@@ -14,6 +14,7 @@ from services.data_extractor import create_data_extractor
 from .prompts import doc_grader_instructions, doc_grader_prompt
 import asyncio
 from typing import Dict, Any
+from sqlalchemy.sql import text
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,8 @@ engine = create_async_engine(DATABASE_URL)
 # Create a session factory
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-def create_vector_store(unique_identifier_project: str):
+async def create_vector_store(unique_identifier_project: str):
+    """Create a PGVector store for the given project."""
     return PGVector(
         embeddings=embeddings_model,
         collection_name=unique_identifier_project,
@@ -155,3 +157,24 @@ async def fetch_documents(state, documents_with_scores):
         documents.append(doc)
     
     return documents
+
+async def generate_embeddings(state: Dict[str, Any]) -> AgentState:
+    """Generate embeddings for documents."""
+    logger.debug("Node: generate_embeddings called")
+    
+    unique_identifier_project = state["project_id"]
+    vector_store = await create_vector_store(unique_identifier_project)
+    
+    try:
+        # Add documents to vector store
+        await vector_store.aadd_documents(state["documents"])
+        logger.info(f"Added {len(state['documents'])} documents to collection {unique_identifier_project}")
+    except Exception as e:
+        logger.error(f"Error adding documents to vector store: {e}")
+        raise
+    
+    return AgentState(
+        project_id=state["project_id"],
+        documents=state["documents"],
+        embeddings_generated=True
+    )
