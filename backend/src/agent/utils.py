@@ -1,3 +1,11 @@
+"""
+Utility functions for agent operations.
+"""
+from datetime import datetime, timezone
+from typing import Dict, Tuple, Optional
+from uuid import UUID, uuid4
+
+from fastapi import HTTPException, Request, status
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
@@ -7,8 +15,19 @@ from langchain_core.messages import (
 from langchain_core.messages import (
     ChatMessage as LangchainChatMessage,
 )
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.base import Checkpoint, CheckpointMetadata
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from typing import AsyncGenerator
+import json
+import logging
 
 from schemas.agent_schema import ChatMessage
+from agent.state import AgentState
+from agent.graph import create_agent_graph
+from repositories.thread_repository import ThreadRepository
+
+logger = logging.getLogger(__name__)
 
 def convert_message_content_to_string(content: str | list[str | dict]) -> str:
     if isinstance(content, str):
@@ -73,3 +92,174 @@ def remove_tool_calls(content: str | list[str | dict]) -> str | list[str | dict]
         for content_item in content
         if isinstance(content_item, str) or content_item["type"] != "tool_use"
     ]
+
+
+def get_user_id(request: Request) -> str:
+    """Temporary function to get user ID from request. Just for testing purposes."""
+    return request.state.user.id if hasattr(request.state, 'user') and hasattr(request.state.user, 'id') else 1
+
+
+def create_and_validate_agent(checkpointer: AsyncPostgresSaver) -> AgentState:
+    """Create and validate agent graph."""
+    agent = create_agent_graph(checkpointer)
+    if agent is None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many active conversations. Please end some before starting new ones."
+        )
+    return agent
+
+
+async def create_initial_checkpoint(
+    thread_id: str,
+    user_id: str,
+    checkpointer: AsyncPostgresSaver
+) -> None:
+    """
+    Create an initial checkpoint for a new thread.
+    
+    Args:
+        thread_id: Thread ID
+        user_id: User ID
+        checkpointer: AsyncPostgresSaver instance
+    """
+    config = RunnableConfig(
+        configurable={
+            "thread_id": thread_id,
+            "checkpoint_ns": "",
+        }
+    )
+    
+    checkpoint = Checkpoint(
+        v=1,
+        id=thread_id,
+        ts=datetime.now(timezone.utc).isoformat(),
+        channel_values={},
+        channel_versions={},
+        versions_seen={},
+        pending_sends=[]
+    )
+    
+    metadata = CheckpointMetadata(
+        source="initial",
+        step=0,
+        writes=[],
+        parents=[],
+        user_id=user_id,
+        created_at=datetime.now(timezone.utc).isoformat()
+    )
+    
+    # await checkpointer.aput(
+    #     config=config,
+    #     checkpoint=checkpoint,
+    #     metadata=metadata,
+    #     new_versions={}
+    # )
+
+
+async def parse_input(
+    user_input: dict,
+    user_id: str,
+    checkpointer: AsyncPostgresSaver,
+    thread_repo: ThreadRepository
+) -> Tuple[Dict, RunnableConfig, UUID]:
+    """
+    Parse user input and prepare configuration for the graph.
+    
+    Args:
+        user_input: Input from the user
+        user_id: User ID
+        checkpointer: AsyncPostgresSaver instance
+        thread_repo: Thread repository instance
+        
+    Returns:
+        Tuple containing initial state, configuration and run ID
+    """
+    run_id = uuid4()
+    thread_id = user_input.get("thread_id", str(uuid4()))
+    
+    thread = await thread_repo.get(thread_id)
+    
+    if not thread and user_input.get("thread_id"):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Thread with id {thread_id} not found"
+        )
+    elif not thread:
+        # Creăm o nouă asociere thread-user
+        await thread_repo.create(thread_id, user_id)
+    
+    config = RunnableConfig(
+        configurable={
+            "thread_id": thread_id,
+            "checkpoint_ns": "",
+        },
+        metadata={
+            "user_id": user_id,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        },
+        run_id=run_id
+    )
+    
+    # Let langgraph handle the message state
+    input_state = {
+        "messages": [HumanMessage(content=user_input["message"])]
+    }
+    
+    return input_state, config, run_id
+
+async def message_generator(
+    user_input: dict,
+    user_id: str,
+    checkpointer: AsyncPostgresSaver,
+    thread_repo: ThreadRepository
+) -> AsyncGenerator[str, None]:
+    """Generate a stream of messages from the agent."""
+    try:
+        agent = create_and_validate_agent(checkpointer)
+        input_state, config, _ = await parse_input(user_input, user_id, checkpointer, thread_repo)
+        
+        async for event in agent.astream_events(input_state, config, version="v2"):
+            if not event:
+                continue
+
+            new_messages = []
+            if (
+                event["event"] == "on_chain_end"
+                and any(t.startswith("graph:step:") for t in event.get("tags", []))
+                and "messages" in event["data"]["output"]
+            ):
+                new_messages = event["data"]["output"]["messages"]
+
+            if event["event"] == "on_custom_event" and "custom_data_dispatch" in event.get("tags", []):
+                new_messages = [event["data"]]
+
+            for message in new_messages:
+                try:
+                    chat_message = dict(langchain_to_chat_message(message))
+                except Exception as e:
+                    logger.error(f"Error parsing message: {e}", exc_info=True)
+                    yield f"data: {json.dumps({'type': 'error', 'content': 'Unexpected error'})}\n\n"
+                    continue
+                
+                if chat_message["type"] == "human" and chat_message["content"] == user_input["message"]:
+                    continue
+                    
+                yield f"data: {json.dumps({'type': 'message', 'content': chat_message})}\n\n"
+
+            if (
+                event["event"] == "on_chat_model_stream"
+                and user_input.get("stream_tokens", True)
+                and "llama_guard" not in event.get("tags", [])
+            ):
+                content = remove_tool_calls(event["data"]["chunk"].content)
+                if content:
+                    yield f"data: {json.dumps({'type': 'token', 'content': convert_message_content_to_string(content)})}\n\n"
+
+        yield "data: [DONE]\n\n"
+        
+    except Exception as e:
+        logger.error(f"Error in message generator: {e}", exc_info=True)
+        yield f"data: {json.dumps({'type': 'error', 'content': 'Unexpected error'})}\n\n"
+        yield "data: [DONE]\n\n"
+  

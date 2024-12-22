@@ -21,13 +21,14 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage the lifecycle of our connection pool."""
     try:
-        await db_pool.create_pool()
-        yield
+        logger.info("Starting up SealNext API...")
+        await init_db()
+        await sync_database()
+        async with db_pool:
+            yield
     except Exception as e:
         logger.error(f"Error in connection pool lifecycle: {e}")
         raise
-    finally:
-        await db_pool.close_pool()
 
 app = FastAPI(
     title="SealNext API",
@@ -54,14 +55,3 @@ app.include_router(chat_router)
 
 # Exception Handlers
 register_exception_handlers(app)
-
-# Startup Event
-@app.on_event("startup")
-async def startup_event():
-    await init_db()
-    await sync_database()
-
-# Shutdown Event
-@app.on_event("shutdown") 
-async def shutdown_event():
-    pass  # Cleanup is handled by lifespan
