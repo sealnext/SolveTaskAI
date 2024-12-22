@@ -186,8 +186,11 @@ async def parse_input(
             detail=f"Thread with id {thread_id} not found"
         )
     elif not thread:
-        # Creăm o nouă asociere thread-user
+        # Create a new thread-user association
         await thread_repo.create(thread_id, user_id)
+    else:
+        # Update timestamp for existing thread
+        await thread_repo.update_timestamp(thread_id)
     
     config = RunnableConfig(
         configurable={
@@ -218,6 +221,10 @@ async def message_generator(
     try:
         agent = create_and_validate_agent(checkpointer)
         input_state, config, _ = await parse_input(user_input, user_id, checkpointer, thread_repo)
+        thread_id = config["configurable"]["thread_id"]
+        
+        # Send initial message with thread_id
+        yield f"data: {json.dumps({'type': 'init', 'thread_id': thread_id})}\n\n"
         
         async for event in agent.astream_events(input_state, config, version="v2"):
             if not event:
@@ -239,7 +246,7 @@ async def message_generator(
                     chat_message = dict(langchain_to_chat_message(message))
                 except Exception as e:
                     logger.error(f"Error parsing message: {e}", exc_info=True)
-                    yield f"data: {json.dumps({'type': 'error', 'content': 'Unexpected error'})}\n\n"
+                    yield f"data: {json.dumps({'type': 'error', 'content': 'Unexpected error', 'thread_id': thread_id})}\n\n"
                     continue
                 
                 if chat_message["type"] == "human" and chat_message["content"] == user_input["message"]:
@@ -256,10 +263,10 @@ async def message_generator(
                 if content:
                     yield f"data: {json.dumps({'type': 'token', 'content': convert_message_content_to_string(content)})}\n\n"
 
-        yield "data: [DONE]\n\n"
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
         
     except Exception as e:
         logger.error(f"Error in message generator: {e}", exc_info=True)
-        yield f"data: {json.dumps({'type': 'error', 'content': 'Unexpected error'})}\n\n"
-        yield "data: [DONE]\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'content': 'Unexpected error', 'thread_id': thread_id})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'thread_id': thread_id})}\n\n"
   
