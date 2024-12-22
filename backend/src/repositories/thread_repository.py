@@ -1,6 +1,7 @@
 """Repository for managing thread-user associations."""
 from typing import Optional, List
-from sqlalchemy import select, insert, delete, text
+from datetime import datetime, timezone
+from sqlalchemy import select, insert, delete, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from models.associations import thread_user_association
@@ -18,7 +19,9 @@ class ThreadRepository:
             await self.session.execute(
                 insert(thread_user_association).values(
                     thread_id=thread_id,
-                    user_id=user_id
+                    user_id=user_id,
+                    created_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(timezone.utc)
                 )
             )
             await self.session.commit()
@@ -34,12 +37,20 @@ class ThreadRepository:
             
         try:
             result = await self.session.execute(
-                select(thread_user_association).where(
+                select(
+                    thread_user_association.c.thread_id,
+                    thread_user_association.c.user_id,
+                    thread_user_association.c.updated_at
+                ).where(
                     thread_user_association.c.thread_id == thread_id
                 )
             )
             row = result.first()
-            return row._mapping if row else None
+            return {
+                "thread_id": row.thread_id,
+                "user_id": row.user_id,
+                "updated_at": row.updated_at
+            } if row else None
         except SQLAlchemyError as e:
             logger.error(f"Failed to get thread {thread_id}: {e}")
             raise
@@ -51,14 +62,33 @@ class ThreadRepository:
             
         try:
             result = await self.session.execute(
-                select(thread_user_association.c.thread_id).where(
+                select(
+                    thread_user_association.c.thread_id,
+                    thread_user_association.c.updated_at
+                ).where(
                     thread_user_association.c.user_id == user_id
+                ).order_by(
+                    thread_user_association.c.updated_at.desc()
                 )
             )
             rows = result.all()
-            return [{"thread_id": row[0]} for row in rows] if rows else []
+            return [{"thread_id": row.thread_id, "updated_at": row.updated_at} for row in rows] if rows else []
         except SQLAlchemyError as e:
             logger.error(f"Failed to get threads for user {user_id}: {e}")
+            raise
+
+    async def update_timestamp(self, thread_id: str) -> None:
+        """Update the updated_at timestamp for a thread."""
+        try:
+            await self.session.execute(
+                update(thread_user_association)
+                .where(thread_user_association.c.thread_id == thread_id)
+                .values(updated_at=datetime.now(timezone.utc))
+            )
+            await self.session.commit()
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            logger.error(f"Failed to update timestamp for thread {thread_id}: {e}")
             raise
 
     async def verify_ownership(self, thread_id: str, user_id: str) -> bool:
