@@ -67,42 +67,59 @@ async def add_internal_project(
     Steps:
     1. Save the project in the database
     2. Get the API key for the project
-    3. Process and generate embeddings for project documents
-    4. Return success/failure message with project details
+    3. Add documents to the embeddings repository
     """
-    # Step 1: Save project and get API key
-    user_id = request.state.user.id
-    new_project = await project_service.save_project(project, user_id)
-    
-    # Get and validate API key
-    api_key = await api_key_repository.get_by_project_id(new_project.id)
-    if not api_key:
-        logger.error(f"No API key found for project {new_project.id}")
-        raise HTTPException(status_code=404, detail="No API key found for project")
-    
-    # Step 2: Prepare embeddings request
-    embeddings_request = DocumentEmbeddingCreate(
-        project_id=new_project.id,
-        project_key=new_project.key,
-        domain=new_project.domain,
-        internal_id=str(new_project.internal_id),
-        api_key=api_key,  # Already an APIKeySchema
-        action="add"
-    )
-    
-    # Step 3: Process documents and generate embeddings
-    processing_result = await embeddings_service.process_documents(embeddings_request)
-
-    # Step 4: Return appropriate response based on processing result
-    if processing_result["status"] == "success":
-        processed_tickets_count = len(processing_result["tickets"])
-        if processed_tickets_count > 0:
+    try:
+        # Step 1: Save project and get API key
+        user_id = request.state.user.id
+        new_project = await project_service.save_project(project, user_id)
+        
+        # Get and validate API key
+        api_key = await api_key_repository.get_by_project_id(new_project.id)
+        if not api_key:
+            logger.error(f"No API key found for project {new_project.id}")
+            await project_service.delete_project_by_external_id(user_id, new_project.internal_id)
+            raise HTTPException(status_code=404, detail="No API key found for project")
+        
+        # Step 2: Prepare embeddings request
+        embeddings_request = DocumentEmbeddingCreate(
+            project_id=new_project.id,
+            project_key=new_project.key,
+            domain=new_project.domain,
+            internal_id=str(new_project.internal_id),
+            api_key=api_key,  # Already an APIKeySchema
+            action="add"
+        )
+        
+        # Step 3: Process documents and generate embeddings
+        try:
+            await embeddings_service.add_documents(
+                domain=embeddings_request.domain,
+                project_key=embeddings_request.project_key,
+                internal_id=embeddings_request.internal_id,
+                api_key=embeddings_request.api_key
+            )
             return {
-                "message": f"There are now {processed_tickets_count} tickets available in this project context.",
+                "message": "Documents processed successfully",
                 "project_id": new_project.id
             }
-    
-    return {"message": processing_result["message"]}
+        except ValueError as e:
+            # If no documents found, delete the project and return error
+            logger.error(f"No documents found for project: {str(e)}")
+            await project_service.delete_project_by_external_id(user_id, new_project.internal_id)
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            # For other errors, delete project and re-raise
+            logger.error(f"Error processing documents: {str(e)}")
+            await project_service.delete_project_by_external_id(user_id, new_project.internal_id)
+            raise HTTPException(status_code=500, detail="Failed to process documents")
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        # Handle any other unexpected errors
+        logger.error(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/internal", response_model=List[InternalProjectSchema])
 async def get_all_internal_projects(
@@ -126,8 +143,7 @@ async def delete_internal_project(
     Steps:
     1. Validate project existence and access
     2. Delete project from database
-    3. Check and clean up associated embeddings
-    4. Return success response
+    3. Delete embeddings from vector store
     
     Raises:
         HTTPException: If project not found (404) or embeddings deletion fails (500)
@@ -148,22 +164,13 @@ async def delete_internal_project(
     logger.debug(f"Project has embeddings to clean up: {not has_embeddings}")
     
     if not has_embeddings:
-        # Prepare embeddings deletion request
-        embeddings_request = DocumentEmbeddingCreate(
-            project_id=project.id,
-            project_key=project.key,
-            domain=project.domain,
-            internal_id=str(project.internal_id),
-            action="delete" 
-        )
-        
         try:
             # Delete embeddings from vector store
-            deletion_result = await embeddings_service.process_documents(embeddings_request)
-            if deletion_result["status"] != "success":
-                error_msg = f"Failed to delete embeddings: {deletion_result}"
-                logger.error(error_msg)
-                raise HTTPException(status_code=500, detail="Failed to delete embeddings")
+            await embeddings_service.delete_documents(
+                domain=project.domain,
+                project_key=project.key,
+                internal_id=str(project.internal_id)
+            )
             logger.info(f"Successfully deleted embeddings for project {external_project_id}")
         except Exception as e:
             error_msg = f"Error during embeddings deletion: {str(e)}"
