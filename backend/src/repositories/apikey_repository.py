@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from models.apikey import APIKey
+from schemas import APIKeySchema
 from typing import List, Optional
 from config.enums import TicketingSystemType
 from sqlalchemy.exc import IntegrityError
@@ -10,12 +11,15 @@ class APIKeyRepository:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
         
-    async def get_by_project_id(self, project_id: int) -> APIKey | None:
+    async def get_by_project_id(self, project_id: int) -> APIKeySchema | None:
         result = await self.db_session.execute(
             select(APIKey).join(api_key_project_association).where(api_key_project_association.c.project_id == project_id)
         )
-        return result.scalar_one_or_none()
-
+        api_key_obj = result.scalar_one_or_none()
+        if api_key_obj:
+            return APIKeySchema.from_orm(api_key_obj)
+        return None
+    
     async def create_api_key(self, api_key: APIKey) -> APIKey:
         try:
             self.db_session.add(api_key)

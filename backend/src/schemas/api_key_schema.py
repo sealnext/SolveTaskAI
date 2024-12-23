@@ -1,3 +1,4 @@
+from models import APIKey
 from pydantic import BaseModel, Field, EmailStr, AnyHttpUrl
 from config.enums import TicketingSystemType
 
@@ -27,6 +28,16 @@ class APIKeySchema(BaseModel):
 
     def model_post_init(self, __context):
         self.domain = self.validate_domain(self.domain)
+        
+    @classmethod
+    def from_orm(cls, obj: APIKey):
+        """Convert APIKey model to APIKeySchema."""
+        return cls(
+            service_type=obj.service_type,
+            api_key=obj.api_key,
+            domain=obj.domain,
+            domain_email=obj.domain_email
+        )
 
 class APIKeyResponse(BaseModel):
     id: int

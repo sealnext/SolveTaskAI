@@ -84,7 +84,6 @@ class ChatSessionRepository:
                 .order_by(desc(ChatSession.updated_at))
             )
             chat_sessions = result.scalars().all()
-            logger.debug(f"Retrieved {len(chat_sessions)} chat sessions for user {user_id}")
             return list(chat_sessions)
         except Exception as e:
             logger.error(f"Error retrieving chat sessions for user {user_id}: {str(e)}")

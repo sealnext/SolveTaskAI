@@ -4,12 +4,12 @@ import logging
 from urllib.parse import urljoin
 from typing import List, Dict, Any
 from .interfaces.data_extractor_interface import DataExtractor
-from schemas import ExternalProjectSchema, JiraIssueSchema, JiraIssueContentSchema
+from schemas import ExternalProjectSchema, JiraIssueSchema, JiraIssueContentSchema, APIKeySchema
 
 logger = logging.getLogger(__name__)
 
 class DataExtractorJira(DataExtractor):
-    def __init__(self, api_key):
+    def __init__(self, api_key: APIKeySchema):
         super().__init__(api_key)
         self.api_key = api_key
         self.base_api_url = urljoin(api_key.domain, "/rest/api/2/")

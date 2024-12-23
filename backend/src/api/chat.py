@@ -99,8 +99,6 @@ async def get_chat_history_list(
         
         chat_sessions = await chat_session_repository.get_all_by_user_id(user_id)
         
-        logger.info(f"Chat sessions: {chat_sessions}")
-        
         formatted_sessions = []
         for session in chat_sessions:
             message_count = sum(
