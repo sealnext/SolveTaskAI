@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 from pydantic import BaseModel, root_validator
 from typing import Optional, List, Dict, Any
 from langchain_core.documents import Document
+from datetime import datetime
 
 
 class EditableTicketSchema(BaseModel):
@@ -223,70 +224,56 @@ class JiraIssueContentSchema(BaseModel):
             page_content=doc.page_content
         )
 
-class JiraIssueSchema(Ticket):
+class JiraIssueSchema(BaseModel):
+    """Schema for Jira issue data."""
+    key: str
+    summary: str
+    description: Optional[str] = None
+    issue_type: Optional[str] = None
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    sprint: Optional[str] = None
+    labels: List[str] = []
+    resolution: Optional[str] = None
+    parent: Optional[str] = None
+    assignee: Optional[str] = None
+    reporter: Optional[str] = None
+    resolutiondate: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+    project_id: str
+    ticket_url: str
+    
     class Config:
         populate_by_name = True
-        extra = "ignore"
-
+        
     @root_validator(pre=True)
     def flatten_fields(cls, values):
         fields = values.get('fields', {})
-
-        api_self_url = values.get('self', "")
+        
+        # Extract base URLs and identifiers
+        api_self_url = values.get('self', '')
         base_url = "/".join(api_self_url.split("/")[:3])
-        ticket_key = values.get('key', None)
-        values['ticket_url'] = f"{base_url}/browse/{ticket_key}"
-            
-        values['ticket_api'] = api_self_url
-        values['issue_type'] = fields.get('issuetype', {}).get('name') if fields.get('issuetype') else None
-        values['status'] = fields.get('status', {}).get('name') if fields.get('status') else None
-        values['priority'] = fields.get('priority', {}).get('name') if fields.get('priority') else None
-        values['status'] = fields.get('status', {}).get('name') if fields.get('status') else None
-        values['labels'] = fields.get('labels', [])
-        values['resolution'] = fields.get('resolution', {}).get('name') if fields.get('resolution') else None
-        values['parent'] = fields.get('parent', {}).get('fields', {}).get('summary') if fields.get('parent') else None
-        values['assignee'] = fields.get('assignee', {}).get('displayName') if fields.get('assignee') else None
-        values['reporter'] = fields.get('reporter', {}).get('displayName') if fields.get('reporter') else None
-        values['resolutiondate'] = fields.get('resolutiondate')
-        values['created_at'] = fields.get('created')
-        values['updated_at'] = fields.get('updated')
-
-        customfield_10020 = fields.get('customfield_10020', [])
-        values['sprint'] = customfield_10020[0].get('name') if customfield_10020 and len(customfield_10020) > 0 else None
-
-        ordered_fields = {
-            'title': fields.get('summary', None),
-            'description': fields.get('description', None),
-        }
-
-        comments = fields.get('comment', {}).get('comments', [])
-        all_comments = " ".join(
-            f"{comment.get('author', {}).get('displayName', 'Unknown')}: {comment.get('body', '')}"
-            for comment in comments
-        ) if comments else ""
-
-        embedding_data = []
-
-        if ordered_fields['title']:
-            embedding_data.append(f"Title: {ordered_fields['title']}")
-
-        if ordered_fields['description']:
-            embedding_data.append(f"Description: {ordered_fields['description']}")
-
-        if all_comments:
-            embedding_data.append(f"Comments: {all_comments}")
-
-        cleaned_embedding_data = [cls.clean_text(data) for data in embedding_data]
-        values['embedding_vector'] = " | ".join(cleaned_embedding_data)
+        ticket_key = values.get('key', '')
+        
+        # Map fields
+        values.update({
+            'key': values.get('key'),
+            'summary': fields.get('summary'),
+            'description': fields.get('description'),
+            'issue_type': fields.get('issuetype', {}).get('name'),
+            'status': fields.get('status', {}).get('name'),
+            'priority': fields.get('priority', {}).get('name'),
+            'sprint': fields.get('sprint', {}).get('name') if fields.get('sprint') else None,
+            'labels': fields.get('labels', []),
+            'resolution': fields.get('resolution', {}).get('name') if fields.get('resolution') else None,
+            'parent': fields.get('parent', {}).get('key') if fields.get('parent') else None,
+            'assignee': fields.get('assignee', {}).get('displayName') if fields.get('assignee') else None,
+            'reporter': fields.get('reporter', {}).get('displayName') if fields.get('reporter') else None,
+            'resolutiondate': fields.get('resolutiondate'),
+            'created_at': fields.get('created'),
+            'updated_at': fields.get('updated'),
+            'ticket_url': f"{base_url}/browse/{ticket_key}"
+        })
         
         return values
-    
-    @classmethod
-    def clean_text(cls, text):
-        """
-        Cleans text by removing unnecessary whitespace, special characters, and normalizing it.
-        """
-        text = text.lower()
-        text = re.sub(r'\s+', ' ', text).strip()
-        text = re.sub(r'[^\w\s]', '', text)
-        return text
