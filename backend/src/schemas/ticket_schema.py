@@ -66,6 +66,9 @@ class Ticket(BaseModel):
     assignee: Optional[str] = None
     reporter: Optional[str] = None
     resolutiondate: Optional[str] = None
+    created_at: str
+    updated_at: str
+
 
 class DocumentWrapper(BaseModel):
     metadata: Dict[str, Any]
@@ -245,7 +248,9 @@ class JiraIssueSchema(Ticket):
         values['assignee'] = fields.get('assignee', {}).get('displayName') if fields.get('assignee') else None
         values['reporter'] = fields.get('reporter', {}).get('displayName') if fields.get('reporter') else None
         values['resolutiondate'] = fields.get('resolutiondate')
-        
+        values['created_at'] = fields.get('created')
+        values['updated_at'] = fields.get('updated')
+
         customfield_10020 = fields.get('customfield_10020', [])
         values['sprint'] = customfield_10020[0].get('name') if customfield_10020 and len(customfield_10020) > 0 else None
 
@@ -274,8 +279,6 @@ class JiraIssueSchema(Ticket):
         cleaned_embedding_data = [cls.clean_text(data) for data in embedding_data]
         values['embedding_vector'] = " | ".join(cleaned_embedding_data)
         
-        logger.info(f"🎯 JiraIssueSchema: Ticket: {values}")
-
         return values
     
     @classmethod

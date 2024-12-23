@@ -3,14 +3,20 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
-from dependencies import get_api_key_repository, get_project_service, get_user_service
+from dependencies import (
+    get_api_key_repository,
+    get_project_service,
+    get_user_service,
+    get_document_embeddings_service
+)
 from exceptions import InvalidCredentialsException
 from middleware.auth_middleware import auth_middleware
 from repositories import APIKeyRepository
 from schemas import APIKeySchema, ExternalProjectSchema, InternalProjectCreate, InternalProjectSchema
 from services import ProjectService, UserService
 from services.data_extractor import create_data_extractor
-from services.agent_service import process_documents
+from models.document_embeddings import DocumentEmbeddingCreate
+from services.document_embeddings_service import DocumentEmbeddingsService
 
 logger = logging.getLogger(__name__)
 
@@ -53,31 +59,50 @@ async def add_internal_project(
     project: InternalProjectCreate,
     request: Request,
     project_service: ProjectService = Depends(get_project_service),
-    api_key_repository: APIKeyRepository = Depends(get_api_key_repository)
-):
+    api_key_repository: APIKeyRepository = Depends(get_api_key_repository),
+    embeddings_service: DocumentEmbeddingsService = Depends(get_document_embeddings_service)
+) -> dict:
+    """Add a new internal project and process its documents for embeddings.
+    
+    Steps:
+    1. Save the project in the database
+    2. Get the API key for the project
+    3. Process and generate embeddings for project documents
+    4. Return success/failure message with project details
+    """
+    # Step 1: Save project and get API key
     user_id = request.state.user.id
     new_project = await project_service.save_project(project, user_id)
-    # TODO: use api key service instead of repository, here and in chat api
+    
+    # Get and validate API key
     api_key = await api_key_repository.get_by_project_id(new_project.id)
+    if not api_key:
+        logger.error(f"No API key found for project {new_project.id}")
+        raise HTTPException(status_code=404, detail="No API key found for project")
     
-    agent_state = {
-        "project": new_project,
-        "api_key": api_key,
-        "action": "add",
-        "tickets": [],
-        "status": "pending"
-    }
+    # Step 2: Prepare embeddings request
+    embeddings_request = DocumentEmbeddingCreate(
+        project_id=new_project.id,
+        project_key=new_project.key,
+        domain=new_project.domain,
+        internal_id=str(new_project.internal_id),
+        api_key=api_key,  # Already an APIKeySchema
+        action="add"
+    )
     
-    final_state = await process_documents(agent_state)
+    # Step 3: Process documents and generate embeddings
+    processing_result = await embeddings_service.process_documents(embeddings_request)
+
+    # Step 4: Return appropriate response based on processing result
+    if processing_result["status"] == "success":
+        processed_tickets_count = len(processing_result["tickets"])
+        if processed_tickets_count > 0:
+            return {
+                "message": f"There are now {processed_tickets_count} tickets available in this project context.",
+                "project_id": new_project.id
+            }
     
-    logger.info(f"Final state: {final_state}")
-    
-    tickets = len(final_state['tickets'])
-    
-    if tickets > 0:
-        return {"message": f"There are now {tickets} tickets available in this project context.", "project_id": new_project.id}
-    
-    return {"message": final_state["status"]}
+    return {"message": processing_result["message"]}
 
 @router.get("/internal", response_model=List[InternalProjectSchema])
 async def get_all_internal_projects(
@@ -93,28 +118,57 @@ async def get_all_internal_projects(
 async def delete_internal_project(
     external_project_id: int,
     request: Request,
-    project_service: ProjectService = Depends(get_project_service)
-):
+    project_service: ProjectService = Depends(get_project_service),
+    embeddings_service: DocumentEmbeddingsService = Depends(get_document_embeddings_service)
+) -> Response:
+    """Delete an internal project and its associated embeddings.
+    
+    Steps:
+    1. Validate project existence and access
+    2. Delete project from database
+    3. Check and clean up associated embeddings
+    4. Return success response
+    
+    Raises:
+        HTTPException: If project not found (404) or embeddings deletion fails (500)
+    """
+    # Step 1: Validate project existence
     user_id = request.state.user.id
     project = await project_service.get_project_by_external_id(external_project_id)
+    if not project:
+        logger.error(f"Project not found with external ID: {external_project_id}")
+        raise HTTPException(status_code=404, detail="Project not found")
 
-    logger.debug(f"Deleting project with external ID: {external_project_id}")
+    # Step 2: Delete project from database
+    logger.info(f"Deleting project with external ID: {external_project_id}")
     await project_service.delete_project_by_external_id(user_id, external_project_id)
-    logger.debug(f"Checking if embeddings are still associated with project: {external_project_id}")
-    still_associated = await project_service.delete_embeddings_by_external_id(user_id, external_project_id)
     
-    logger.debug(f"Embeddings still associated: {still_associated}")
-    if still_associated is False:
-        logger.debug(f"Project: {project}")
-        agent_state = {
-            "project": project,
-            "action": "delete",
-            "tickets": [],
-            "status": "pending"
-        }
-        logger.debug(f"Processing documents for deletion: {agent_state}")
-        final_state = await process_documents(agent_state)
-        if final_state["status"] != "success":
+    # Step 3: Clean up associated embeddings if necessary
+    has_embeddings = await project_service.delete_embeddings_by_external_id(user_id, external_project_id)
+    logger.debug(f"Project has embeddings to clean up: {not has_embeddings}")
+    
+    if not has_embeddings:
+        # Prepare embeddings deletion request
+        embeddings_request = DocumentEmbeddingCreate(
+            project_id=project.id,
+            project_key=project.key,
+            domain=project.domain,
+            internal_id=str(project.internal_id),
+            action="delete" 
+        )
+        
+        try:
+            # Delete embeddings from vector store
+            deletion_result = await embeddings_service.process_documents(embeddings_request)
+            if deletion_result["status"] != "success":
+                error_msg = f"Failed to delete embeddings: {deletion_result}"
+                logger.error(error_msg)
+                raise HTTPException(status_code=500, detail="Failed to delete embeddings")
+            logger.info(f"Successfully deleted embeddings for project {external_project_id}")
+        except Exception as e:
+            error_msg = f"Error during embeddings deletion: {str(e)}"
+            logger.error(error_msg)
             raise HTTPException(status_code=500, detail="Failed to delete embeddings")
 
+    # Step 4: Return success response
     return Response(status_code=204)

@@ -13,6 +13,8 @@ from psycopg_pool import AsyncConnectionPool
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from db.pool import db_pool
 from repositories.thread_repository import ThreadRepository
+from repositories.document_embeddings_repository import DocumentEmbeddingsRepository
+from services.document_embeddings_service import DocumentEmbeddingsService
 
 # User dependencies
 async def get_api_key_repository(db: AsyncSession = Depends(get_db)):
@@ -54,3 +56,14 @@ async def get_db_checkpointer() -> AsyncPostgresSaver:
 async def get_thread_repository(db: AsyncSession = Depends(get_db)) -> ThreadRepository:
     """Get thread repository."""
     return ThreadRepository(db)
+
+# Document Embeddings dependencies
+async def get_document_embeddings_repository(db: AsyncSession = Depends(get_db)) -> DocumentEmbeddingsRepository:
+    """Get document embeddings repository."""
+    return DocumentEmbeddingsRepository(db)
+
+async def get_document_embeddings_service(
+    repository: DocumentEmbeddingsRepository = Depends(get_document_embeddings_repository)
+) -> DocumentEmbeddingsService:
+    """Get document embeddings service."""
+    return DocumentEmbeddingsService(repository)

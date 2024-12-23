@@ -1,10 +1,10 @@
 from .interfaces.data_extractor_interface import DataExtractor
 from .jira_extractor import DataExtractorJira
 from .azure_extractor import DataExtractorAzure
-from models.apikey import APIKey
+from schemas import APIKeySchema
 from config.enums import TicketingSystemType
     
-def create_data_extractor(api_key: APIKey) -> DataExtractor:
+def create_data_extractor(api_key: APIKeySchema) -> DataExtractor:
     ticketing_system_type = TicketingSystemType(api_key.service_type)
 
     if ticketing_system_type == TicketingSystemType.JIRA:
