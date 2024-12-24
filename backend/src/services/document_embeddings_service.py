@@ -1,15 +1,15 @@
 import logging
-from typing import AsyncIterator, Optional, List
+from typing import AsyncIterator, Optional, List, Callable
 from dataclasses import asdict
 from collections import deque
 from itertools import islice
 
 from models.document_embeddings import DocumentEmbedding
 from repositories.document_embeddings_repository import DocumentEmbeddingsRepository
-from services.data_extractor.data_extractor_factory import create_data_extractor
+from services.ticketing.factory import TicketingClientFactory
 from models import APIKey
 from schemas.ticket_schema import JiraIssueSchema
-from services.data_extractor.interfaces.data_extractor_interface import DataExtractor
+from fastapi import Depends
 
 logger = logging.getLogger(__name__)
 
@@ -19,24 +19,28 @@ class DocumentEmbeddingsService:
     # Pre-allocate field order for consistent document structure
     FIELD_ORDER = ['summary', 'description', 'acceptance_criteria', 'comments']
     
-    # Field separators for better context
+    # Field separators for better semantic separation and context (embeddings)
     FIELD_SEPARATORS = {
-        'summary': '=== Summary ===\n',
-        'description': '\n=== Description ===\n',
-        'acceptance_criteria': '\n=== Acceptance Criteria ===\n',
-        'comments': '\n=== Comments ===\n'
+        'summary': '\n### SUMMARY ###\n',
+        'description': '\n### DESCRIPTION ###\n', 
+        'acceptance_criteria': '\n### ACCEPTANCE CRITERIA ###\n',
+        'comments': '\n### COMMENTS ###\n'
     }
     
     # Batch size for processing
     BATCH_SIZE = 100
     
-    def __init__(self, repository: DocumentEmbeddingsRepository):
-        """Initialize with repository.
+    def __init__(self, 
+                 repository: DocumentEmbeddingsRepository,
+                 factory: TicketingClientFactory):
+        """Initialize with repository and ticketing client factory.
         
         Args:
-            repository: The DocumentEmbeddingsRepository instance to use
+            repository: The DocumentEmbeddingsRepository instance
+            factory: The TicketingClientFactory instance for creating clients
         """
         self.embeddings_repository = repository
+        self.factory = factory
         logger.debug("Initialized DocumentEmbeddingsService")
         
     async def add_documents(self,
@@ -53,37 +57,29 @@ class DocumentEmbeddingsService:
             project_key: The project key in the ticketing system
             internal_id: Internal identifier for the collection
             api_key: The API key for ticketing system access
-        
-        Raises:
-            NotImplementedError: If the ticketing system is not supported
         """
         logger.info(f"Adding documents for project {project_key}")
         
-        # Create data extractor
-        data_extractor = create_data_extractor(api_key)
+        # Get client from factory
+        client = self.factory.get_client(api_key)
         
-        # Get all projects to find project_id
-        projects = await data_extractor.get_all_projects()
+        # Get project details
+        projects = await client.get_projects(api_key)
         project = next((p for p in projects if p.key == project_key), None)
         if not project:
             raise ValueError(f"Project {project_key} not found")
             
-        # Get total tickets count first
-        total_tickets = await data_extractor.get_total_tickets(project_key)
-        
         # Create async generator for documents
         async def document_generator():
-            async for batch in data_extractor.get_all_tickets(project_key, project.id):
-                for ticket in batch:
-                    yield self._create_document_from_ticket(ticket)
+            async for ticket in client.get_tickets(api_key, project_key):
+                yield self._create_document_from_ticket(ticket)
         
         # Process documents
         await self.embeddings_repository.add_embeddings(
             domain=domain,
             project_key=project_key,
             internal_id=internal_id,
-            documents=document_generator(),
-            total_documents=total_tickets
+            documents=document_generator()
         )
         
     def _create_document_from_ticket(self, ticket: JiraIssueSchema) -> DocumentEmbedding:

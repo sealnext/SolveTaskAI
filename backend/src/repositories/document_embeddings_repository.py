@@ -245,20 +245,34 @@ class DocumentEmbeddingsRepository:
         return f"{re.sub(r'^https?://|/$', '', domain)}/{project_key}/{internal_id}"
     
     def _prepare_metadata(self, doc: DocumentEmbedding) -> Dict[str, Any]:
-        """Prepare metadata for document."""
-        return {
+        """Prepare metadata for document, excluding null values and empty lists."""
+        metadata = {
             'ticket_url': doc.ticket_url,
-            'issue_type': doc.issue_type,
-            'status': doc.status,
-            'priority': doc.priority,
-            'sprint': doc.sprint,
             'key': doc.key,
-            'labels': doc.labels,
-            'resolution': doc.resolution,
-            'parent': doc.parent,
-            'assignee': doc.assignee,
-            'reporter': doc.reporter,
-            'resolutiondate': doc.resolutiondate.isoformat() if doc.resolutiondate else None,
             'created_at': doc.created_at.isoformat(),
-            'updated_at': doc.updated_at.isoformat(),
+            'updated_at': doc.updated_at.isoformat()
         }
+        
+        # Add optional fields only if they have values
+        if doc.issue_type:
+            metadata['issue_type'] = doc.issue_type
+        if doc.status:
+            metadata['status'] = doc.status
+        if doc.priority:
+            metadata['priority'] = doc.priority
+        if doc.sprint:
+            metadata['sprint'] = doc.sprint
+        if doc.labels and len(doc.labels) > 0:
+            metadata['labels'] = doc.labels
+        if doc.resolution:
+            metadata['resolution'] = doc.resolution
+        if doc.parent:
+            metadata['parent'] = doc.parent
+        if doc.assignee:
+            metadata['assignee'] = doc.assignee
+        if doc.reporter:
+            metadata['reporter'] = doc.reporter
+        if doc.resolutiondate:
+            metadata['resolutiondate'] = doc.resolutiondate.isoformat()
+            
+        return metadata

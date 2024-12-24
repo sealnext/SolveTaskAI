@@ -52,7 +52,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
 
     setIsLoading(true);
     try {
-      const fetchedProjects = await apiClient.post<ExternalProjectSchema[]>(`/projects/external/id/${keyId}`);
+      const fetchedProjects = await apiClient.get(`/projects/external/id/${keyId}`);
       setExternalProjects(fetchedProjects.data);
       
       if (fetchedProjects.data.length > 0) {
@@ -147,7 +147,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
         setEmail(selectedKey.domain_email);
         
         try {
-            const fetchedProjects = await apiClient.post<ExternalProjectSchema[]>(`/projects/external/id/${id}`);
+            const fetchedProjects = await apiClient.get(`/projects/external/id/${id}`);
             setExternalProjects(fetchedProjects.data);
             
             if (fetchedProjects.data.length > 0) {

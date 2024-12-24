@@ -1,20 +1,33 @@
-from repositories import ChatSessionRepository
+# Standard library imports
+from functools import lru_cache
+
+# Third-party imports
 from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from db.session import get_db
-from repositories.user_repository import UserRepository
-from services import UserService
-from services import AuthService
-from repositories import APIKeyRepository
-from repositories import ProjectRepository
-from services import ProjectService
-from services import APIKeyService
-from psycopg_pool import AsyncConnectionPool
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from sqlalchemy.ext.asyncio import AsyncSession
+
+# Local imports
 from db.pool import db_pool
-from repositories.thread_repository import ThreadRepository
+from db.session import get_db
+from repositories import (
+    APIKeyRepository,
+    ChatSessionRepository,
+    ProjectRepository
+)
 from repositories.document_embeddings_repository import DocumentEmbeddingsRepository
-from services.document_embeddings_service import DocumentEmbeddingsService
+from repositories.thread_repository import ThreadRepository
+from repositories.user_repository import UserRepository
+from schemas import APIKeySchema
+from services import (
+    APIKeyService,
+    AuthService,
+    DocumentEmbeddingsService,
+    ProjectService,
+    TicketingClientFactory,
+    UserService
+)
+from services.ticketing import BaseTicketingClient
+from services.ticketing.factory import TicketingConfig
 
 # User dependencies
 async def get_api_key_repository(db: AsyncSession = Depends(get_db)):
@@ -57,13 +70,30 @@ async def get_thread_repository(db: AsyncSession = Depends(get_db)) -> ThreadRep
     """Get thread repository."""
     return ThreadRepository(db)
 
+# Ticketing System dependencies
+@lru_cache()
+def get_ticketing_factory() -> TicketingClientFactory:
+    """Get the ticketing factory singleton."""
+    return TicketingClientFactory(config=TicketingConfig())
+
+def get_ticketing_client(
+    api_key: APIKeySchema,
+    factory: TicketingClientFactory = Depends(get_ticketing_factory)
+) -> BaseTicketingClient:
+    """Get a ticketing client with connection pooling."""
+    return factory.get_client(api_key)
+
 # Document Embeddings dependencies
 async def get_document_embeddings_repository(db: AsyncSession = Depends(get_db)) -> DocumentEmbeddingsRepository:
     """Get document embeddings repository."""
     return DocumentEmbeddingsRepository(db)
 
 async def get_document_embeddings_service(
-    repository: DocumentEmbeddingsRepository = Depends(get_document_embeddings_repository)
+    repository: DocumentEmbeddingsRepository = Depends(get_document_embeddings_repository),
+    factory: TicketingClientFactory = Depends(get_ticketing_factory)
 ) -> DocumentEmbeddingsService:
-    """Get document embeddings service."""
-    return DocumentEmbeddingsService(repository)
+    """Get document embeddings service with proper dependency injection."""
+    return DocumentEmbeddingsService(
+        repository=repository,
+        factory=factory
+    )

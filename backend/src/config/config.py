@@ -41,5 +41,8 @@ DB_BATCH_SIZE = int(os.getenv("DB_BATCH_SIZE", "500"))  # Number of documents to
 # Jira API settings
 JIRA_MAX_CONCURRENT_REQUESTS = int(os.getenv("JIRA_MAX_CONCURRENT_REQUESTS", "5"))  # Maximum concurrent requests to Jira
 JIRA_MAX_RESULTS_PER_PAGE = int(os.getenv("JIRA_MAX_RESULTS_PER_PAGE", "1000"))  # Maximum results per Jira API request
+JIRA_API_VERSION = int(os.getenv("JIRA_API_VERSION", "2"))  # Jira API version
 JIRA_RETRY_ATTEMPTS = int(os.getenv("JIRA_RETRY_ATTEMPTS", "3"))  # Number of retry attempts for failed Jira requests
 JIRA_RETRY_DELAY = int(os.getenv("JIRA_RETRY_DELAY", "1"))  # Initial delay between Jira retries in seconds
+
+DEFAULT_REQUEST_TIMEOUT = int(os.getenv("DEFAULT_REQUEST_TIMEOUT", "45"))  # Default request timeout in seconds

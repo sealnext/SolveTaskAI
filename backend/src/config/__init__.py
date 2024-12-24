@@ -28,7 +28,9 @@ from .config import (
     DB_POOL_SIZE,
     DB_POOL_TIMEOUT,
     DB_POOL_RECYCLE,
-    DB_MAX_OVERFLOW
+    DB_MAX_OVERFLOW,
+    JIRA_API_VERSION,
+    DEFAULT_REQUEST_TIMEOUT
 )
 
 from .logger import logging
