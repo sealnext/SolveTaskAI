@@ -1,17 +1,41 @@
 import re
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import json
 from textwrap import indent
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, model_validator, RootModel, Field
+from langchain_core.documents import Document
+from datetime import datetime
 
 import logging
 logger = logging.getLogger(__name__)
 
-from pydantic import BaseModel, root_validator
-from typing import Optional, List, Dict, Any
-from langchain_core.documents import Document
-from datetime import datetime
+# Response models for Jira API
+class AvatarUrls(BaseModel):
+    """Schema for avatar URLs."""
+    model_config = {"extra": "allow"}
 
+class JiraProjectResponse(RootModel):
+    """Model for Jira project response."""
+    root: List[dict]
+
+    def dict(self, **kwargs) -> Dict[str, Any]:
+        """Convert list response to expected format."""
+        return {
+            'values': self.root
+        }
+
+    class Config:
+        """Allow direct list input."""
+        frozen = True
+
+class JiraSearchResponse(BaseModel):
+    """Model for Jira search response."""
+    issues: List[dict]
+    total: int
+
+    class Config:
+        """Ensure response is always a dictionary."""
+        frozen = True
 
 class EditableTicketSchema(BaseModel):
     ticket_url: str
@@ -19,7 +43,8 @@ class EditableTicketSchema(BaseModel):
     modifiable_fields: Dict[str, Any] = {}
     comments: List[str] = []
 
-    @root_validator(pre=True)
+    @model_validator(mode='before')
+    @classmethod
     def extract_fields(cls, values):
         # Extract base URLs and identifiers
         api_self_url = values.get("self", "")
@@ -151,7 +176,8 @@ class JiraIssueContentSchema(BaseModel):
     class Config:
         populate_by_name = True
 
-    @root_validator(pre=True)
+    @model_validator(mode='before')
+    @classmethod
     def flatten_fields(cls, values):
         fields = values.get('fields', {}) or {}
         values['fields'] = fields
@@ -247,7 +273,8 @@ class JiraIssueSchema(BaseModel):
     class Config:
         populate_by_name = True
         
-    @root_validator(pre=True)
+    @model_validator(mode='before')
+    @classmethod
     def flatten_fields(cls, values):
         fields = values.get('fields', {})
         

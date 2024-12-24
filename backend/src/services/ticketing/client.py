@@ -1,0 +1,94 @@
+from typing import AsyncGenerator, List, Dict, Any, Optional
+import httpx
+from schemas import APIKeySchema, ExternalProjectSchema, JiraIssueSchema
+from fastapi import HTTPException, status
+from pydantic import BaseModel, ValidationError
+from config import DEFAULT_REQUEST_TIMEOUT
+from abc import ABC, abstractmethod
+
+class BaseTicketingClient(ABC):
+    """Base class for ticketing system clients."""
+    
+    DEFAULT_TIMEOUT = DEFAULT_REQUEST_TIMEOUT
+    
+    def __init__(self, http_client: httpx.AsyncClient):
+        """Initialize the client with an HTTP client.
+        
+        Args:
+            http_client: Pre-configured httpx.AsyncClient with connection pooling
+        """
+        self.http_client = http_client
+
+    async def _make_request(
+        self, 
+        method: str, 
+        url: str, 
+        timeout: Optional[float] = None,
+        response_model: Optional[type[BaseModel]] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Make an HTTP request with automatic retries using FastAPI's dependency system.
+        
+        Args:
+            method: HTTP method to use
+            url: URL to request
+            timeout: Request timeout in seconds
+            response_model: Optional Pydantic model to validate response
+            **kwargs: Additional arguments to pass to httpx.request
+        """
+        try:
+            timeout = timeout or self.DEFAULT_TIMEOUT
+            response = await self.http_client.request(
+                method, 
+                url, 
+                timeout=timeout,
+                **kwargs
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            # Validate response with Pydantic if model provided
+            if response_model:
+                return response_model.parse_obj(data).dict()
+            
+            # Allow both dict and list responses
+            if not isinstance(data, (dict, list)):
+                raise ValueError(f"Expected JSON object or array in response, got {type(data)}")
+                
+            return data
+            
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Too many requests"
+                )
+            raise HTTPException(
+                status_code=e.response.status_code, 
+                detail=str(e)
+            )
+        except (ValidationError, ValueError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Invalid response format: {str(e)}"
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Internal server error: {str(e)}"
+            )
+
+    @abstractmethod
+    async def get_projects(self, api_key: APIKeySchema) -> List[ExternalProjectSchema]:
+        """Get all projects. To be implemented by specific clients."""
+        raise NotImplementedError
+        
+    @abstractmethod
+    async def get_tickets(self, api_key: APIKeySchema, project_key: str) -> AsyncGenerator[JiraIssueSchema, None]:
+        """Get all tickets for a project. To be implemented by specific clients."""
+        raise NotImplementedError
+        
+    @abstractmethod
+    async def get_ticket(self, api_key: APIKeySchema, ticket_id: str) -> JiraIssueSchema:
+        """Get a single ticket by ID. To be implemented by specific clients."""
+        raise NotImplementedError

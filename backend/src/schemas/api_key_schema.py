@@ -20,6 +20,19 @@ class APIKeySchema(BaseModel):
 
     @classmethod
     def validate_domain(cls, v: str) -> str:
+        """Validate and normalize domain URL.
+        
+        Ensures:
+        1. Domain starts with https://
+        2. Domain doesn't end with /
+        """
+        # Add https:// if not present
+        if not v.startswith('https://'):
+            v = 'https://' + v.removeprefix('http://')
+        
+        # Remove trailing slash
+        v = v.rstrip('/')
+        
         try:
             AnyHttpUrl(v)
         except ValueError:

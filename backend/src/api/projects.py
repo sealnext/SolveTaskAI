@@ -1,22 +1,20 @@
 import logging
-from typing import List
+from typing import List, Callable
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-
 from dependencies import (
     get_api_key_repository,
     get_project_service,
     get_user_service,
-    get_document_embeddings_service
+    get_document_embeddings_service,
+    get_ticketing_client,
+    get_ticketing_factory
 )
 from exceptions import InvalidCredentialsException
 from middleware.auth_middleware import auth_middleware
 from repositories import APIKeyRepository
 from schemas import APIKeySchema, ExternalProjectSchema, InternalProjectCreate, InternalProjectSchema
-from services import ProjectService, UserService
-from services.data_extractor import create_data_extractor
-from models.document_embeddings import DocumentEmbeddingCreate
-from services.document_embeddings_service import DocumentEmbeddingsService
+from services import ProjectService, UserService, DocumentEmbeddingsService, TicketingClientFactory
 
 logger = logging.getLogger(__name__)
 
@@ -26,30 +24,36 @@ router = APIRouter(
     dependencies=[Depends(auth_middleware)]
 )
 
-@router.post("/external", response_model=List[ExternalProjectSchema])
+@router.post("/external")
 async def get_all_external_projects(
     api_key: APIKeySchema,
-):
-    data_extractor = create_data_extractor(api_key)
-    projects = await data_extractor.get_all_projects()
-    if not projects or projects == []:
-        print("No projects found")
+    ticketing_client: Callable = Depends(get_ticketing_client)
+) -> List[ExternalProjectSchema]:
+    """Get all external projects for an API key."""
+    client = ticketing_client(api_key)
+    projects = await client.get_projects(api_key)
+    if not projects:
+        logger.warning("No projects found")
         raise InvalidCredentialsException
     return projects
 
-@router.post("/external/id/{project_id}", response_model=List[ExternalProjectSchema])
+@router.get("/external/id/{project_id}")
 async def get_external_project_by_id(
-    request: Request,
     project_id: int,
-    user_service: UserService = Depends(get_user_service)
-):
+    request: Request,
+    user_service: UserService = Depends(get_user_service),
+    factory: TicketingClientFactory = Depends(get_ticketing_factory)
+) -> List[ExternalProjectSchema]:
+    """Get external projects for a specific project ID."""
     user = request.state.user
     api_key = await user_service.get_api_key_by_id(project_id, user.id)
     if not api_key:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    data_extractor = create_data_extractor(api_key)
-    projects = await data_extractor.get_all_projects()
+    api_key_schema = APIKeySchema.from_orm(api_key)
+    logger.info(f"API Key Schema: {api_key_schema}")
+    client = factory.get_client(api_key_schema)
+    projects = await client.get_projects(api_key_schema)
     if not projects:
         raise HTTPException(status_code=404, detail="No projects found in external service. Check your API Key.")
     return projects
@@ -81,31 +85,21 @@ async def add_internal_project(
             await project_service.delete_project_by_external_id(user_id, new_project.internal_id)
             raise HTTPException(status_code=404, detail="No API key found for project")
         
-        # Step 2: Prepare embeddings request
-        embeddings_request = DocumentEmbeddingCreate(
-            project_id=new_project.id,
-            project_key=new_project.key,
-            domain=new_project.domain,
-            internal_id=str(new_project.internal_id),
-            api_key=api_key,  # Already an APIKeySchema
-            action="add"
-        )
-        
-        # Step 3: Process documents and generate embeddings
+        # Step 2: Process documents and generate embeddings
         try:
             await embeddings_service.add_documents(
-                domain=embeddings_request.domain,
-                project_key=embeddings_request.project_key,
-                internal_id=embeddings_request.internal_id,
-                api_key=embeddings_request.api_key
+                domain=new_project.domain,
+                project_key=new_project.key,
+                internal_id=str(new_project.internal_id),
+                api_key=api_key
             )
             return {
-                "message": "Documents processed successfully",
+                "message": "Project added successfully. You can now start chatting with your project.",
                 "project_id": new_project.id
             }
         except ValueError as e:
             # If no documents found, delete the project and return error
-            logger.error(f"No documents found for project: {str(e)}")
+            logger.warning(f"No documents found for project: {str(e)}")
             await project_service.delete_project_by_external_id(user_id, new_project.internal_id)
             raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
