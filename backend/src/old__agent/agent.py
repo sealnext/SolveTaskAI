@@ -11,8 +11,8 @@ from langgraph.prebuilt import ToolNode
 
 from .chat_memory import ChatMemory
 from .nodes import call_model, should_continue
-from .rag.agent import create_retrieve_tool
-from .ticketing_tool.agent import create_ticketing_agent
+from agent.rag.agent import create_retrieve_tool
+from agent.ticketing_tool.agent import create_ticketing_agent
 from models import Project
 from models.apikey import APIKey
 from repositories.chat_session_repository import ChatSessionRepository
