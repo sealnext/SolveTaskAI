@@ -10,7 +10,7 @@ import json
 from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
 import logging
-from services.data_extractor import create_data_extractor
+# from services.data_extractor import create_data_extractor
 from .prompts import doc_grader_instructions, doc_grader_prompt
 import asyncio
 from typing import Dict, Any

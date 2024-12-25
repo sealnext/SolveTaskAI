@@ -7,6 +7,8 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.prebuilt import tools_condition
 from langgraph.prebuilt import ToolNode
 
+from models import Project, APIKey
+
 from agent.state import AgentState
 from agent.configuration import AgentConfiguration
 from config.logger import auto_log, log_message
@@ -53,7 +55,7 @@ async def call_model(state: AgentState, config: RunnableConfig):
     response = await llm_with_tools.ainvoke(messages)
     return {"messages": [response]}
 
-def create_agent_graph(checkpointer: Optional[AsyncPostgresSaver] = None) -> StateGraph:
+def create_agent_graph(project: Project, api_key: APIKey, checkpointer: Optional[AsyncPostgresSaver] = None) -> StateGraph:
     """Create a new agent graph instance."""
     builder = StateGraph(AgentState)
     tool_node = ToolNode([mock_retrieve_tool])

@@ -1,8 +1,7 @@
 import json
 import re
 from textwrap import indent
-from typing import Annotated, List, Optional, Dict, Any, Union
-from services.data_extractor.data_extractor_factory import create_data_extractor
+from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from langchain_core.documents import Document
@@ -13,7 +12,8 @@ from .nodes import retrieve_documents, retry_retrieve_documents, grade_documents
 from .edges import decide_after_grading
 from models import Project
 from models.apikey import APIKey
-from schemas.ticket_schema import DocumentWrapper, JiraIssueContentSchema
+from schemas.ticket_schema import DocumentWrapper
+from config.logger import auto_log
 
 logger = logging.getLogger(__name__)
 
@@ -52,12 +52,12 @@ async def execute_retrieve_workflow(query: str, project: Project, api_key: APIKe
         
         if re.match(ticket_id_pattern, query.upper()):
             logger.info(f"Direct ticket retrieval for ID: {query}")
-            data_extractor = create_data_extractor(api_key)
+            # data_extractor = create_data_extractor(api_key)
             link = f"{project.domain}/rest/api/2/issue/{query}"
-            ticket = await data_extractor.get_ticket(link)
-            doc_wrapper = ticket.to_document_wrapper()
-            logger.info(f"Manual flow metadata: {doc_wrapper.metadata}")
-            return [doc_wrapper]
+            # ticket = await data_extractor.get_ticket(link)
+            # doc_wrapper = ticket.to_document_wrapper()
+            # logger.info(f"Manual flow metadata: {doc_wrapper.metadata}")
+            return []
         
         # RAG workflow path
         state = {
@@ -89,7 +89,8 @@ def create_retrieve_tool(project: Project, api_key: APIKey):
     """Creates a retrieve tool with project and api_key context."""
     
     @tool
-    async def retrieve(query: str) -> str:
+    @auto_log("agent.rag.retrieve")
+    async def retrieve(*, query: str) -> str:
         """
         Use this tool for searching and retrieving information from tickets and documentation.
         ALWAYS use this tool for:
@@ -116,7 +117,7 @@ def create_retrieve_tool(project: Project, api_key: APIKey):
         try:
             documents = await execute_retrieve_workflow(query, project, api_key)
             if not documents:
-                return ""
+                return "No documents found matching your query. Please try rephrasing your question or using different search terms."
             
             return "\n\n".join(doc.format_for_display() for doc in documents)
         except Exception as e:

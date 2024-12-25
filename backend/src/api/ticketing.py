@@ -2,11 +2,10 @@ from typing import List
 from repositories import APIKeyRepository
 from middleware.auth_middleware import auth_middleware
 from fastapi import APIRouter, Depends, Request, HTTPException
-from config.enums import TicketingSystemType
-from dependencies import get_project_service, get_user_service, get_api_key_repository
-from services import ProjectService, UserService
+from dependencies import get_project_service, get_api_key_repository
+from services import ProjectService
 from schemas.status_schema import StatusSchema
-from services.agent_service.ticketing_tool import create_ticketing_client
+from agent.ticketing_tool import create_ticketing_client
 
 router = APIRouter(
     prefix="/ticketing",

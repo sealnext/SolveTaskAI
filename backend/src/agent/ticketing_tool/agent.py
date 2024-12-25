@@ -12,6 +12,7 @@ from models.apikey import APIKey
 from .tools import create_ticketing_tools
 from .prompts import FIELD_COLLECTION_PROMPT
 from .conversation_logger import ConversationLogger
+from config.logger import auto_log
 
 logger = logging.getLogger(__name__)
 conversation_logger = ConversationLogger()
@@ -164,6 +165,7 @@ def create_ticketing_agent(project: Project, api_key: APIKey):
     app = workflow.compile()
     
     @tool
+    @auto_log("agent.ticketing_tool.process_ticket_request")
     async def process_ticket_request(request: str, ticket_id: Optional[str] = None) -> str:
         """
         Use this tool for doing actions with tickets.

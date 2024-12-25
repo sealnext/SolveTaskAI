@@ -18,14 +18,14 @@ from langchain_core.messages import (
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import Checkpoint, CheckpointMetadata
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from agent.graph import create_agent_graph
 from typing import AsyncGenerator
 import json
 import logging
 
 from schemas.agent_schema import ChatMessage
-from agent.state import AgentState
-from agent.graph import create_agent_graph
 from repositories.thread_repository import ThreadRepository
+from models import Project, APIKey
 
 logger = logging.getLogger(__name__)
 
@@ -99,69 +99,13 @@ def get_user_id(request: Request) -> str:
     return request.state.user.id if hasattr(request.state, 'user') and hasattr(request.state.user, 'id') else 1
 
 
-def create_and_validate_agent(checkpointer: AsyncPostgresSaver) -> AgentState:
-    """Create and validate agent graph."""
-    agent = create_agent_graph(checkpointer)
-    if agent is None:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many active conversations. Please end some before starting new ones."
-        )
-    return agent
-
-
-async def create_initial_checkpoint(
-    thread_id: str,
-    user_id: str,
-    checkpointer: AsyncPostgresSaver
-) -> None:
-    """
-    Create an initial checkpoint for a new thread.
-    
-    Args:
-        thread_id: Thread ID
-        user_id: User ID
-        checkpointer: AsyncPostgresSaver instance
-    """
-    config = RunnableConfig(
-        configurable={
-            "thread_id": thread_id,
-            "checkpoint_ns": "",
-        }
-    )
-    
-    checkpoint = Checkpoint(
-        v=1,
-        id=thread_id,
-        ts=datetime.now(timezone.utc).isoformat(),
-        channel_values={},
-        channel_versions={},
-        versions_seen={},
-        pending_sends=[]
-    )
-    
-    metadata = CheckpointMetadata(
-        source="initial",
-        step=0,
-        writes=[],
-        parents=[],
-        user_id=user_id,
-        created_at=datetime.now(timezone.utc).isoformat()
-    )
-    
-    # await checkpointer.aput(
-    #     config=config,
-    #     checkpoint=checkpoint,
-    #     metadata=metadata,
-    #     new_versions={}
-    # )
-
-
 async def parse_input(
     user_input: dict,
     user_id: str,
     checkpointer: AsyncPostgresSaver,
-    thread_repo: ThreadRepository
+    thread_repo: ThreadRepository,
+    project: Optional[Project] = None,
+    api_key: Optional[APIKey] = None
 ) -> Tuple[Dict, RunnableConfig, UUID]:
     """
     Parse user input and prepare configuration for the graph.
@@ -171,6 +115,8 @@ async def parse_input(
         user_id: User ID
         checkpointer: AsyncPostgresSaver instance
         thread_repo: Thread repository instance
+        project: Optional Project instance
+        api_key: Optional APIKey instance
         
     Returns:
         Tuple containing initial state, configuration and run ID
@@ -192,11 +138,19 @@ async def parse_input(
         # Update timestamp for existing thread
         await thread_repo.update_timestamp(thread_id)
     
+    configurable = {
+        "thread_id": thread_id,
+        "checkpoint_ns": "",
+    }
+    
+    # Add project and api_key if provided
+    if project:
+        configurable["project"] = project
+    if api_key:
+        configurable["api_key"] = api_key
+    
     config = RunnableConfig(
-        configurable={
-            "thread_id": thread_id,
-            "checkpoint_ns": "",
-        },
+        configurable=configurable,
         metadata={
             "user_id": user_id,
             "updated_at": datetime.now(timezone.utc).isoformat()
@@ -214,19 +168,23 @@ async def parse_input(
 async def message_generator(
     user_input: dict,
     user_id: str,
+    project: Project,
+    api_key: APIKey,
     checkpointer: AsyncPostgresSaver,
     thread_repo: ThreadRepository
 ) -> AsyncGenerator[str, None]:
     """Generate a stream of messages from the agent."""
     try:
-        agent = create_and_validate_agent(checkpointer)
-        input_state, config, _ = await parse_input(user_input, user_id, checkpointer, thread_repo)
+        input_state, config, _ = await parse_input(user_input, user_id, checkpointer, thread_repo, project, api_key)
         thread_id = config["configurable"]["thread_id"]
+        
+        # Create graph instance
+        graph = create_agent_graph(project, api_key, checkpointer)
         
         # Send initial message with thread_id
         yield f"data: {json.dumps({'type': 'init', 'thread_id': thread_id})}\n\n"
         
-        async for event in agent.astream_events(input_state, config, version="v2"):
+        async for event in graph.astream_events(input_state, config, version="v2"):
             if not event:
                 continue
 
@@ -253,7 +211,6 @@ async def message_generator(
                     continue
                     
                 yield f"data: {json.dumps({'type': 'message', 'content': chat_message})}\n\n"
-
             if (
                 event["event"] == "on_chat_model_stream"
                 and user_input.get("stream_tokens", True)
