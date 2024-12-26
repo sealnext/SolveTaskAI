@@ -32,7 +32,7 @@ export default function SignupPage() {
 
   const validateForm = () => {
     const newErrors = {}
-    
+
     if (name.length < 3 || name.length > 50 || !/^[a-zA-Z0-9]+$/.test(name)) {
       newErrors.name = 'Username must be alphanumeric and between 3-50 characters'
     }

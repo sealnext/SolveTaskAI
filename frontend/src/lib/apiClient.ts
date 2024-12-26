@@ -1,6 +1,6 @@
 const cacheManager = {
   cache: new Map<string, {data: any, timestamp: number}>(),
-  
+
   CACHE_DURATION: 5 * 60 * 1000,
 
   get(key: string) {
