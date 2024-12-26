@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from 'react'
 import { LoadingSpinner } from "@/components/LoadingSpinner"
-import { ProfileMenuComponent } from "@/components/ProfileMenu";
+import { ProfileMenuComponent } from "@/components/menu/ProfileMenu";
 import SpatialTooltip from "@/components/SpatialTooltip"
 import ApiClient from "@/lib/apiClient";
 import { MdSupportAgent, MdAccessTime, MdMessage } from "react-icons/md";
@@ -61,13 +61,13 @@ export default function HistoryPage() {
         <ProfileMenuComponent />
       </div>
       <SpatialTooltip />
-      
+
       <div className="flex-grow overflow-auto p-6 sm:p-6 p-3">
         <div className="max-w-4xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-2xl font-bold">Chat History</h1>
           </div>
-          
+
           <div className="space-y-8">
             {Object.entries(groupedChats).map(([dateGroup, chats]) => (
               <div key={dateGroup}>
@@ -85,7 +85,7 @@ export default function HistoryPage() {
                         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-muted flex items-center justify-center flex-shrink-0 bg-background">
                           <MdSupportAgent className="text-foreground-secondary text-xl sm:text-2xl" />
                         </div>
-                        
+
                         <div className="flex-grow min-w-0">
                           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2">
                             <div className="font-medium truncate flex-grow max-w-full sm:max-w-[70%]">
@@ -96,7 +96,7 @@ export default function HistoryPage() {
                               {formatTime(chat.created_at)}
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center text-xs sm:text-sm text-foreground-secondary">
                             <MdMessage className="mr-1" />
                             {chat.message_count} messages
@@ -108,7 +108,7 @@ export default function HistoryPage() {
                 </div>
               </div>
             ))}
-            
+
             {chatSessions.length === 0 && (
               <div className="text-center text-foreground-secondary py-8">
                 No chat history found
