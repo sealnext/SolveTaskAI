@@ -22,6 +22,7 @@ from agent.graph import create_agent_graph
 from typing import AsyncGenerator
 import json
 import logging
+from agent.state import AgentState
 
 from schemas.agent_schema import ChatMessage
 from repositories.thread_repository import ThreadRepository
@@ -104,22 +105,18 @@ async def parse_input(
     user_id: str,
     checkpointer: AsyncPostgresSaver,
     thread_repo: ThreadRepository,
-    project: Optional[Project] = None,
-    api_key: Optional[APIKey] = None
-) -> Tuple[Dict, RunnableConfig, UUID]:
+) -> Tuple[list[BaseMessage], RunnableConfig, UUID]:
     """
-    Parse user input and prepare configuration for the graph.
+    Parse user input and prepare messages and configuration for the graph.
     
     Args:
         user_input: Input from the user
         user_id: User ID
         checkpointer: AsyncPostgresSaver instance
         thread_repo: Thread repository instance
-        project: Optional Project instance
-        api_key: Optional APIKey instance
         
     Returns:
-        Tuple containing initial state, configuration and run ID
+        Tuple containing initial messages, configuration and run ID
     """
     run_id = uuid4()
     thread_id = user_input.get("thread_id", str(uuid4()))
@@ -143,12 +140,6 @@ async def parse_input(
         "checkpoint_ns": "",
     }
     
-    # Add project and api_key if provided
-    if project:
-        configurable["project"] = project
-    if api_key:
-        configurable["api_key"] = api_key
-    
     config = RunnableConfig(
         configurable=configurable,
         metadata={
@@ -157,13 +148,14 @@ async def parse_input(
         },
         run_id=run_id
     )
+
+    # Create initial message
+    initial_message = HumanMessage(
+        content=user_input["message"],
+        type="human"
+    )
     
-    # Let langgraph handle the message state
-    input_state = {
-        "messages": [HumanMessage(content=user_input["message"])]
-    }
-    
-    return input_state, config, run_id
+    return [initial_message], config, run_id
 
 async def message_generator(
     user_input: dict,
@@ -175,16 +167,26 @@ async def message_generator(
 ) -> AsyncGenerator[str, None]:
     """Generate a stream of messages from the agent."""
     try:
-        input_state, config, _ = await parse_input(user_input, user_id, checkpointer, thread_repo, project, api_key)
+        my_message, config, _ = await parse_input(user_input, user_id, checkpointer, thread_repo)
         thread_id = config["configurable"]["thread_id"]
         
         # Create graph instance
-        graph = create_agent_graph(project, api_key, checkpointer)
+        graph = create_agent_graph(checkpointer)
+        
+        # Create initial state
+        initial_state = AgentState(
+            messages=my_message,
+            project_data={
+                "id": project.id,
+                "name": project.name,
+            },
+            api_key=api_key
+        )
         
         # Send initial message with thread_id
         yield f"data: {json.dumps({'type': 'init', 'thread_id': thread_id})}\n\n"
         
-        async for event in graph.astream_events(input_state, config, version="v2"):
+        async for event in graph.astream_events(initial_state, config, version="v2"):
             if not event:
                 continue
 

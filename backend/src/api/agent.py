@@ -5,6 +5,7 @@ import logging
 from fastapi import APIRouter, Request, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langchain_core.messages import HumanMessage
 
 from agent.utils import (
     langchain_to_chat_message,
@@ -17,6 +18,7 @@ from dependencies import get_db_checkpointer, get_thread_repository, get_project
 from middleware import auth_middleware
 from repositories import ThreadRepository, APIKeyRepository
 from services import ProjectService
+from agent.graph import AgentState
 
 logger = logging.getLogger(__name__)
 
@@ -61,15 +63,20 @@ async def invoke(
     api_key = await api_key_repository.get_by_project_id(project.id)
     
     # Create graph instance
-    graph = create_agent_graph(project, api_key, checkpointer)
-        
-    input_state, config, _ = await parse_input(user_input, user_id, checkpointer, thread_repo)
+    graph = create_agent_graph(checkpointer)
     
-    # Add project and api_key to config
-    config["configurable"]["project"] = project
-    config["configurable"]["api_key"] = api_key
+    my_message, config, _ = await parse_input(user_input, user_id, checkpointer, thread_repo)
     
-    response = await graph.ainvoke(input_state, config)
+    initial_state = AgentState(
+        messages=my_message,
+        project_data={
+            "id": project.id,
+            "name": project.name,
+        },
+        api_key=api_key
+    )
+    
+    response = await graph.ainvoke(initial_state, config)
     
     # Include thread_id in response
     thread_id = config["configurable"]["thread_id"]
