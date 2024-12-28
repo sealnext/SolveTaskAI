@@ -7,6 +7,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.prebuilt import tools_condition
 from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel
+from langchain_core.messages import FunctionMessage
 
 # should be a project schema, as we dont want to expose an entire the project model to the agent
 from models import Project
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 @tool
 @auto_log("graph.mock_retrieve_tool")
-def mock_retrieve_tool(query: str, config: RunnableConfig) -> str:
+def mock_retrieve_tool(query: str, config: RunnableConfig) -> FunctionMessage:
     """
         Use this tool for searching and retrieving information from tickets and documentation.
         ALWAYS use this tool for:
@@ -41,9 +42,10 @@ def mock_retrieve_tool(query: str, config: RunnableConfig) -> str:
             query: The search query to use for document retrieval
         
         Returns:
-            String containing the retrieved documents or empty if none found
+            FunctionMessage containing the retrieved documents or empty if none found
         """
-    return "The weather is 30grade celsius"
+    logger.info(f"Mock retrieve tool called with query: {query}")
+    return FunctionMessage(content="The weather is 30grade celsius", name="mock_retrieve_tool")
 
 @auto_log("graph.call_model")
 async def call_model(state: AgentState, config: RunnableConfig):
@@ -61,8 +63,6 @@ async def call_model(state: AgentState, config: RunnableConfig):
 
 def create_agent_graph(checkpointer: Optional[AsyncPostgresSaver] = None) -> StateGraph:
     """Create a new agent graph instance."""
-    
-    # Simplified - just using AgentState
     builder = StateGraph(AgentState)
     
     tool_node = ToolNode([mock_retrieve_tool])

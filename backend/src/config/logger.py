@@ -117,7 +117,7 @@ def auto_log(logger_name: str = "agent.graph"):
                 # Log input message if available
                 if hasattr(state, 'messages') and state.messages:
                     last_message = state.messages[-1]
-                    log_message(f"User message: {last_message.content}", "INPUT", logger_name)
+                    log_message(f"({last_message.type}): {last_message.content}", "INPUT", logger_name)
                 
                 # Execute node
                 result = await func(state, config)
