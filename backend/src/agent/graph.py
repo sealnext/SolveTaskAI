@@ -2,49 +2,55 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langchain_core.tools import tool
 from langchain_core.runnables import RunnableConfig
-from typing import Optional
+from typing import Optional, Literal, Annotated
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.prebuilt import tools_condition
 from langgraph.prebuilt import ToolNode
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from langchain_core.messages import FunctionMessage
-
-# should be a project schema, as we dont want to expose an entire the project model to the agent
-from models import Project
-from schemas import APIKeySchema
 
 from agent.state import AgentState
 from agent.configuration import AgentConfiguration
-from config.logger import auto_log, log_message
+from config.logger import auto_log
+from agent.schema import TicketToolInput
 import logging
+from agent.ticket_tool.graph import create_ticket_graph
 
 logger = logging.getLogger(__name__)
 
+# Create the ticket subgraph once
+ticket_graph = create_ticket_graph()
+
 @tool
+@auto_log("graph.ticket_tool")
+async def ticket_tool(
+    action: Literal["edit", "create", "delete"],
+    detailed_query: str,
+    ticket_id: str
+) -> FunctionMessage:
+    """
+    Tool for ticket operations using a subgraph implementation.
+    
+    Args:
+        action: Must be one of: "edit", "create", "delete"
+        detailed_query: Detailed description of the ticket operation
+        ticket_id: The ID of the ticket (required for edit and delete actions)
+    """
+    result = await ticket_graph.ainvoke({
+        "action": action,
+        "query": detailed_query,
+        "ticket_id": ticket_id,
+        "result": ""
+    })
+    
+    return FunctionMessage(
+        content=result["result"],
+        name="ticket_tool"
+    )
+
 @auto_log("graph.mock_retrieve_tool")
 def mock_retrieve_tool(query: str, config: RunnableConfig) -> FunctionMessage:
-    """
-        Use this tool for searching and retrieving information from tickets and documentation.
-        ALWAYS use this tool for:
-        - Finding information about bugs, issues, or features
-        - Searching through ticket content
-        - Getting context about specific topics
-        - Answering questions about existing tickets
-        - Finding how many tickets match certain criteria
-        
-        Do NOT use this tool for:
-        - Creating new tickets
-        - Updating existing tickets
-        - Any actions that modify tickets
-        - Questions about ability to modify tickets
-        
-        Args:
-            query: The search query to use for document retrieval
-        
-        Returns:
-            FunctionMessage containing the retrieved documents or empty if none found
-        """
-    logger.info(f"Mock retrieve tool called with query: {query}")
+    """Mock tool that simulates retrieving data from a ticket."""
     return FunctionMessage(content="The weather is 30grade celsius", name="mock_retrieve_tool")
 
 @auto_log("graph.call_model")
@@ -53,7 +59,7 @@ async def call_model(state: AgentState, config: RunnableConfig):
     messages = state.messages
     agent_config = AgentConfiguration()
     llm = ChatOpenAI(model=agent_config.model, temperature=agent_config.temperature)
-    llm_with_tools = llm.bind_tools([mock_retrieve_tool])
+    llm_with_tools = llm.bind_tools([mock_retrieve_tool, ticket_tool])
     
     response = await llm_with_tools.ainvoke(messages)
     
@@ -65,7 +71,7 @@ def create_agent_graph(checkpointer: Optional[AsyncPostgresSaver] = None) -> Sta
     """Create a new agent graph instance."""
     builder = StateGraph(AgentState)
     
-    tool_node = ToolNode([mock_retrieve_tool])
+    tool_node = ToolNode([mock_retrieve_tool, ticket_tool])
     
     # Add nodes
     builder.add_node("agent", call_model)
