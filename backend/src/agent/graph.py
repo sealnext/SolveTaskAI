@@ -6,8 +6,11 @@ from typing import Optional
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.prebuilt import tools_condition
 from langgraph.prebuilt import ToolNode
+from pydantic import BaseModel
 
-from models import Project, APIKey
+# should be a project schema, as we dont want to expose an entire the project model to the agent
+from models import Project
+from schemas import APIKeySchema
 
 from agent.state import AgentState
 from agent.configuration import AgentConfiguration
@@ -50,14 +53,18 @@ async def call_model(state: AgentState, config: RunnableConfig):
     llm = ChatOpenAI(model=agent_config.model, temperature=agent_config.temperature)
     llm_with_tools = llm.bind_tools([mock_retrieve_tool])
     
-    log_message(f"Model: {agent_config.model} | Temp: {agent_config.temperature}", "CONFIG", "graph.call_model")
-    
     response = await llm_with_tools.ainvoke(messages)
-    return {"messages": [response]}
+    
+    return {
+        "messages": [response]
+    }
 
-def create_agent_graph(project: Project, api_key: APIKey, checkpointer: Optional[AsyncPostgresSaver] = None) -> StateGraph:
+def create_agent_graph(checkpointer: Optional[AsyncPostgresSaver] = None) -> StateGraph:
     """Create a new agent graph instance."""
+    
+    # Simplified - just using AgentState
     builder = StateGraph(AgentState)
+    
     tool_node = ToolNode([mock_retrieve_tool])
     
     # Add nodes
@@ -70,7 +77,6 @@ def create_agent_graph(project: Project, api_key: APIKey, checkpointer: Optional
     builder.add_edge("tools", "agent")
     builder.add_edge("agent", END)
     
-    logger.info(f"Creating graph with checkpointer: {checkpointer is not None}")
     graph = builder.compile(checkpointer=checkpointer)
     logger.info(f"Graph created successfully: {graph}")
     return graph
