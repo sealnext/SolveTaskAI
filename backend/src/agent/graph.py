@@ -7,7 +7,8 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.prebuilt import tools_condition
 from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel, Field
-from langchain_core.messages import FunctionMessage
+from langchain_core.messages import FunctionMessage, ToolMessage
+from langgraph.types import Command
 
 from agent.state import AgentState
 from agent.configuration import AgentConfiguration
@@ -21,12 +22,12 @@ logger = logging.getLogger(__name__)
 # Create the ticket subgraph once
 ticket_graph = create_ticket_graph()
 
-@tool
 @auto_log("graph.ticket_tool")
 async def ticket_tool(
     action: Literal["edit", "create", "delete"],
     detailed_query: str,
-    ticket_id: str
+    ticket_id: str,
+    config: RunnableConfig,
 ) -> FunctionMessage:
     """
     Tool for ticket operations using a subgraph implementation.
@@ -36,11 +37,15 @@ async def ticket_tool(
         detailed_query: Detailed description of the ticket operation
         ticket_id: The ID of the ticket (required for edit and delete actions)
     """
+    if config.get('configurable').get('__pregel_resuming'):
+        result = await ticket_graph.ainvoke(None)
+        return result
+
+    
     result = await ticket_graph.ainvoke({
         "action": action,
         "query": detailed_query,
         "ticket_id": ticket_id,
-        "result": ""
     })
     
     return FunctionMessage(

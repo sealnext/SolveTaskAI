@@ -18,7 +18,7 @@ from dependencies import get_db_checkpointer, get_thread_repository, get_project
 from middleware import auth_middleware
 from repositories import ThreadRepository, APIKeyRepository
 from services import ProjectService
-from agent.graph import AgentState
+from agent.graph import AgentState, Command
 
 logger = logging.getLogger(__name__)
 
@@ -65,16 +65,20 @@ async def invoke(
     # Create graph instance
     graph = create_agent_graph(checkpointer)
     
-    my_message, config, _ = await parse_input(user_input, user_id, checkpointer, thread_repo)
-    
-    initial_state = AgentState(
-        messages=my_message,
-        project_data={
-            "id": project.id,
-            "name": project.name,
-        },
-        api_key=api_key
-    )
+    # Check if this is a resume command
+    if user_input["message"].startswith("Command(resume="):
+        resume_value = user_input["message"].split("Command(resume=")[1].strip('")')
+        initial_state = Command(resume=resume_value)
+    else:
+        my_message, config, _ = await parse_input(user_input, user_id, checkpointer, thread_repo)
+        initial_state = AgentState(
+            messages=my_message,
+            project_data={
+                "id": project.id,
+                "name": project.name,
+            },
+            api_key=api_key
+        )
     
     response = await graph.ainvoke(initial_state, config)
     

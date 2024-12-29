@@ -21,6 +21,9 @@ SEPARATOR_LENGTH = 80
 class Colors:
     PINK = '\033[38;5;213m'  # pink
     ENDC = '\033[0m'     # reset
+    FAIL = '\033[91m'    # bright red for errors
+    WARNING = '\033[93m' # yellow for warnings
+    BLUE = '\033[94m'    # blue for state
 
 # Basic setup for root logger with enhanced formatting
 handler = colorlog.StreamHandler()
