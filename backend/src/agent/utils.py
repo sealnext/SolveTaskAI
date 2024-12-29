@@ -17,6 +17,7 @@ from langchain_core.messages import (
 )
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import Checkpoint, CheckpointMetadata
+from langgraph.types import Command
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from agent.graph import create_agent_graph
 from typing import AsyncGenerator
@@ -167,25 +168,38 @@ async def message_generator(
 ) -> AsyncGenerator[str, None]:
     """Generate a stream of messages from the agent."""
     try:
-        my_message, config, _ = await parse_input(user_input, user_id, checkpointer, thread_repo)
-        thread_id = config["configurable"]["thread_id"]
+        thread_id = user_input.get("thread_id", str(uuid4()))
+        config = RunnableConfig(
+            configurable={
+                "thread_id": thread_id,
+                "checkpoint_ns": "",
+            },
+            metadata={
+                "user_id": user_id,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        )
         
         # Create graph instance
         graph = create_agent_graph(checkpointer)
         
-        # Create initial state
-        initial_state = AgentState(
-            messages=my_message,
-            project_data={
-                "id": project.id,
-                "name": project.name,
-            },
-            api_key=api_key
-        )
-        
         # Send initial message with thread_id
         yield f"data: {json.dumps({'type': 'init', 'thread_id': thread_id})}\n\n"
         
+        # Check if this is a resume command
+        if user_input["message"].startswith("Command(resume="):
+            # Extract the resume value
+            resume_value = user_input["message"].split("Command(resume=")[1].strip('")')
+            initial_state = None
+        else:
+            my_message = HumanMessage(content=user_input["message"])
+            initial_state = AgentState(
+                messages=[my_message],
+                project_data={"id": project.id, "name": project.name},
+                api_key=api_key
+            )
+            
+        # Single stream loop for both normal and resume cases
         async for event in graph.astream_events(initial_state, config, version="v2"):
             if not event:
                 continue
