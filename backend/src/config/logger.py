@@ -275,20 +275,35 @@ def auto_log(logger_name: str = "agent.graph"):
             header_text = func.__name__
             graph_logger.log_header(header_text)
 
-            # Log input messages for call_model
+            # Log context information
+            user_id = metadata.get('user_id')
+            thread_id = metadata.get('thread_id')
+            if user_id and thread_id:
+                logger.info(f"[CONTEXT] user_id: {user_id}, thread_id: {thread_id}")
+
+            # Log input messages and state info for call_model
             if func.__name__ == 'call_model' and args and len(args) > 0:
                 state = args[0]
-                if isinstance(state, AgentState) and state.messages:
-                    # For first step, show the initial human message
-                    if step == 1:
-                        first_msg = state.messages[0]
-                        if isinstance(first_msg, HumanMessage):
-                            logger.info(f"[INPUT] (human): {first_msg.content}")
-                    # For other steps, show the last tool message
-                    elif state.messages:
-                        last_msg = state.messages[-1]
-                        if isinstance(last_msg, (ToolMessage, HumanMessage)):
-                            logger.info(f"[INPUT] ({last_msg.__class__.__name__.lower()}): {last_msg.content}")
+                if isinstance(state, AgentState):
+                    # Log project info if available
+                    if state.project_data:
+                        logger.info(f"[PROJECT] id: {state.project_data.get('id')}, name: {state.project_data.get('name')}")
+                    
+                    # Log state info
+                    logger.info(f"[STATE] documents: {len(state.documents)}")
+                    
+                    # Log messages
+                    if state.messages:
+                        # For first step, show the initial human message
+                        if step == 1:
+                            first_msg = state.messages[0]
+                            if isinstance(first_msg, HumanMessage):
+                                logger.info(f"[INPUT] (human): {first_msg.content}")
+                        # For other steps, show the last tool message
+                        elif state.messages:
+                            last_msg = state.messages[-1]
+                            if isinstance(last_msg, (ToolMessage, HumanMessage)):
+                                logger.info(f"[INPUT] ({last_msg.__class__.__name__.lower()}): {last_msg.content}")
             
             # Log flow information
             if step or triggers:
@@ -312,16 +327,24 @@ def auto_log(logger_name: str = "agent.graph"):
                     if isinstance(result, dict):
                         if "messages" in result:
                             for msg in result["messages"]:
+                                # For call_model, also log model info
+                                if hasattr(msg, 'response_metadata'):
+                                    metadata = msg.response_metadata
+                                    if metadata:
+                                        model = metadata.get('model_name', '')
+                                        finish_reason = metadata.get('finish_reason', '')
+                                        if model or finish_reason:
+                                            logger.info(f"[MODEL] name: {model}, finish_reason: {finish_reason}")
                                 graph_logger.log_message(msg)
+                        else:
+                            graph_logger.log_message(result)
+                    
+                    # Log metrics if we have token usage, otherwise just execution time
+                    tokens = graph_logger.metrics['token_usage']
+                    if tokens and tokens.get('total_tokens', 0) > 0:
+                        logger.info(f"[METRICS] time: {execution_time:.2f}s, tokens: {tokens['total_tokens']} = {tokens['prompt_tokens']}p + {tokens['completion_tokens']}c")
                     else:
-                        graph_logger.log_message(result)
-                
-                # Log metrics if we have token usage, otherwise just execution time
-                tokens = graph_logger.metrics['token_usage']
-                if tokens and tokens.get('total_tokens', 0) > 0:
-                    logger.info(f"[METRICS] time: {execution_time:.2f}s, tokens: {tokens['total_tokens']} = {tokens['prompt_tokens']}p + {tokens['completion_tokens']}c")
-                else:
-                    logger.info(f"[EXECUTION TIME] {execution_time:.2f}s")
+                        logger.info(f"[EXECUTION TIME] {execution_time:.2f}s")
                 
                 return result
             except Exception as e:
