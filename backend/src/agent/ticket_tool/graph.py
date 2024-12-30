@@ -19,7 +19,6 @@ from langgraph.graph import MessagesState
 
 logger = logging.getLogger(__name__)
 
-@dataclass
 class TicketState(MessagesState):
     """State for the ticket operations subgraph."""
     action: str
@@ -49,13 +48,17 @@ def validate_and_update_state(state: TicketState) -> Tuple[bool, str]:
 
     # Get fields directly from TicketState
     ticket_state_fields = [
-        field for field in fields(TicketState)
+        "action",
+        "ticket_id",
+        "detailed_query",
+        "issue_type_id",
+        "available_fields"
     ]
 
     for field in ticket_state_fields:
-        if field.name in args:
-            value = args[field.name]
-            state[field.name] = value
+        if field in args:
+            value = args[field]
+            state[field] = value
 
     if not (state.get('action') and state.get('ticket_id')):
         return False, "Missing required fields: action and ticket_id"
@@ -65,8 +68,6 @@ def validate_and_update_state(state: TicketState) -> Tuple[bool, str]:
 async def process_action(state: TicketState) -> dict:
     """Process the ticket operation and return the next node to execute."""
     is_valid, message = validate_and_update_state(state)
-    
-    logger.info(f"Validation result: {is_valid}, Message: {message}")
     
     if not is_valid:
         state["result"] = message
@@ -81,7 +82,7 @@ async def process_action(state: TicketState) -> dict:
     logger.info(f"Ticket ID: {state['ticket_id']}")
     logger.info(f"Query: {state['detailed_query']}")
     
-    return state
+    return {"action":action}
 
 async def create_ticket(state: TicketState) -> dict:
     """Create a ticket and return the result."""
@@ -119,6 +120,12 @@ async def delete_ticket(state: TicketState) -> dict:
         ]
     }
 
+def route_action(state: TicketState) -> str:
+    """Route the action with logging."""
+    action = state.get("action")
+    logger.info(f"Routing action to: {action}")
+    return action
+
 def create_ticket_graph() -> CompiledStateGraph:
     """Create the ticket operations subgraph."""
     builder = StateGraph(TicketState)
@@ -131,7 +138,7 @@ def create_ticket_graph() -> CompiledStateGraph:
     # Add conditional edges based on the action
     builder.add_conditional_edges(
         "process",
-        lambda x: x["action"],
+        route_action,
         {
             "create": "create",
             "edit": "edit",
@@ -143,7 +150,7 @@ def create_ticket_graph() -> CompiledStateGraph:
     # Add edges from operations to END
     builder.add_edge("create", END)
     builder.add_edge("edit", END)
-    builder.add_edge("delete", END)
+    # builder.add_edge("delete", END)
     
     builder.set_entry_point("process")
     
