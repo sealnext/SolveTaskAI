@@ -11,6 +11,8 @@ from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
     ToolMessage,
+    SystemMessage,
+    FunctionMessage,
 )
 from langchain_core.messages import (
     ChatMessage as LangchainChatMessage,
@@ -44,44 +46,27 @@ def convert_message_content_to_string(content: str | list[str | dict]) -> str:
     return "".join(text)
 
 
-def langchain_to_chat_message(message: BaseMessage) -> ChatMessage:
-    """Create a ChatMessage from a LangChain message."""
-    match message:
-        case HumanMessage():
-            human_message = ChatMessage(
-                type="human",
-                content=convert_message_content_to_string(message.content),
-            )
-            return human_message
-        case AIMessage():
-            ai_message = ChatMessage(
-                type="ai",
-                content=convert_message_content_to_string(message.content),
-            )
-            if message.tool_calls:
-                ai_message.tool_calls = message.tool_calls
-            if message.response_metadata:
-                ai_message.response_metadata = message.response_metadata
-            return ai_message
-        case ToolMessage():
-            tool_message = ChatMessage(
-                type="tool",
-                content=convert_message_content_to_string(message.content),
-                tool_call_id=message.tool_call_id,
-            )
-            return tool_message
-        case LangchainChatMessage():
-            if message.role == "custom":
-                custom_message = ChatMessage(
-                    type="custom",
-                    content="",
-                    custom_data=message.content[0],
-                )
-                return custom_message
-            else:
-                raise ValueError(f"Unsupported chat message role: {message.role}")
-        case _:
-            raise ValueError(f"Unsupported message type: {message.__class__.__name__}")
+def langchain_to_chat_message(message: BaseMessage) -> Optional[ChatMessage]:
+    """Convert a LangChain message to a ChatMessage."""
+    if message is None:
+        return None
+        
+    if isinstance(message, HumanMessage):
+        return ChatMessage(type="human", content=message.content)
+    elif isinstance(message, AIMessage):
+        return ChatMessage(type="ai", content=message.content)
+    elif isinstance(message, SystemMessage):
+        return ChatMessage(type="system", content=message.content)
+    elif isinstance(message, FunctionMessage):
+        return ChatMessage(type="function", content=message.content)
+    elif isinstance(message, ToolMessage):
+        return ChatMessage(type="tool", content=message.content)
+    elif isinstance(message, tuple):
+        # Handle tuple case by extracting the message
+        if len(message) > 0 and isinstance(message[0], BaseMessage):
+            return langchain_to_chat_message(message[0])
+    else:
+        raise ValueError(f"Unsupported message type: {message.__class__.__name__}")
 
 
 def remove_tool_calls(content: str | list[str | dict]) -> str | list[str | dict]:
@@ -186,7 +171,6 @@ async def message_generator(
         # Send initial message with thread_id
         yield f"data: {json.dumps({'type': 'init', 'thread_id': thread_id})}\n\n"
         
-        # Check if this is a resume command
         if user_input["message"].startswith("Command(resume="):
             # Extract the resume value
             resume_value = user_input["message"].split("Command(resume=")[1].strip('")')
