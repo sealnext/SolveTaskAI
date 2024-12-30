@@ -184,7 +184,7 @@ async def message_generator(
             )
             
         # Single stream loop for both normal and resume cases
-        async for event in graph.astream_events(initial_state, config, version="v2"):
+        async for event in graph.astream_events(initial_state, config, version="v2", ):
             if not event:
                 continue
 
