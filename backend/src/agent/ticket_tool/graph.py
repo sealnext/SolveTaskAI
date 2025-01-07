@@ -17,6 +17,7 @@ from typing import Tuple, Dict, Any
 from dataclasses import fields
 from dataclasses import dataclass
 from langgraph.graph import MessagesState
+from langgraph.types import Command
 
 logger = logging.getLogger(__name__)
 
@@ -97,25 +98,37 @@ async def edit_ticket(state: TicketState) -> dict:
     return state
 
 async def delete_ticket(state: TicketState) -> dict:
-    """Delete a ticket and return the result."""
-    logger.info(f"Deleting ticket: {state['ticket_id']}")
-    logger.info(f"State: {state}")
-    logger.info(f"Messages: {state.get('messages', [])}")
-    
-    # Get the tool_call_id from the last AI message
+    """Delete a ticket and handle human review process."""
     last_message = state['messages'][-1]
-    tool_call = last_message.additional_kwargs['tool_calls'][0]
-    tool_call_id = tool_call.get('id')
+    tool_call = last_message.tool_calls[0]
+    tool_call_id = tool_call['id']
     
-    logger.info(f"Tool call: {tool_call}")
-    
-    # Create result message
-    result = f"Ticket {state['ticket_id']} was successfully deleted. You can no longer access it at: https://example.com/ticket/{state['ticket_id']}"
-    
+    human_review = interrupt({
+        "question": "Please review this ticket operation:",
+        "tool_call": tool_call,
+        "context": {"current_action": tool_call["args"]}
+    })
+
+    match human_review["action"]:
+        case "update":
+            # mock
+            last_message.additional_kwargs['tool_calls'][0]['args'] = human_review["data"]
+            success_message = "Operation will be implemented with the new arguments" + human_review["data"]
+        case "feedback":
+            success_message = f"Received feedback: {human_review['data']}"
+        case "continue":
+            success_message = "Confirmed and deleted the ticket"
+        case _:
+            success_message = (
+                "You can either use 'update' to update the args, "
+                "'feedback' to provide feedback on the ticket operation, "
+                "or 'continue' to continue with the operation."
+            )
+
     return {
         "messages": [
             ToolMessage(
-                content=result,
+                content=success_message,
                 tool_call_id=tool_call_id,
                 name="ticket_tool"
             )
