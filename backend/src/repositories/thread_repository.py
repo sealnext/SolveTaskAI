@@ -15,11 +15,12 @@ class ThreadRepository:
     
     async def create(self, thread_id: str, user_id: str) -> None:
         """Create a new thread-user association."""
+        logger.info(f"Creating thread-user association for thread {thread_id} and user {user_id}")
         try:
             await self.session.execute(
                 insert(thread_user_association).values(
                     thread_id=thread_id,
-                    user_id=user_id,
+                    user_id=int(user_id),
                     created_at=datetime.now(timezone.utc),
                     updated_at=datetime.now(timezone.utc)
                 )
@@ -66,7 +67,7 @@ class ThreadRepository:
                     thread_user_association.c.thread_id,
                     thread_user_association.c.updated_at
                 ).where(
-                    thread_user_association.c.user_id == user_id
+                    thread_user_association.c.user_id == int(user_id)
                 ).order_by(
                     thread_user_association.c.updated_at.desc()
                 )
@@ -100,7 +101,7 @@ class ThreadRepository:
             result = await self.session.execute(
                 select(thread_user_association).where(
                     thread_user_association.c.thread_id == thread_id,
-                    thread_user_association.c.user_id == user_id
+                    thread_user_association.c.user_id == int(user_id)
                 )
             )
             return result.first() is not None

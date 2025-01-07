@@ -169,6 +169,12 @@ class GraphLogger:
 
 def _format_message(message: BaseMessage) -> str:
     """Format a message for logging."""
+    # Handle dictionary case
+    if isinstance(message, dict):
+        if "content" in message:
+            return f"[MESSAGE] {message['content']}"
+        return f"[MESSAGE] {message}"
+        
     if isinstance(message, HumanMessage):
         return f"[INPUT] (human): {message.content}"
     elif isinstance(message, AIMessage):
@@ -212,7 +218,7 @@ def _format_message(message: BaseMessage) -> str:
     elif isinstance(message, FunctionMessage):
         return f"[TOOL] Response: {message.content}"
     else:
-        return f"[MESSAGE] {message.content}"
+        return f"[MESSAGE] {getattr(message, 'content', str(message))}"
 
 def _format_tool_args(*args: Any, **kwargs: Any) -> str:
     """Enhanced tool arguments formatting with better structure"""

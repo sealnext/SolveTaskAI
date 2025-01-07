@@ -1,7 +1,8 @@
 import operator
 from typing import TypedDict
+from config.logger import auto_log
 from langgraph.graph import START, StateGraph
-from langchain_core.messages import FunctionMessage
+from langchain_core.messages import FunctionMessage, AIMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.graph import END
@@ -65,6 +66,7 @@ def validate_and_update_state(state: TicketState) -> Tuple[bool, str]:
     
     return True, "State updated successfully"
 
+@auto_log("agent.ticket_tool.process_action")
 async def process_action(state: TicketState) -> dict:
     """Process the ticket operation and return the next node to execute."""
     is_valid, message = validate_and_update_state(state)
@@ -82,7 +84,7 @@ async def process_action(state: TicketState) -> dict:
     logger.info(f"Ticket ID: {state['ticket_id']}")
     logger.info(f"Query: {state['detailed_query']}")
     
-    return {"action":action}
+    return state
 
 async def create_ticket(state: TicketState) -> dict:
     """Create a ticket and return the result."""
@@ -105,9 +107,9 @@ async def delete_ticket(state: TicketState) -> dict:
     tool_call = last_message.additional_kwargs['tool_calls'][0]
     tool_call_id = tool_call.get('id')
     
-    logger.info(f"Tool call ID: {tool_call_id}")
+    logger.info(f"Tool call: {tool_call}")
     
-    # Add result to state
+    # Create result message
     result = f"Ticket {state['ticket_id']} was successfully deleted. You can no longer access it at: https://example.com/ticket/{state['ticket_id']}"
     
     return {
@@ -150,9 +152,9 @@ def create_ticket_graph() -> CompiledStateGraph:
     # Add edges from operations to END
     builder.add_edge("create", END)
     builder.add_edge("edit", END)
-    # builder.add_edge("delete", END)
+    builder.add_edge("delete", END)
     
     builder.set_entry_point("process")
     
     # Return compiled graph with interrupt before delete
-    return builder.compile(interrupt_before=["delete"])
+    return builder.compile()
