@@ -2,7 +2,7 @@
 Utility functions for agent operations.
 """
 from datetime import datetime, timezone
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, Any
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, Request, status
@@ -141,7 +141,7 @@ async def parse_input(
         type="human"
     )
     
-    return [initial_message], config, run_id
+    return [initial_message], config, run_id, thread_id
 
 async def message_generator(
     user_input: dict,
@@ -153,77 +153,33 @@ async def message_generator(
 ) -> AsyncGenerator[str, None]:
     """Generate a stream of messages from the agent."""
     try:
-        thread_id = user_input.get("thread_id", str(uuid4()))
-        config = RunnableConfig(
-            configurable={
-                "thread_id": thread_id,
-                "checkpoint_ns": "",
-            },
-            metadata={
-                "user_id": user_id,
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-        )
+        my_message, config, run_id, thread_id = await parse_input(user_input, user_id, checkpointer, thread_repo)
         
         # Create graph instance
         graph = create_agent_graph(checkpointer)
         
         # Send initial message with thread_id
-        yield f"data: {json.dumps({'type': 'init', 'thread_id': thread_id})}\n\n"
+        yield f"data: {json.dumps({'type': 'init', 'thread_id': str(thread_id)})}\n\n"
+
+        my_message = HumanMessage(content=user_input["message"])
         
-        if user_input["message"].startswith("Command(resume="):
-            # Extract the resume value
-            resume_value = user_input["message"].split("Command(resume=")[1].strip('")')
-            initial_state = None
+        if user_input.get("action") == "continue":
+            initial_state = Command(resume={"action": "continue"})
         else:
-            my_message = HumanMessage(content=user_input["message"])
             initial_state = AgentState(
                 messages=[my_message],
                 project_data={"id": project.id, "name": project.name},
                 api_key=api_key
             )
-            
-        # Single stream loop for both normal and resume cases
-        async for event in graph.astream_events(initial_state, config, version="v2", ):
+        
+        thread = {"configurable": {"thread_id": thread_id}}
+
+        async for event in graph.astream_events(initial_state, thread, version="v2"):
             if not event:
                 continue
-
-            new_messages = []
-            if (
-                event["event"] == "on_chain_end"
-                and any(t.startswith("graph:step:") for t in event.get("tags", []))
-                and "messages" in event["data"]["output"]
-            ):
-                new_messages = event["data"]["output"]["messages"]
-
-            if event["event"] == "on_custom_event" and "custom_data_dispatch" in event.get("tags", []):
-                new_messages = [event["data"]]
-
-            for message in new_messages:
-                try:
-                    chat_message = dict(langchain_to_chat_message(message))
-                except Exception as e:
-                    logger.error(f"Error parsing message: {e}", exc_info=True)
-                    yield f"data: {json.dumps({'type': 'error', 'content': 'Unexpected error', 'thread_id': thread_id})}\n\n"
-                    continue
-                
-                if chat_message["type"] == "human" and chat_message["content"] == user_input["message"]:
-                    continue
-                    
-                yield f"data: {json.dumps({'type': 'message', 'content': chat_message})}\n\n"
-            if (
-                event["event"] == "on_chat_model_stream"
-                and user_input.get("stream_tokens", True)
-                and "llama_guard" not in event.get("tags", [])
-            ):
-                content = remove_tool_calls(event["data"]["chunk"].content)
-                if content:
-                    yield f"data: {json.dumps({'type': 'token', 'content': convert_message_content_to_string(content)})}\n\n"
-
-        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            # print(event)
+        yield "data: [DONE]\n\n"
         
     except Exception as e:
         logger.error(f"Error in message generator: {e}", exc_info=True)
         yield f"data: {json.dumps({'type': 'error', 'content': 'Unexpected error', 'thread_id': thread_id})}\n\n"
-        yield f"data: {json.dumps({'type': 'done', 'thread_id': thread_id})}\n\n"
-  

@@ -9,6 +9,7 @@ from langchain_core.documents import Document
 from langchain_core.messages import AnyMessage
 from langgraph.graph import add_messages
 from pydantic import BaseModel
+from langchain_core.messages import BaseMessage
 
 from models import Project
 from schemas import APIKeySchema
@@ -24,10 +25,23 @@ def add_unique_documents(
 class AgentState(BaseModel):
     messages: Annotated[Sequence[AnyMessage], add_messages] = []
     documents: Annotated[Sequence[Document], add_unique_documents] = []
-    project_data: Optional[Dict[str, Any]] = None  # Va conține datele serializate din Project
+    project_data: Optional[Dict[str, Any]] = None
     api_key: Optional[APIKeySchema] = None
     
     model_config = {
         "arbitrary_types_allowed": True,
         "frozen": True
     }
+    
+    def model_dump(self) -> dict:
+        return {
+            "messages": [
+                {
+                    "content": msg.content,
+                    "type": msg.type,
+                    "additional_kwargs": msg.additional_kwargs
+                } if isinstance(msg, BaseMessage) else msg
+                for msg in self.messages
+            ],
+            "project_data": self.project_data,
+        }
