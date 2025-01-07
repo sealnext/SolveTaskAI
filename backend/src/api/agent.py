@@ -18,8 +18,8 @@ from dependencies import get_db_checkpointer, get_thread_repository, get_project
 from middleware import auth_middleware
 from repositories import ThreadRepository, APIKeyRepository
 from services import ProjectService
-from agent.graph import AgentState, Command
-
+from agent.graph import AgentState
+from langgraph.types import Command
 logger = logging.getLogger(__name__)
 
 router = APIRouter(

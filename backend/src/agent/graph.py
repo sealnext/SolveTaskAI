@@ -1,14 +1,12 @@
 from langchain_openai import ChatOpenAI
-from langgraph.graph import END, START, StateGraph
+from langgraph.graph import StateGraph
 from langchain_core.tools import tool
 from langchain_core.runnables import RunnableConfig
-from typing import Optional, Literal, Annotated
+from typing import Optional, Literal
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.prebuilt import ToolNode
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from langchain_core.messages import FunctionMessage
-from langgraph.types import Command, interrupt
-from langchain_core.messages import AIMessage, ToolMessage
 from agent.state import AgentState
 from agent.configuration import AgentConfiguration
 from config.logger import auto_log
@@ -16,7 +14,9 @@ from agent.schema import TicketToolInput
 import logging
 from agent.ticket_tool.graph import create_ticket_graph
 from typing import Union, Any
-
+from langchain_core.messages import (
+    AnyMessage,
+)
 logger = logging.getLogger(__name__)
 
 # Create the ticket subgraph once
@@ -60,7 +60,9 @@ async def call_model(state: AgentState, config: RunnableConfig):
         "messages": [response]
     }
 
-def tools_condition(state: AgentState):
+def tools_condition(
+    state: Union[list[AnyMessage], dict[str, Any], BaseModel],
+) -> Literal["tools", "__end__", "ticket_tool"]:
     if isinstance(state, list):
         ai_message = state[-1]
     elif isinstance(state, dict) and (messages := state.get("messages", [])):
@@ -69,50 +71,11 @@ def tools_condition(state: AgentState):
         ai_message = messages[-1]
     else:
         raise ValueError(f"No messages found in input state to tool_edge: {state}")
-
+    if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0 and ai_message.tool_calls[0]['name'] == 'ticket_tool':
+        return "ticket_tool"
     if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0:
-        tool_call = ai_message.tool_calls[0]
-        
-        # Special handling for ticket_tool
-        if tool_call['name'] == 'ticket_tool':
-            # Interrupt for human review
-            human_review = interrupt(
-                {
-                    "question": "Please review this ticket operation:",
-                    "tool_call": tool_call,
-                    "context": {
-                        "current_action": tool_call["args"]
-                    }
-                }
-            )
-
-            review_action = human_review["action"]
-            review_data = human_review.get("data")
-
-            if review_action == "continue":
-                return Command(goto="ticket_tool")
-            elif review_action == "update":
-                # Update the tool call with new arguments
-                updated_message = AIMessage(
-                    content=ai_message.content,
-                    additional_kwargs={
-                        "tool_calls": [{
-                            "id": tool_call["id"],
-                            "name": tool_call["name"],
-                            "args": review_data
-                        }]
-                    },
-                    id=ai_message.id
-                )
-                return Command(goto="ticket_tool", update={"messages": [updated_message]})
-            elif review_action == "feedback":
-                # Add feedback as a tool message
-                tool_message = ToolMessage(
-                    content=review_data,
-                    tool_call_id=tool_call["id"],
-                    name=tool_call["name"]
-                )
-                return Command(goto="call_model", update={"messages": [tool_message]})
+        return "tools"
+    return "__end__"
 
 def create_agent_graph(checkpointer: Optional[AsyncPostgresSaver] = None) -> StateGraph:
     """Create a new agent graph instance."""
@@ -125,10 +88,9 @@ def create_agent_graph(checkpointer: Optional[AsyncPostgresSaver] = None) -> Sta
     builder.add_node("agent", call_model)
     builder.add_node("tools", tool_node)
     builder.add_node("ticket_tool", create_ticket_graph())
-    builder.add_node("tools_condition", tools_condition)
     # Add edges
     builder.set_entry_point("agent")
-    builder.add_edge("agent", "tools_condition")
+    builder.add_conditional_edges("agent", tools_condition)
     builder.add_edge("tools", "agent")
     builder.add_edge("ticket_tool", "agent")
     
