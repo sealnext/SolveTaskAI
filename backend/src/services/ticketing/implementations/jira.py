@@ -26,22 +26,19 @@ class JiraClient(BaseTicketingClient):
     BATCH_SIZE = JIRA_MAX_RESULTS_PER_PAGE
     API_VERSION = JIRA_API_VERSION
     
-    def __init__(self, http_client: httpx.AsyncClient):
-        super().__init__(http_client)
+    def __init__(self, http_client: httpx.AsyncClient, api_key: APIKeySchema):
+        super().__init__(http_client, api_key)
         self._base_urls: Dict[str, httpx.URL] = {}
         
-    def _get_base_url(self, api_key: APIKeySchema) -> httpx.URL:
-        """Get or create base URL for the API.
+    def _get_base_url(self) -> httpx.URL:
+        """Get or create base URL for the API."""
+        if self.api_key.domain not in self._base_urls:
+            self._base_urls[self.api_key.domain] = httpx.URL(self.api_key.domain)
+        return self._base_urls[self.api_key.domain]
         
-        Uses domain as cache key to support multiple domains.
-        """
-        if api_key.domain not in self._base_urls:
-            self._base_urls[api_key.domain] = httpx.URL(api_key.domain)
-        return self._base_urls[api_key.domain]
-        
-    def _build_url(self, api_key: APIKeySchema, *path_segments: str) -> str:
+    def _build_url(self, *path_segments: str) -> str:
         """Build URL by joining path segments correctly."""
-        base_url = self._get_base_url(api_key)
+        base_url = self._get_base_url()
         path = f"rest/api/{self.API_VERSION}/" + "/".join(str(segment) for segment in path_segments)
         return str(base_url.join(path))
         
@@ -53,10 +50,10 @@ class JiraClient(BaseTicketingClient):
                 detail="Invalid project key"
             )
     
-    def _get_auth_headers(self, api_key: APIKeySchema) -> dict:
+    def _get_auth_headers(self) -> dict:
         """Get authentication headers for Jira API."""
         import base64
-        auth_str = f"{api_key.domain_email}:{api_key.api_key}"
+        auth_str = f"{self.api_key.domain_email}:{self.api_key.api_key}"
         auth_bytes = auth_str.encode('ascii')
         base64_auth = base64.b64encode(auth_bytes).decode('ascii')
         return {
@@ -64,9 +61,9 @@ class JiraClient(BaseTicketingClient):
             "Accept": "application/json"
         }
     
-    async def get_projects(self, api_key: APIKeySchema) -> List[ExternalProjectSchema]:
+    async def get_projects(self) -> List[ExternalProjectSchema]:
         """Get all projects with efficient pagination."""
-        url = self._build_url(api_key, "project")
+        url = self._build_url("project")
         all_projects = []
         start_at = 0
         
@@ -81,7 +78,7 @@ class JiraClient(BaseTicketingClient):
                 data = await self._make_request(
                     "GET", 
                     url, 
-                    headers=self._get_auth_headers(api_key), 
+                    headers=self._get_auth_headers(), 
                     params=params
                 )
                 
@@ -110,7 +107,7 @@ class JiraClient(BaseTicketingClient):
                 )
             
         if not all_projects:
-            logger.warning(f"No projects found for domain {api_key.domain}")
+            logger.warning(f"No projects found for domain {self.api_key.domain}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No projects found in Jira. Please check your API key and permissions."
@@ -118,7 +115,7 @@ class JiraClient(BaseTicketingClient):
             
         return all_projects
 
-    async def _fetch_tickets_batch(self, api_key: APIKeySchema, project_key: str, start_at: int) -> List[JiraIssueSchema]:
+    async def _fetch_tickets_batch(self, project_key: str, start_at: int) -> List[JiraIssueSchema]:
         """Fetch a batch of tickets with retry logic."""
         params = {
             "jql": f"project = {project_key}",
@@ -130,8 +127,8 @@ class JiraClient(BaseTicketingClient):
         try:
             response = await self._make_request(
                 "GET",
-                self._build_url(api_key, "search"),
-                headers=self._get_auth_headers(api_key),
+                self._build_url("search"),
+                headers=self._get_auth_headers(),
                 params=params,
                 response_model=JiraSearchResponse
             )
@@ -147,14 +144,14 @@ class JiraClient(BaseTicketingClient):
             logger.error(f"Error fetching tickets batch at {start_at}: {str(e)}")
             raise
 
-    async def get_tickets(self, api_key: APIKeySchema, project_key: str) -> AsyncGenerator[JiraIssueSchema, None]:
+    async def get_tickets(self, project_key: str) -> AsyncGenerator[JiraIssueSchema, None]:
         """Get all tickets with efficient batch processing.
         
         Uses concurrent requests while maintaining memory efficiency by streaming tickets.
         """
         self._validate_project_key(project_key)
         
-        url = self._build_url(api_key, "search")
+        url = self._build_url("search")
         
         # First, get total number of tickets
         params = {
@@ -164,7 +161,7 @@ class JiraClient(BaseTicketingClient):
         data = await self._make_request(
             "GET", 
             url, 
-            headers=self._get_auth_headers(api_key), 
+            headers=self._get_auth_headers(), 
             params=params,
             response_model=JiraSearchResponse
         )
@@ -177,7 +174,7 @@ class JiraClient(BaseTicketingClient):
             batch_tasks = []
             for offset in range(0, min(self.BATCH_SIZE * JIRA_MAX_CONCURRENT_REQUESTS, total_tickets - start_at), self.BATCH_SIZE):
                 batch_start = start_at + offset
-                batch_tasks.append(self._fetch_tickets_batch(api_key, project_key, batch_start))
+                batch_tasks.append(self._fetch_tickets_batch(project_key, batch_start))
             
             # Execute batch requests concurrently
             batches = await asyncio.gather(*batch_tasks)
@@ -191,7 +188,7 @@ class JiraClient(BaseTicketingClient):
             if len(batch_tasks) == JIRA_MAX_CONCURRENT_REQUESTS:
                 await asyncio.sleep(0.1)
 
-    async def get_ticket(self, api_key: APIKeySchema, ticket_id: str) -> JiraIssueContentSchema:
+    async def get_ticket(self, ticket_id: str) -> JiraIssueContentSchema:
         """Get a single ticket by ID."""
         if not ticket_id or not isinstance(ticket_id, str):
             raise HTTPException(
@@ -199,6 +196,41 @@ class JiraClient(BaseTicketingClient):
                 detail="Invalid ticket ID"
             )
             
-        url = self._build_url(api_key, "issue", ticket_id)
-        data = await self._make_request("GET", url, headers=self._get_auth_headers(api_key))
+        url = self._build_url("issue", ticket_id)
+        data = await self._make_request("GET", url, headers=self._get_auth_headers())
         return JiraIssueContentSchema(**data)
+
+    async def delete_ticket(self, ticket_id: str, delete_subtasks: bool = True) -> None:
+        """Delete a Jira ticket and optionally its subtasks."""
+        if not ticket_id or not isinstance(ticket_id, str):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid ticket ID")
+            
+        url = self._build_url("issue", ticket_id)
+        params = {"deleteSubtasks": str(delete_subtasks).lower()}
+        
+        try:
+            response = await self.http_client.delete(
+                url, 
+                headers=self._get_auth_headers(),
+                params=params,
+                timeout=30.0
+            )
+            
+            if response.status_code == 204:
+                logger.info(f"Successfully deleted ticket {ticket_id}")
+                return
+                
+            response.raise_for_status()
+            
+        except httpx.HTTPStatusError as e:
+            error_msg = {
+                404: f"Ticket {ticket_id} not found",
+                403: "Permission denied. Check if you have 'Delete Issues' permission.",
+                400: "Cannot delete issue with subtasks. Set deleteSubtasks=true to delete with subtasks."
+            }.get(e.response.status_code, f"Failed to delete ticket: {str(e)}")
+            
+            logger.error(f"{error_msg} at URL: {url}")
+            raise HTTPException(
+                status_code=e.response.status_code,
+                detail=error_msg
+            )

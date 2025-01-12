@@ -28,6 +28,7 @@ import logging
 from agent.state import AgentState
 
 from schemas.agent_schema import ChatMessage
+from services.ticketing.client import BaseTicketingClient
 from repositories.thread_repository import ThreadRepository
 from models import Project, APIKey
 
@@ -149,22 +150,23 @@ async def message_generator(
     project: Project,
     api_key: APIKey,
     checkpointer: AsyncPostgresSaver,
-    thread_repo: ThreadRepository
+    thread_repo: ThreadRepository,
+    ticketing_client: BaseTicketingClient
 ) -> AsyncGenerator[str, None]:
-    """Generate a stream of messages from the agent."""
     try:
         my_message, config, run_id, thread_id = await parse_input(user_input, user_id, checkpointer, thread_repo)
         
-        # Create graph instance
-        graph = create_agent_graph(checkpointer)
-        
-        # Send initial message with thread_id
+        graph = create_agent_graph(checkpointer, ticketing_client)
         yield f"data: {json.dumps({'type': 'init', 'thread_id': str(thread_id)})}\n\n"
 
         my_message = HumanMessage(content=user_input["message"])
         
         if user_input.get("action") == "continue":
             initial_state = Command(resume={"action": "continue"})
+        elif user_input.get("action") == "update":
+            initial_state = Command(resume={"action": "update", "data": user_input.get("data")})
+        elif user_input.get("action") == "feedback":
+            initial_state = Command(resume={"action": "feedback", "data": user_input.get("data")})
         else:
             initial_state = AgentState(
                 messages=[my_message],
@@ -177,9 +179,21 @@ async def message_generator(
         async for event in graph.astream_events(initial_state, thread, version="v2"):
             if not event:
                 continue
-            # print(event)
+
+            if event.get('event') == 'on_chain_stream':
+                if '__interrupt__' in event.get('data', {}).get('chunk', {}):
+                    interrupt = event['data']['chunk']['__interrupt__'][0]
+                    interrupt_data = interrupt.value
+                    resumable = interrupt.resumable
+                    yield f"data: {json.dumps({'type': 'interrupt', 'resumable': resumable, 'content': interrupt_data})}\n\n"
+
+            elif event.get('event') == 'on_chat_model_stream':
+                chunk = event['data']['chunk']
+                if chunk.content:
+                    yield f"data: {json.dumps({'type': 'stream', 'content': chunk.content})}\n\n"
+
         yield "data: [DONE]\n\n"
-        
+
     except Exception as e:
         logger.error(f"Error in message generator: {e}", exc_info=True)
-        yield f"data: {json.dumps({'type': 'error', 'content': 'Unexpected error', 'thread_id': thread_id})}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'content': str(e), 'thread_id': thread_id})}\n\n"

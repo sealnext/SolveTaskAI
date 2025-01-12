@@ -14,11 +14,15 @@ from agent.utils import (
     message_generator
 )
 from agent.graph import create_agent_graph
-from dependencies import get_db_checkpointer, get_thread_repository, get_project_service, get_api_key_repository
+from dependencies import get_db_checkpointer, get_ticketing_factory, get_thread_repository, get_project_service, get_api_key_repository
 from middleware import auth_middleware
+from services.ticketing.factory import TicketingClientFactory
 from repositories import ThreadRepository, APIKeyRepository
 from services import ProjectService
 from agent.graph import AgentState
+from schemas import APIKeySchema
+from typing import Callable
+
 from langgraph.types import Command
 logger = logging.getLogger(__name__)
 
@@ -92,9 +96,10 @@ async def invoke(
 
 @router.post("/stream")
 async def stream(
-    request: Request, 
+    request: Request,
     user_input: dict,
     checkpointer: AsyncPostgresSaver = Depends(get_db_checkpointer),
+    factory: TicketingClientFactory = Depends(get_ticketing_factory),
     thread_repo: ThreadRepository = Depends(get_thread_repository),
     project_service: ProjectService = Depends(get_project_service),
     api_key_repository: APIKeyRepository = Depends(get_api_key_repository)
@@ -109,9 +114,10 @@ async def stream(
     
     project = await project_service.get_project_by_id(user_id, user_input.get("project_id"))
     api_key = await api_key_repository.get_by_project_id(project.id)
+    client = factory.get_client(api_key)
     
     return StreamingResponse(
-        message_generator(user_input, user_id, project, api_key, checkpointer, thread_repo),
+        message_generator(user_input, user_id, project, api_key, checkpointer, thread_repo, client),
         media_type="text/event-stream",
     )
 

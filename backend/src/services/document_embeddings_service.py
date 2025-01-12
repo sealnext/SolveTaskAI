@@ -64,14 +64,14 @@ class DocumentEmbeddingsService:
         client = self.factory.get_client(api_key)
         
         # Get project details
-        projects = await client.get_projects(api_key)
+        projects = await client.get_projects()
         project = next((p for p in projects if p.key == project_key), None)
         if not project:
             raise ValueError(f"Project {project_key} not found")
             
         # Create async generator for documents
         async def document_generator():
-            async for ticket in client.get_tickets(api_key, project_key):
+            async for ticket in client.get_tickets(project_key):
                 yield self._create_document_from_ticket(ticket)
         
         # Process documents

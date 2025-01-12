@@ -18,6 +18,7 @@ from langchain_core.messages import (
     AnyMessage,
 )
 logger = logging.getLogger(__name__)
+from services.ticketing.client import BaseTicketingClient
 
 # Create the ticket subgraph once
 # ticket_graph = create_ticket_graph()
@@ -77,7 +78,10 @@ def tools_condition(
         return "tools"
     return "__end__"
 
-def create_agent_graph(checkpointer: Optional[AsyncPostgresSaver] = None) -> StateGraph:
+def create_agent_graph(
+    checkpointer: Optional[AsyncPostgresSaver] = None,
+    ticketing_client: Optional[BaseTicketingClient] = None
+) -> StateGraph:
     """Create a new agent graph instance."""
     builder = StateGraph(AgentState)
     
@@ -87,14 +91,13 @@ def create_agent_graph(checkpointer: Optional[AsyncPostgresSaver] = None) -> Sta
     # Add nodes
     builder.add_node("agent", call_model)
     builder.add_node("tools", tool_node)
-    builder.add_node("ticket_tool", create_ticket_graph())
+    builder.add_node("ticket_tool", create_ticket_graph(ticketing_client))
+    
     # Add edges
     builder.set_entry_point("agent")
     builder.add_conditional_edges("agent", tools_condition)
     builder.add_edge("tools", "agent")
     builder.add_edge("ticket_tool", "agent")
-    
-
 
     graph = builder.compile(checkpointer=checkpointer)
     logger.info(f"Graph created successfully: {graph}")
