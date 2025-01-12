@@ -11,13 +11,15 @@ class BaseTicketingClient(ABC):
     
     DEFAULT_TIMEOUT = DEFAULT_REQUEST_TIMEOUT
     
-    def __init__(self, http_client: httpx.AsyncClient):
-        """Initialize the client with an HTTP client.
+    def __init__(self, http_client: httpx.AsyncClient, api_key: APIKeySchema):
+        """Initialize the client with an HTTP client and API key.
         
         Args:
             http_client: Pre-configured httpx.AsyncClient with connection pooling
+            api_key: API key configuration for the ticketing system
         """
         self.http_client = http_client
+        self.api_key = api_key
 
     async def _make_request(
         self, 
@@ -79,16 +81,21 @@ class BaseTicketingClient(ABC):
             )
 
     @abstractmethod
-    async def get_projects(self, api_key: APIKeySchema) -> List[ExternalProjectSchema]:
-        """Get all projects. To be implemented by specific clients."""
+    async def get_projects(self) -> List[ExternalProjectSchema]:
+        """Get all projects."""
         raise NotImplementedError
         
     @abstractmethod
-    async def get_tickets(self, api_key: APIKeySchema, project_key: str) -> AsyncGenerator[JiraIssueSchema, None]:
-        """Get all tickets for a project. To be implemented by specific clients."""
+    async def get_tickets(self, project_key: str) -> AsyncGenerator[JiraIssueSchema, None]:
+        """Get all tickets for a project."""
         raise NotImplementedError
         
     @abstractmethod
-    async def get_ticket(self, api_key: APIKeySchema, ticket_id: str) -> JiraIssueSchema:
-        """Get a single ticket by ID. To be implemented by specific clients."""
+    async def get_ticket(self, ticket_id: str) -> JiraIssueSchema:
+        """Get a single ticket by ID."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def delete_ticket(self, ticket_id: str) -> None:
+        """Delete a ticket by ID."""
         raise NotImplementedError

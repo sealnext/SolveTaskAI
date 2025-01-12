@@ -65,7 +65,7 @@ class TicketingClientFactory:
             raise ValueError(f"Unsupported ticketing system type: {api_key.service_type}")
         
         http_client = self.get_http_client(api_key.service_type)
-        return client_class(http_client)
+        return client_class(http_client, api_key)
 
     async def cleanup(self):
         """Cleanup all HTTP clients when shutting down."""

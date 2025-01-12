@@ -6,9 +6,9 @@ from ..client import BaseTicketingClient
 class AzureClient(BaseTicketingClient):
     """Azure DevOps-specific implementation of the ticketing client."""
     
-    async def get_projects(self, api_key: APIKeySchema) -> List[ExternalProjectSchema]:
-        headers = self._get_auth_headers(api_key)
-        url = f"https://dev.azure.com/{api_key.organization}/_apis/projects"
+    async def get_projects(self) -> List[ExternalProjectSchema]:
+        headers = self._get_auth_headers(self.api_key)
+        url = f"https://dev.azure.com/{self.api_key.organization}/_apis/projects"
         data = await self._make_request("GET", url, headers=headers)
         return [ExternalProjectSchema(**project) for project in data['value']]
         

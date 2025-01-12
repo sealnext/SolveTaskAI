@@ -31,7 +31,7 @@ async def get_all_external_projects(
 ) -> List[ExternalProjectSchema]:
     """Get all external projects for an API key."""
     client = ticketing_client(api_key)
-    projects = await client.get_projects(api_key)
+    projects = await client.get_projects()
     if not projects:
         logger.warning("No projects found")
         raise InvalidCredentialsException
@@ -51,9 +51,8 @@ async def get_external_project_by_id(
         raise HTTPException(status_code=404, detail="Project not found")
     
     api_key_schema = APIKeySchema.from_orm(api_key)
-    logger.info(f"API Key Schema: {api_key_schema}")
     client = factory.get_client(api_key_schema)
-    projects = await client.get_projects(api_key_schema)
+    projects = await client.get_projects()
     if not projects:
         raise HTTPException(status_code=404, detail="No projects found in external service. Check your API Key.")
     return projects
