@@ -19,7 +19,8 @@ export const authOptions: NextAuthOptions = {
 
         try {
           console.log("Attempting to connect to backend...");
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+          const url = new URL("/auth/login", process.env.NEXT_PUBLIC_API_URL);
+          const res = await fetch(url, {
             method: 'POST',
             body: new URLSearchParams({
               username: credentials.username,

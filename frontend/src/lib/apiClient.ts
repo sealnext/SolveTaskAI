@@ -52,7 +52,8 @@ export default function ApiClient() {
     }
 
     try {
-      const response = await fetch(`${baseUrl}${endpoint}`, {
+      const url = new URL(endpoint, baseUrl);
+      const response = await fetch(url, {
         ...fetchOptions,
         credentials: 'include',
       });
