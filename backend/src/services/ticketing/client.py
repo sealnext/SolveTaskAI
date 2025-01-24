@@ -99,3 +99,21 @@ class BaseTicketingClient(ABC):
     async def delete_ticket(self, ticket_id: str) -> None:
         """Delete a ticket by ID."""
         raise NotImplementedError
+    
+    @abstractmethod
+    async def get_ticket_edit_issue_metadata(self, ticket_id: str) -> dict:
+        """Get the metadata for editing a ticket."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_ticket_fields(self, ticket_id: str, fields: List[str]) -> Dict[str, Any]:
+        """Get specific fields for a ticket.
+        
+        Args:
+            ticket_id: The ID of the ticket to get fields for
+            fields: List of field names to retrieve (e.g., ["summary", "description", "customfield_10020"])
+            
+        Returns:
+            Dictionary containing the requested fields and their current values
+        """
+        raise NotImplementedError
