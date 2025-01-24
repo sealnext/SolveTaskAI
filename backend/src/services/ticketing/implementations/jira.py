@@ -1,4 +1,4 @@
-from typing import AsyncGenerator, List, Dict
+from typing import AsyncGenerator, List, Dict, Any
 import httpx
 from schemas import (
     APIKeySchema, 
@@ -234,3 +234,74 @@ class JiraClient(BaseTicketingClient):
                 status_code=e.response.status_code,
                 detail=error_msg
             )
+
+    async def get_ticket_edit_issue_metadata(self, ticket_id: str) -> dict:
+        """Get the metadata for editing a Jira ticket.
+        
+        This endpoint returns the fields that can be modified for a specific issue,
+        including custom fields and their allowed values.
+        
+        Args:
+            ticket_id (str): The ID or key of the Jira ticket
+            
+        Returns:
+            dict: The ticket's editable field metadata
+            
+        Raises:
+            HTTPException: If the request fails or the ticket is not found
+        """
+        if not ticket_id or not isinstance(ticket_id, str):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid ticket ID"
+            )
+            
+        url = self._build_url("issue", ticket_id, "editmeta")
+        
+        try:
+            response = await self.http_client.get(
+                url,
+                headers=self._get_auth_headers(),
+                timeout=30.0
+            )
+            
+            response.raise_for_status()
+            return response.json()
+            
+        except httpx.HTTPStatusError as e:
+            error_msg = {
+                404: f"Ticket {ticket_id} not found",
+                403: "Permission denied. Check if you have permission to view this ticket.",
+                401: "Authentication failed. Please check your API credentials."
+            }.get(e.response.status_code, f"Failed to fetch ticket metadata: {str(e)}")
+            
+            logger.error(f"{error_msg} at URL: {url}")
+            raise HTTPException(
+                status_code=e.response.status_code,
+                detail=error_msg
+            )
+        
+    async def get_ticket_fields(self, ticket_id: str, fields: List[str]) -> Dict[str, Any]:
+        """Get specific fields for a ticket."""
+        url = self._build_url("issue", ticket_id)
+        
+        # Convert fields list to comma-separated string
+        fields_param = ",".join(fields)
+        
+        params = {
+            "fields": fields_param,
+            "fieldsByKeys": "false"  # Use field IDs instead of keys for better compatibility
+        }
+        
+        response = await self._make_request(
+            "GET", 
+            url, 
+            headers=self._get_auth_headers(),
+            params=params
+        )
+        
+        # Extract just the fields we care about
+        return {
+            field: response.get("fields", {}).get(field)
+            for field in fields
+        }

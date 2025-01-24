@@ -301,18 +301,11 @@ def auto_log(logger_name: str = "agent.graph"):
                     # Log state info
                     logger.info(f"[STATE] documents: {len(state.documents)}")
                     
-                    # Log messages
+                    # Log only the last relevant message
                     if state.messages:
-                        # For first step, show the initial human message
-                        if step == 1:
-                            first_msg = state.messages[0]
-                            if isinstance(first_msg, HumanMessage):
-                                logger.info(f"[INPUT] (human): {first_msg.content}")
-                        # For other steps, show the last tool message
-                        elif state.messages:
-                            last_msg = state.messages[-1]
-                            if isinstance(last_msg, (ToolMessage, HumanMessage)):
-                                logger.info(f"[INPUT] ({last_msg.__class__.__name__.lower()}): {last_msg.content}")
+                        last_msg = state.messages[-1]
+                        if isinstance(last_msg, (ToolMessage, HumanMessage)):
+                            logger.info(f"[INPUT] ({last_msg.__class__.__name__.lower()}): {last_msg.content}")
             
             # Log flow information
             if step or triggers:

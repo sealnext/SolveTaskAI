@@ -179,6 +179,10 @@ async def message_generator(
         async for event in graph.astream_events(initial_state, thread, version="v2"):
             if not event:
                 continue
+            
+            # Only process events from the main graph, not subgraphs
+            if event.get('name') != 'LangGraph':
+                continue
 
             if event.get('event') == 'on_chain_stream':
                 if '__interrupt__' in event.get('data', {}).get('chunk', {}):
