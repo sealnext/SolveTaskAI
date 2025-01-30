@@ -162,7 +162,9 @@ async def message_generator(
         my_message = HumanMessage(content=user_input["message"])
         
         if user_input.get("action") == "continue":
-            initial_state = Command(resume={"action": "continue"})
+            initial_state = Command(resume={
+                "action": "continue"
+            })
         elif user_input.get("action") == "update":
             initial_state = Command(resume={"action": "update", "data": user_input.get("data")})
         elif user_input.get("action") == "feedback":
@@ -176,12 +178,14 @@ async def message_generator(
         
         thread = {"configurable": {"thread_id": thread_id}}
 
-        async for event in graph.astream_events(initial_state, thread, version="v2"):
+        async for event in graph.astream_events(initial_state, thread, version="v2", subgraphs=True):
+            logger.info(f"{event.get('name')} - {event}")
+            
             if not event:
                 continue
             
-            # Only process events from the main graph, not subgraphs
-            if event.get('name') != 'LangGraph':
+            # Accept events from both main graph and ticket subgraph
+            if event.get('name') not in ['LangGraph', 'TicketGraph']:  # Add your subgraph name here
                 continue
 
             if event.get('event') == 'on_chain_stream':
