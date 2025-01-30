@@ -7,6 +7,7 @@ from langchain_core.messages import AnyMessage, FunctionMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
+from langchain_core.callbacks import dispatch_custom_event
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
@@ -55,12 +56,22 @@ def mock_retrieve_tool(state: TicketState, config: RunnableConfig) -> FunctionMe
 
 @auto_log("graph.call_model")
 async def call_model(state: AgentState, config: RunnableConfig):
-    """Node that calls the LLM with the current state."""
+    """Node that calls the LLM with the current state."""    
     messages = state.messages
     agent_config = AgentConfiguration()
     llm = ChatOpenAI(model=agent_config.model, temperature=agent_config.temperature)
     llm_with_tools = llm.bind_tools([mock_retrieve_tool, ticket_tool])
     response = await llm_with_tools.ainvoke(messages)
+    
+    if hasattr(response, "tool_calls") and len(response.tool_calls) > 0:
+        tool_name = response.tool_calls[0]['name']
+        if tool_name == "ticket_tool":
+            dispatch_custom_event(
+                "agent_progress",
+                {"message": "Preparing to handle your ticket request..."},
+                config=config
+            )
+    
     logger.error(f"after llm_with_tools: {response}")
     return {"messages": [response]}
 
@@ -83,18 +94,19 @@ def tools_condition(
         return "tools"
     return "__end__"
 
-def create_agent_graph(
-    checkpointer: Optional[AsyncPostgresSaver] = None,
-    ticketing_client: Optional[BaseTicketingClient] = None
-) -> StateGraph:
-    """Create a new agent graph instance."""
+def create_agent_graph(checkpointer: AsyncPostgresSaver, ticketing_client: BaseTicketingClient) -> StateGraph:
+    """Create the main agent graph."""
+    
+    # Create ticket subgraph with client
+    ticket_graph = create_ticket_agent(checkpointer=checkpointer, client=ticketing_client)
+    
     builder = StateGraph(AgentState)
     
     tool_node = ToolNode([mock_retrieve_tool, ticket_tool])
 
     builder.add_node("agent", call_model)
     builder.add_node("tools", tool_node)
-    builder.add_node("ticket_agent", create_ticket_agent)
+    builder.add_node("ticket_agent", ticket_graph)
 
     builder.set_entry_point("agent")
     builder.add_conditional_edges(
@@ -107,6 +119,7 @@ def create_agent_graph(
         }
     )
     builder.add_edge("tools", "agent")
+    builder.add_edge("ticket_agent", "agent")
 
     graph = builder.compile(checkpointer=checkpointer)
     logger.info(f"Graph created successfully: {graph}")
