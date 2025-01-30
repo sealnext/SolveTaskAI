@@ -136,13 +136,15 @@ async def parse_input(
         run_id=run_id
     )
 
-    # Create initial message
-    initial_message = HumanMessage(
-        content=user_input["message"],
-        type="human"
-    )
+    # Modified message handling
+    initial_messages = []
+    if "message" in user_input:
+        initial_messages.append(HumanMessage(
+            content=user_input["message"],
+            type="human"
+        ))
     
-    return [initial_message], config, run_id, thread_id
+    return initial_messages, config, run_id, thread_id
 
 async def message_generator(
     user_input: dict,
@@ -157,11 +159,10 @@ async def message_generator(
         logger.info("Starting message_generator")
         
         logger.info("Parsing input...")
-        my_message, config, run_id, thread_id = await parse_input(user_input, user_id, checkpointer, thread_repo)
+        messages, config, run_id, thread_id = await parse_input(user_input, user_id, checkpointer, thread_repo)
         logger.info(f"Input parsed successfully. Thread ID: {thread_id}")
 
         graph = create_agent_graph(checkpointer, ticketing_client)
-        my_message = HumanMessage(content=user_input["message"])
         
         if user_input.get("action") == "continue":
             initial_state = Command(resume={
@@ -173,7 +174,7 @@ async def message_generator(
             initial_state = Command(resume={"action": "feedback", "data": user_input.get("data")})
         else:
             initial_state = AgentState(
-                messages=[my_message],
+                messages=messages,  # Now uses parsed messages list
                 project_data={"id": project.id, "name": project.name},
                 api_key=api_key
             )
@@ -181,14 +182,23 @@ async def message_generator(
         thread = {"configurable": {"thread_id": thread_id}}
 
         async for event in graph.astream_events(initial_state, thread, version="v2", subgraphs=True):
-            logger.info(f"{event.get('name')} - {event}")
+            logger.info(f"Received event: {event}")
             
             if not event:
                 continue
-            
-            # Accept events from both main graph and ticket subgraph
-            if event.get('name') not in ['LangGraph', 'TicketGraph']:  # Add your subgraph name here
-                continue
+
+            # Handle custom progress events
+            if (event.get("event") == "on_custom_event" and 
+                event.get("name") == "agent_progress"):
+                
+                data = event.get("data", {})
+                if data and "message" in data:
+                    yield f"data: {json.dumps({
+                        'type': 'progress',
+                        'content': data['message'],
+                        'thread_id': str(thread_id)
+                    })}\n\n"
+                    continue
 
             if event.get('event') == 'on_chain_stream':
                 chunk = event.get('data', {}).get('chunk', {})
@@ -206,13 +216,13 @@ async def message_generator(
                             continue
 
             elif event.get('event') == 'on_chat_model_stream':
-                chunk = event['data']['chunk']
-                if chunk.content:
-                    yield f"data: {json.dumps({
-                        'type': 'stream', 
-                        'content': chunk.content,
-                        'thread_id': str(thread_id)
-                    })}\n\n"
+                if event["metadata"]["langgraph_node"] == 'agent':
+                    chunk = event['data']['chunk']
+                    if chunk.content:
+                        yield f"data: {json.dumps({
+                            'type': 'stream', 
+                            'content': chunk.content,
+                        })}\n\n"
 
         yield f"data: {json.dumps({'type': 'done', 'thread_id': str(thread_id)})}\n\n"
 

@@ -1,3 +1,5 @@
+from agent.configuration import AgentConfiguration
+from .prompts import EDIT_TICKET_SYSTEM_PROMPT, EDIT_TICKET_USER_PROMPT_TEMPLATE, JSON_EXAMPLE
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END, START
 from langchain_core.tools import tool
@@ -17,6 +19,8 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from enum import Enum
 from langgraph.errors import GraphInterrupt
 from langgraph.graph import add_messages
+from langchain_core.callbacks import dispatch_custom_event
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +32,7 @@ class TicketToolInput(BaseModel):
 
 class TicketAgentState(BaseModel):
     """State for the ticket agent."""
-    messages: Annotated[Sequence[AnyMessage], add_messages] = []
+    messages: Sequence[AnyMessage]
     action: Optional[str] = None
     ticket_id: Optional[str] = None
     detailed_query: Optional[str] = None
@@ -37,21 +41,45 @@ class TicketAgentState(BaseModel):
     needs_review: bool = False
 
 class ReviewAction(str, Enum):
-    CONTINUE = "continue"
-    UPDATE = "update"
-    REMAP = "remap"
-    CANCEL = "cancel"
+    """Available review actions based on operation type."""
+    # Common actions
+    CONTINUE = "continue"  # Proceed with operation as is
+    CANCEL = "cancel"      # Cancel the entire operation
+    
+    # Edit specific
+    UPDATE_FIELDS = "update_fields"     # Update specific fields
+    MODIFY_CHANGES = "modify_changes"   # Modify the proposed changes
+    
+    # Create specific
+    ADJUST_TEMPLATE = "adjust_template" # Adjust the ticket template
+    MODIFY_DETAILS = "modify_details"   # Modify ticket details
+    
+    # Delete specific
+    ARCHIVE_INSTEAD = "archive_instead" # Archive instead of delete
+    SOFT_DELETE = "soft_delete"        # Soft delete option
+
+class OperationDetails(TypedDict):
+    """Details specific to the operation type."""
+    field_updates: Optional[dict[str, Any]]  # For JIRA field mappings
+    changes_description: str                 # Human readable changes
+    api_mappings: Optional[dict[str, Any]]   # Future JIRA API mappings
 
 class ReviewConfig(TypedDict):
-    """Configuration for review process."""
-    question: str
-    tool_call: Dict[str, Any]
-    tool_call_id: str
-    details: Dict[str, Any]
+    """Enhanced review configuration."""
+    question: str                    # Review prompt
+    tool_call: dict[str, Any]       # Original tool call
+    tool_call_id: str               # Tool call ID
+    operation_type: Literal["create", "edit", "delete"] # Operation type
+    available_actions: list[ReviewAction]  # Actions available for this operation
+    details: OperationDetails       # Operation specific details
+    metadata: Optional[dict[str, Any]] # Additional metadata
 
-def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None) -> StateGraph:
+def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None, client: BaseTicketingClient = None) -> StateGraph:
     """Create a new ticket agent graph instance."""
     
+    if client is None:
+        raise ValueError("Ticketing client is required")
+
     @tool(args_schema=TicketToolInput)
     @auto_log("ticket_agent.create_ticket")
     async def create_ticket(
@@ -61,6 +89,14 @@ def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None) -> St
         config: RunnableConfig,
     ) -> ToolMessage:
         """Tool for creating tickets."""
+        dispatch_custom_event(
+            "agent_progress",
+            {
+                "message": f"Creating new ticket {ticket_id}...",
+                "ticket_id": ticket_id
+            },
+            config=config
+        )
         tool_call_id = config.get("tool_call_id")
         return ToolMessage(content="Ticket created successfully", tool_call_id=tool_call_id)
 
@@ -71,21 +107,87 @@ def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None) -> St
         action: str,
         tool_call_id: Annotated[str, InjectedToolCallId],
         state: Annotated[TicketAgentState, InjectedState],
+        config: RunnableConfig,
     ) -> Command:
         """Tool for editing tickets."""
         
-        # Configure the review as a plain dict
+        # 1. Get JIRA metadata and current values
+        metadata = await client.get_ticket_edit_issue_metadata(ticket_id)
+        available_fields = {}
+        for field_key, field_info in metadata['fields'].items():
+            field_dict = field_info.copy()
+            field_dict = {k: v for k, v in field_dict.items() if v is not None and v != {}}
+            if field_dict:
+                available_fields[field_key] = field_dict
+
+        current_values = await client.get_ticket_fields(ticket_id, list(available_fields.keys()))
+        
+        # Add current values to metadata
+        for field_key in available_fields:
+            available_fields[field_key]['current_value'] = current_values.get(field_key)
+
+        # 2. Use LLM to generate edit plan
+        agent_config = AgentConfiguration()
+        llm = ChatOpenAI(
+            model=agent_config.model, 
+            temperature=agent_config.temperature,
+            model_kwargs={'response_format': {"type": "json_object"}}
+        )
+        
+        response = await llm.ainvoke([
+            {"role": "system", "content": EDIT_TICKET_SYSTEM_PROMPT},
+            {"role": "user", "content": EDIT_TICKET_USER_PROMPT_TEMPLATE.format(
+                detailed_query=detailed_query,
+                available_fields=available_fields,
+                json_example=JSON_EXAMPLE
+            )}
+        ])
+
+        # 3. Parse and validate LLM response
+        try:
+            field_updates = json.loads(response.content)
+            
+            # Basic validation
+            if not isinstance(field_updates, dict):
+                raise ValueError("LLM response is not a dictionary")
+            if "update" not in field_updates or "validation" not in field_updates:
+                raise ValueError("Missing required sections in LLM response")
+            
+            # Validate fields exist in JIRA
+            unknown_fields = [
+                field for field in field_updates['update']
+                if field not in available_fields
+            ]
+            if unknown_fields:
+                raise ValueError(f"Unknown Jira fields: {', '.join(unknown_fields)}")
+            
+        except Exception as e:
+            logger.error(f"Error processing LLM response: {str(e)}")
+            raise ValueError(f"Failed to process field updates: {str(e)}")
+
+        # 4. Setup review config
         review_config = {
             "question": f"Review changes for ticket {ticket_id}:",
             "tool_call": state.original_tool_call,
             "tool_call_id": state.original_tool_call['id'],
+            "operation_type": "edit",
+            "available_actions": [
+                ReviewAction.CONTINUE,
+                ReviewAction.UPDATE_FIELDS,
+                ReviewAction.MODIFY_CHANGES,
+                ReviewAction.CANCEL
+            ],
             "details": {
+                "changes_description": detailed_query,
+                "field_updates": field_updates,
+                "api_mappings": available_fields
+            },
+            "metadata": {
                 "ticket_id": ticket_id,
-                "changes": detailed_query
+                "original_description": detailed_query,
             }
         }
-        
-        # Return Command to update multiple state fields
+
         return Command(
             update={
                 "messages": [
@@ -109,9 +211,16 @@ def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None) -> St
         config: RunnableConfig,
     ) -> ToolMessage:
         """Tool for deleting tickets."""
+        dispatch_custom_event(
+            "agent_progress",
+            {
+                "message": f"Deleting ticket {ticket_id}...",
+                "ticket_id": ticket_id
+            },
+            config=config
+        )
         tool_call_id = config.get("tool_call_id")
-        message = ToolMessage(content="Ticket deleted successfully", tool_call_id=tool_call_id)
-        return {"messages": [message]}
+        return ToolMessage(content="Ticket deleted successfully", tool_call_id=tool_call_id)
     
     builder = StateGraph(TicketAgentState)
     
@@ -187,15 +296,10 @@ Remember to use these exact parameters:
         """Final node that formats the response using the original tool call."""
         if not state.original_tool_call:
             logger.warning("No original tool call found in state")
-            return {"messages": state.messages}
+            return {"messages": []}
 
-        # Create a ToolMessage that responds to the original tool call
-        final_message = ToolMessage(
-            content=f"Successfully completed {state.action} operation for ticket {state.ticket_id}",
-            tool_call_id=state.original_tool_call["id"]
-        )
-
-        return {"messages": [final_message]}
+        # Just pass through the last message
+        return {"messages": state.messages}
 
     def should_continue(state: TicketAgentState) -> Literal["tools", "format_response", "handle_review", "__end__"]:
         """Enhanced flow control for subgraph operations."""
@@ -222,12 +326,6 @@ Remember to use these exact parameters:
     async def handle_review(state: Annotated[TicketAgentState, InjectedState]) -> Dict[str, Any]:
         """Review handler node that manages the review process and processes the response."""
         try:
-            # Get review_config from the last message if not in state
-            if not state.review_config:
-                last_message = state.messages[-1]
-                if isinstance(last_message, ToolMessage):
-                    state.review_config = last_message.additional_kwargs.get("review_config")
-            
             if not state.review_config:
                 logger.error("No review_config found in state or last message")
                 raise ValueError("No review configuration available")
@@ -239,18 +337,18 @@ Remember to use these exact parameters:
                     "description": "Apply these changes as they are",
                     "request_format": {"action": "continue"}
                 },
-                ReviewAction.UPDATE: {
+                ReviewAction.UPDATE_FIELDS: {
                     "description": "Update specific field values",
                     "request_format": {
-                        "action": "update",
+                        "action": "update_fields",
                         "data": {"field_updates": {"field_name": "new value"}}
                     }
                 },
-                ReviewAction.REMAP: {
-                    "description": "Remap fields to different ticket fields",
+                ReviewAction.MODIFY_CHANGES: {
+                    "description": "Modify the proposed changes",
                     "request_format": {
-                        "action": "remap",
-                        "data": {"field_mappings": {"current_field": "new_ticket_field"}}
+                        "action": "modify_changes",
+                        "data": {"changes_description": "new changes in human readable format"}
                     }
                 },
                 ReviewAction.CANCEL: {
@@ -273,10 +371,10 @@ Remember to use these exact parameters:
                 match human_review["action"]:
                     case "continue":
                         return await _handle_continue_action(state, review_config["details"])
-                    case "update":
-                        return await _handle_update_action(state, review_config["details"], human_review)
-                    case "remap":
-                        return await _handle_remap_action(state, review_config["details"], human_review)
+                    case "update_fields":
+                        return await _handle_update_fields_action(state, review_config["details"], human_review)
+                    case "modify_changes":
+                        return await _handle_modify_changes_action(state, review_config["details"], human_review)
                     case "cancel":
                         return {
                             "messages": [
@@ -303,24 +401,25 @@ Remember to use these exact parameters:
 
     async def _handle_continue_action(state: TicketAgentState, details: Dict[str, Any]) -> Dict[str, Any]:
         """Handle the continue action from review."""
+        final_message = ToolMessage(
+            content=f"Changes applied successfully on JIRA",
+            tool_call_id=state.original_tool_call["id"]
+        )
+        
         return {
-            "messages": [
-                ToolMessage(
-                    content=f"Proceeding with changes for ticket {details['ticket_id']}",
-                    tool_call_id=state.review_config["tool_call_id"]
-                )
-            ]
+            "messages": [final_message],  # Just return the final message
+            "needs_review": False
         }
 
-    async def _handle_update_action(
+    async def _handle_update_fields_action(
         state: TicketAgentState, 
         details: Dict[str, Any], 
         review: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Handle the update action from review."""
+        """Handle the update_fields action from review."""
         field_updates = review.get("data", {}).get("field_updates", {})
         # Update the changes with new field values
-        updated_changes = {**details["changes"], **field_updates}
+        updated_changes = {**details["changes_description"], **field_updates}
         
         return {
             "messages": [
@@ -331,23 +430,20 @@ Remember to use these exact parameters:
             ]
         }
 
-    async def _handle_remap_action(
+    async def _handle_modify_changes_action(
         state: TicketAgentState, 
         details: Dict[str, Any], 
         review: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Handle the remap action from review."""
-        field_mappings = review.get("data", {}).get("field_mappings", {})
-        # Apply field remapping
-        remapped_changes = {
-            field_mappings.get(k, k): v 
-            for k, v in details["changes"].items()
-        }
+        """Handle the modify_changes action from review."""
+        changes_description = review.get("data", {}).get("changes_description", "")
+        # Modify the changes description
+        modified_changes = f"{changes_description} (modified)"
         
         return {
             "messages": [
                 ToolMessage(
-                    content=f"Remapped changes for ticket {details['ticket_id']}: {remapped_changes}",
+                    content=f"Modified changes for ticket {details['ticket_id']}: {modified_changes}",
                     tool_call_id=state.review_config["tool_call_id"]
                 )
             ]
@@ -364,7 +460,7 @@ Remember to use these exact parameters:
     builder.add_edge(START, "agent")
     builder.add_conditional_edges("agent", should_continue)
     builder.add_edge("tools", "handle_review")  # Always go to review first
-    builder.add_edge("handle_review", "agent")  # After review, go back to agent
+    builder.add_edge("handle_review", "format_response")  # After review, go back to agent
     builder.add_edge("format_response", END)
 
     graph = builder.compile(checkpointer=checkpointer)
