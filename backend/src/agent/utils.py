@@ -187,8 +187,19 @@ async def message_generator(
             if not event:
                 continue
 
+            # Handle final stream completed message from agent node
+            elif event.get('event') == 'on_chat_model_end' and event["metadata"]["langgraph_node"] == 'agent':
+                final_content = event['data']['output'].content
+                if final_content:
+                    yield f"data: {json.dumps({
+                        'type': 'final',
+                        'content': final_content,
+                        'thread_id': str(thread_id)
+                    })}\n\n"
+                continue
+
             # Handle custom progress events
-            if (event.get("event") == "on_custom_event" and 
+            elif (event.get("event") == "on_custom_event" and 
                 event.get("name") == "agent_progress"):
                 
                 data = event.get("data", {})
@@ -199,8 +210,9 @@ async def message_generator(
                         'thread_id': str(thread_id)
                     })}\n\n"
                     continue
-
-            if event.get('event') == 'on_chain_stream':
+            
+            # Handle interrupt events
+            elif event.get('event') == 'on_chain_stream':
                 chunk = event.get('data', {}).get('chunk', {})
                 if isinstance(chunk, tuple) and len(chunk) == 2 and isinstance(chunk[1], dict):
                     interrupt_data = chunk[1].get('__interrupt__')
@@ -215,6 +227,7 @@ async def message_generator(
                             })}\n\n"
                             continue
 
+            # Handle stream events from agent node
             elif event.get('event') == 'on_chat_model_stream':
                 if event["metadata"]["langgraph_node"] == 'agent':
                     chunk = event['data']['chunk']
