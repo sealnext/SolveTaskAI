@@ -1,95 +1,71 @@
 import json
+import re
 from typing import Dict, List, Any, Tuple
 
 def extract_json_from_llm_response(content: str) -> str:
-    """Extract JSON content from LLM response, handling any prefix or suffix text.
-    Also handles markdown code blocks.
-    
-    Args:
-        content: Raw LLM response that should contain JSON
+    """Extract JSON content from LLM response."""
+    try:
+        # delete all comments from the content
+        content = re.sub(r'//.*', '', content)
         
-    Returns:
-        Clean JSON string
+        # First try to parse the entire content as JSON
+        json.loads(content)
+        return content
+    except json.JSONDecodeError:
+        # If that fails, try to find JSON between curly braces
+        start_idx = content.find('{')
+        end_idx = content.rfind('}') + 1
         
-    Raises:
-        ValueError: If no valid JSON content is found
-    """
-    # First try to find and extract content from code blocks
-    code_block_starts = ["```json", "```"]
-    for block_start in code_block_starts:
-        start_idx = content.find(block_start)
-        if start_idx != -1:
-            # Find the end of the code block
-            end_idx = content.find("```", start_idx + len(block_start))
-            if end_idx != -1:
-                # Extract content between the markers
-                block_content = content[start_idx + len(block_start):end_idx].strip()
-                if block_content:  # If we found content, try to parse it
-                    try:
-                        # Verify it's valid JSON
-                        json.loads(block_content)
-                        return block_content
-                    except json.JSONDecodeError:
-                        pass  # If invalid, continue searching
-    
-    # If no valid JSON found in code blocks, try to find JSON in the raw text
-    json_start = content.find('{')
-    if json_start == -1:
-        raise ValueError("No JSON found in response")
-    
-    # Try to parse JSON starting from each { until we find valid JSON
-    while json_start != -1:
-        try:
-            # Find matching closing brace
-            stack = []
-            i = json_start
-            while i < len(content):
-                if content[i] == '{':
-                    stack.append('{')
-                elif content[i] == '}':
-                    if not stack:
-                        break
-                    stack.pop()
-                    if not stack:  # Found matching brace
-                        potential_json = content[json_start:i+1]
-                        json.loads(potential_json)  # Validate JSON
-                        return potential_json
-                i += 1
+        if start_idx != -1 and end_idx != 0:
+            json_content = content[start_idx:end_idx]
+            # Validate that we extracted valid JSON
+            json.loads(json_content)  # This will raise JSONDecodeError if invalid
+            return json_content
             
-            # If we didn't find valid JSON, try next {
-            json_start = content.find('{', json_start + 1)
-        except json.JSONDecodeError:
-            # Try next {
-            json_start = content.find('{', json_start + 1)
-    
-    raise ValueError("No valid JSON found in response")
+        raise ValueError("No valid JSON found in response")
 
 def validate_field_values(parsed_response: Dict[str, Dict[str, Any]]) -> None:
     """Validate that all fields have correct confidence and validation values.
     
     Args:
-        parsed_response: Dictionary of field data from LLM
+        parsed_response: Dictionary containing 'update' and 'validation' sections
         
     Raises:
         ValueError: If any field has invalid confidence or validation values
+        TypeError: If response structure is invalid
     """
-    for field_name, field_data in parsed_response.items():
-        if field_data["confidence"] not in ["High", "Medium", "Low"]:
-            raise ValueError(f"Invalid confidence value for field {field_name}")
-        if field_data["validation"] not in ["Valid", "Needs Validation"]:
-            raise ValueError(f"Invalid validation value for field {field_name}")
-
-def normalize_field_values(parsed_response: Dict[str, Dict[str, Any]]) -> None:
-    """Convert any complex values (lists, dicts) to JSON strings in-place.
+    if not isinstance(parsed_response, dict):
+        raise TypeError(f"Expected dictionary, got {type(parsed_response)}")
+        
+    if "update" not in parsed_response or "validation" not in parsed_response:
+        raise ValueError("Response must contain both 'update' and 'validation' sections")
+        
+    update_section = parsed_response["update"]
+    validation_section = parsed_response["validation"]
     
-    Args:
-        parsed_response: Dictionary of field data to normalize
-    """
-    for field_data in parsed_response.values():
-        if isinstance(field_data["value"], (list, dict)):
-            field_data["value"] = json.dumps(field_data["value"])
-        else:
-            field_data["value"] = str(field_data["value"])
+    if not isinstance(update_section, dict) or not isinstance(validation_section, dict):
+        raise TypeError("Both 'update' and 'validation' sections must be dictionaries")
+    
+    # Validate that each field in update has corresponding validation
+    for field_name in update_section:
+        if field_name not in validation_section:
+            raise ValueError(f"Missing validation info for field '{field_name}'")
+            
+        field_validation = validation_section[field_name]
+        if not isinstance(field_validation, dict):
+            raise TypeError(f"Validation data for '{field_name}' must be a dictionary")
+            
+        if "confidence" not in field_validation:
+            raise ValueError(f"Missing 'confidence' in validation for '{field_name}'")
+            
+        if "validation" not in field_validation:
+            raise ValueError(f"Missing 'validation' in validation for '{field_name}'")
+            
+        if field_validation["confidence"] not in ["High", "Medium", "Low"]:
+            raise ValueError(f"Invalid confidence value '{field_validation['confidence']}' for field '{field_name}'. Must be one of: High, Medium, Low")
+            
+        if field_validation["validation"] not in ["Valid", "Needs Validation"]:
+            raise ValueError(f"Invalid validation value '{field_validation['validation']}' for field '{field_name}'. Must be one of: Valid, Needs Validation")
 
 def get_invalid_fields(fields_data: Dict[str, Dict[str, str]]) -> List[str]:
     """Get list of fields that still need validation.

@@ -5,25 +5,16 @@ import logging
 from fastapi import APIRouter, Request, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from langchain_core.messages import HumanMessage
 
 from agent.utils import (
-    langchain_to_chat_message,
     get_user_id,
-    parse_input,
     message_generator
 )
-from agent.graph import create_agent_graph
 from dependencies import get_db_checkpointer, get_ticketing_factory, get_thread_repository, get_project_service, get_api_key_repository
-from middleware import auth_middleware
 from services.ticketing.factory import TicketingClientFactory
 from repositories import ThreadRepository, APIKeyRepository
 from services import ProjectService
-from agent.graph import AgentState
-from schemas import APIKeySchema
-from typing import Callable
 
-from langgraph.types import Command
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
@@ -45,55 +36,6 @@ async def get_threads(
         "count": len(threads)
     }
 
-@router.post("/invoke")
-async def invoke(
-    request: Request, 
-    user_input: dict,
-    checkpointer: AsyncPostgresSaver = Depends(get_db_checkpointer),
-    thread_repo: ThreadRepository = Depends(get_thread_repository),
-    project_service: ProjectService = Depends(get_project_service),
-    api_key_repository: APIKeyRepository = Depends(get_api_key_repository)
-) -> dict:
-    """Invoke an agent with user input to retrieve a final response."""
-    user_id = get_user_id(request)
-    
-    if not user_input.get("message"):
-        raise HTTPException(status_code=400, detail="Message is required")
-    
-    if not user_input.get("project_id"):
-        raise HTTPException(status_code=400, detail="Project ID is required")
-    
-    project = await project_service.get_project_by_id(user_id, user_input.get("project_id"))
-    api_key = await api_key_repository.get_by_project_id(project.id)
-    
-    # Create graph instance
-    graph = create_agent_graph(checkpointer)
-    
-    # Check if this is a resume command
-    if user_input["message"].startswith("Command(resume="):
-        resume_value = user_input["message"].split("Command(resume=")[1].strip('")')
-        initial_state = Command(resume=resume_value)
-    else:
-        my_message, config, _ = await parse_input(user_input, user_id, checkpointer, thread_repo)
-        initial_state = AgentState(
-            messages=my_message,
-            project_data={
-                "id": project.id,
-                "name": project.name,
-            },
-            api_key=api_key
-        )
-    
-    response = await graph.ainvoke(initial_state, config)
-    
-    # Include thread_id in response
-    thread_id = config["configurable"]["thread_id"]
-    message = dict(langchain_to_chat_message(response["messages"][-1]))
-    return {
-        "message": message,
-        "thread_id": thread_id
-    }
-
 @router.post("/stream")
 async def stream(
     request: Request,
@@ -109,8 +51,9 @@ async def stream(
     if not user_input.get("project_id"):
         raise HTTPException(status_code=400, detail="Project ID is required")
     
-    if not user_input.get("message"):
-        raise HTTPException(status_code=400, detail="Message is required")
+    # if the message is empty, check if the "action" is present
+    if not (user_input.get("message") or user_input.get("action")):
+        raise HTTPException(status_code=400, detail="Message or action is required")
     
     project = await project_service.get_project_by_id(user_id, user_input.get("project_id"))
     api_key = await api_key_repository.get_by_project_id(project.id)

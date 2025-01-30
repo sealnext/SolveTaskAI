@@ -1,51 +1,57 @@
-from langchain_openai import ChatOpenAI
-from langgraph.graph import StateGraph
-from langchain_core.tools import tool
+# Standard library imports
+import logging
+from typing import Any, Literal, Optional, Union
+
+# Third-party imports
+from langchain_core.messages import AnyMessage, FunctionMessage
 from langchain_core.runnables import RunnableConfig
-from typing import Optional, Literal
+from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel
-from langchain_core.messages import FunctionMessage
-from agent.state import AgentState
+
+# Local application imports
 from agent.configuration import AgentConfiguration
+from agent.state import AgentState
+from agent.ticket_agent.graph import create_ticket_agent
+from agent.ticket_tool.graph import TicketState
 from config.logger import auto_log
-from agent.schema import TicketToolInput
-import logging
-from agent.ticket_tool.graph import create_ticket_graph
-from typing import Union, Any
-from langchain_core.messages import (
-    AnyMessage,
-)
-logger = logging.getLogger(__name__)
 from services.ticketing.client import BaseTicketingClient
 
-# Create the ticket subgraph once
-# ticket_graph = create_ticket_graph()
-from agent.ticket_tool.graph import TicketState
+# Logger setup
+logger = logging.getLogger(__name__)
 
-@tool(args_schema=TicketToolInput)
+@tool
 @auto_log("graph.ticket_tool")
-async def ticket_tool(
-    action: Literal["edit", "create", "delete"],
-    detailed_query: str,
-    ticket_id: str,
-    config: RunnableConfig,
-) -> FunctionMessage:
-    """
-    Tool for ticket operations using a subgraph implementation.
+async def ticket_tool(action: Literal["create", "edit", "delete"], ticket_id: str, detailed_query: str):
+    """Tool for handling complex ticket operations.
     
-    Args:
-        action: Must be one of: "edit", "create", "delete"
-        detailed_query: Detailed description of the ticket operation
-        ticket_id: The ID of the ticket (required for edit and delete actions)
+    Parameters:
+    - action: create, edit, delete
+    - ticket_id: the id of the ticket to be created, edited or deleted
+    - detailed_query: the detailed query to be used for the ticket
     """
+    
+    # This tool serves as a declarative interface for the ticket_tool subgraph.
+    # While it appears as a standard tool to the LLM, it actually orchestrates
+    # a more complex workflow by routing to the dedicated ticket_tool node.
+    # The actual implementation is handled by the ticket_tool subgraph, with
+    # flow control managed by the tools_condition function which directs
+    # tool calls to the appropriate node.
+    
+    # We use this approach because LangGraph automatically handles checkpointer propagation
+    # to child sub-graphs, eliminating the need for manual implementation. However, LangGraph
+    # has limitations when sub-graphs are manually invoked from tools, which is why we need
+    # this specific architecture.
+    return {}
 
 @tool
 @auto_log("graph.mock_retrieve_tool")
 def mock_retrieve_tool(state: TicketState, config: RunnableConfig) -> FunctionMessage:
     """Mock tool that simulates retrieving data from a ticket."""
-    return FunctionMessage(content="The weather is 30grade celsius", name="mock_retrieve_tool")
+    return FunctionMessage(content="The information you need cannot be retrieved", name="mock_retrieve_tool")
 
 @auto_log("graph.call_model")
 async def call_model(state: AgentState, config: RunnableConfig):
@@ -54,16 +60,13 @@ async def call_model(state: AgentState, config: RunnableConfig):
     agent_config = AgentConfiguration()
     llm = ChatOpenAI(model=agent_config.model, temperature=agent_config.temperature)
     llm_with_tools = llm.bind_tools([mock_retrieve_tool, ticket_tool])
-    logger.error(f"CHECK ALL MESSAGES: {messages}")
     response = await llm_with_tools.ainvoke(messages)
-    
-    return {
-        "messages": [response]
-    }
+    logger.error(f"after llm_with_tools: {response}")
+    return {"messages": [response]}
 
 def tools_condition(
     state: Union[list[AnyMessage], dict[str, Any], BaseModel],
-) -> Literal["tools", "__end__", "ticket_tool"]:
+) -> Literal["tools", "ticket_tool", "__end__"]:
     if isinstance(state, list):
         ai_message = state[-1]
     elif isinstance(state, dict) and (messages := state.get("messages", [])):
@@ -72,9 +75,11 @@ def tools_condition(
         ai_message = messages[-1]
     else:
         raise ValueError(f"No messages found in input state to tool_edge: {state}")
-    if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0 and ai_message.tool_calls[0]['name'] == 'ticket_tool':
-        return "ticket_tool"
+    
     if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0:
+        tool_name = ai_message.tool_calls[0]['name']
+        if tool_name == "ticket_tool":
+            return "ticket_agent"
         return "tools"
     return "__end__"
 
@@ -85,19 +90,23 @@ def create_agent_graph(
     """Create a new agent graph instance."""
     builder = StateGraph(AgentState)
     
-    # Doar mock_retrieve_tool în ToolNode
     tool_node = ToolNode([mock_retrieve_tool, ticket_tool])
 
-    # Add nodes
     builder.add_node("agent", call_model)
     builder.add_node("tools", tool_node)
-    builder.add_node("ticket_tool", create_ticket_graph(ticketing_client))
-    
-    # Add edges
+    builder.add_node("ticket_agent", create_ticket_agent)
+
     builder.set_entry_point("agent")
-    builder.add_conditional_edges("agent", tools_condition)
+    builder.add_conditional_edges(
+        "agent", 
+        tools_condition,
+        {
+            "tools": "tools",
+            "ticket_agent": "ticket_agent",
+            "__end__": "__end__"
+        }
+    )
     builder.add_edge("tools", "agent")
-    builder.add_edge("ticket_tool", "agent")
 
     graph = builder.compile(checkpointer=checkpointer)
     logger.info(f"Graph created successfully: {graph}")
