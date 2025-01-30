@@ -154,11 +154,13 @@ async def message_generator(
     ticketing_client: BaseTicketingClient
 ) -> AsyncGenerator[str, None]:
     try:
-        my_message, config, run_id, thread_id = await parse_input(user_input, user_id, checkpointer, thread_repo)
+        logger.info("Starting message_generator")
         
-        graph = create_agent_graph(checkpointer, ticketing_client)
-        yield f"data: {json.dumps({'type': 'init', 'thread_id': str(thread_id)})}\n\n"
+        logger.info("Parsing input...")
+        my_message, config, run_id, thread_id = await parse_input(user_input, user_id, checkpointer, thread_repo)
+        logger.info(f"Input parsed successfully. Thread ID: {thread_id}")
 
+        graph = create_agent_graph(checkpointer, ticketing_client)
         my_message = HumanMessage(content=user_input["message"])
         
         if user_input.get("action") == "continue":
@@ -189,19 +191,35 @@ async def message_generator(
                 continue
 
             if event.get('event') == 'on_chain_stream':
-                if '__interrupt__' in event.get('data', {}).get('chunk', {}):
-                    interrupt = event['data']['chunk']['__interrupt__'][0]
-                    interrupt_data = interrupt.value
-                    resumable = interrupt.resumable
-                    yield f"data: {json.dumps({'type': 'interrupt', 'resumable': resumable, 'content': interrupt_data})}\n\n"
+                chunk = event.get('data', {}).get('chunk', {})
+                if isinstance(chunk, tuple) and len(chunk) == 2 and isinstance(chunk[1], dict):
+                    interrupt_data = chunk[1].get('__interrupt__')
+                    if interrupt_data and isinstance(interrupt_data, tuple) and len(interrupt_data) > 0:
+                        interrupt = interrupt_data[0]
+                        if hasattr(interrupt, 'value') and hasattr(interrupt, 'resumable'):
+                            yield f"data: {json.dumps({
+                                'type': 'interrupt', 
+                                'resumable': interrupt.resumable, 
+                                'content': interrupt.value,
+                                'thread_id': str(thread_id)
+                            })}\n\n"
+                            continue
 
             elif event.get('event') == 'on_chat_model_stream':
                 chunk = event['data']['chunk']
                 if chunk.content:
-                    yield f"data: {json.dumps({'type': 'stream', 'content': chunk.content})}\n\n"
+                    yield f"data: {json.dumps({
+                        'type': 'stream', 
+                        'content': chunk.content,
+                        'thread_id': str(thread_id)
+                    })}\n\n"
 
-        yield "data: [DONE]\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'thread_id': str(thread_id)})}\n\n"
 
     except Exception as e:
         logger.error(f"Error in message generator: {e}", exc_info=True)
-        yield f"data: {json.dumps({'type': 'error', 'content': str(e), 'thread_id': thread_id})}\n\n"
+        yield f"data: {json.dumps({
+            'type': 'error', 
+            'content': str(e), 
+            'thread_id': str(thread_id)
+        })}\n\n"

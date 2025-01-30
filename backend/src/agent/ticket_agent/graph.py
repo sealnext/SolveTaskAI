@@ -11,6 +11,7 @@ from langgraph.prebuilt import ToolNode
 from services.ticketing.client import BaseTicketingClient
 from langgraph.types import interrupt, Command
 from langgraph.prebuilt import InjectedState
+from langchain_core.tools.base import InjectedToolCallId
 from typing import Sequence
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from enum import Enum
@@ -33,6 +34,7 @@ class TicketAgentState(BaseModel):
     detailed_query: Optional[str] = None
     original_tool_call: Optional[Dict[str, Any]] = None
     review_config: Optional[Dict[str, Any]] = None
+    needs_review: bool = False
 
 class ReviewAction(str, Enum):
     CONTINUE = "continue"
@@ -67,13 +69,11 @@ def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None) -> St
         detailed_query: str,
         ticket_id: str,
         action: str,
+        tool_call_id: Annotated[str, InjectedToolCallId],
         state: Annotated[TicketAgentState, InjectedState],
-    ) -> Dict[str, Any]:
+    ) -> Command:
         """Tool for editing tickets."""
         
-        last_message = state.messages[-1]
-        current_tool_call = last_message.tool_calls[0]
-
         # Configure the review as a plain dict
         review_config = {
             "question": f"Review changes for ticket {ticket_id}:",
@@ -85,21 +85,20 @@ def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None) -> St
             }
         }
         
-        # Create a ToolMessage with the review configuration
-        tool_message = ToolMessage(
-            content="Review required for ticket changes",
-            tool_call_id=current_tool_call['id'],
-            name="edit_ticket",
-            additional_kwargs={
-                "review_required": True,
-                "review_config": review_config
+        # Return Command to update multiple state fields
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        content="Review required for ticket changes",
+                        tool_call_id=tool_call_id,
+                        name="edit_ticket"
+                    )
+                ],
+                "review_config": review_config,
+                "needs_review": True
             }
         )
-        
-        return {
-            "messages": [tool_message],
-            "review_config": review_config
-        }
 
     @tool(args_schema=TicketToolInput)
     @auto_log("ticket_agent.delete_ticket")
@@ -205,11 +204,11 @@ Remember to use these exact parameters:
         
         last_msg = state.messages[-1]
         
-        # Check for review required in ToolMessage
+        # Check state for review flag instead of message metadata
+        if state.needs_review:
+            return "handle_review"
+        
         if isinstance(last_msg, ToolMessage):
-            if last_msg.additional_kwargs.get("review_required"):
-                return "handle_review"
-            
             if last_msg.tool_call_id and last_msg.tool_call_id.startswith(f"{state.action}_tool_"):
                 return "format_response"
             return "tools"
