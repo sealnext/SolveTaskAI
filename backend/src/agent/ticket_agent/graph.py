@@ -21,6 +21,7 @@ from langgraph.errors import GraphInterrupt
 from langgraph.graph import add_messages
 from langchain_core.callbacks import dispatch_custom_event
 import json
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,49 @@ class ReviewConfig(TypedDict):
     available_actions: list[ReviewAction]  # Actions available for this operation
     details: OperationDetails       # Operation specific details
     metadata: Optional[dict[str, Any]] # Additional metadata
+
+def clean_json_response(raw_response: str) -> dict:
+    """
+    Extract and clean JSON content from LLM response containing:
+    - <json_output> tags
+    - Potential code comments
+    - Extra text outside JSON
+    
+    Example input:
+    Here's the suggested update:
+    <json_output>
+    {
+        // This is a comment
+        "update": {
+            "priority": "High" /* inline comment */
+        },
+        "validation": {...}
+    }
+    </json_output>
+    Please review carefully.
+    """
+    # Extract content between <json_output> tags
+    json_matches = re.findall(r'<json_output>(.*?)</json_output>', raw_response, re.DOTALL)
+    if not json_matches:
+        raise ValueError("No valid JSON output found in response")
+
+    # Take the last JSON block if multiple present
+    json_content = json_matches[-1].strip()
+    
+    # Remove line comments and inline comments
+    cleaned = '\n'.join([
+        line.split('//')[0].split('#')[0].strip() 
+        for line in json_content.split('\n') 
+        if not line.strip().startswith('//')
+    ])
+    # Remove /* */ comments
+    cleaned = re.sub(r'/\*.*?\*/', '', cleaned, flags=re.DOTALL)
+    
+    # Remove trailing commas
+    cleaned = re.sub(r',\s*}', '}', cleaned)
+    cleaned = re.sub(r',\s*]', ']', cleaned)
+    
+    return json.loads(cleaned)
 
 def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None, client: BaseTicketingClient = None) -> StateGraph:
     """Create a new ticket agent graph instance."""
@@ -130,8 +174,7 @@ def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None, clien
         agent_config = AgentConfiguration()
         llm = ChatOpenAI(
             model=agent_config.model, 
-            temperature=agent_config.temperature,
-            model_kwargs={'response_format': {"type": "json_object"}}
+            temperature=agent_config.temperature
         )
         
         response = await llm.ainvoke([
@@ -145,7 +188,8 @@ def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None, clien
 
         # 3. Parse and validate LLM response
         try:
-            field_updates = json.loads(response.content)
+            # Replace direct json.loads with cleanup function
+            field_updates = clean_json_response(response.content)
             
             # Basic validation
             if not isinstance(field_updates, dict):
@@ -153,11 +197,23 @@ def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None, clien
             if "update" not in field_updates or "validation" not in field_updates:
                 raise ValueError("Missing required sections in LLM response")
             
-            # Validate fields exist in JIRA
-            unknown_fields = [
-                field for field in field_updates['update']
-                if field not in available_fields
-            ]
+            # Validate fields exist in JIRA for both 'update' and 'fields' sections
+            unknown_fields = []
+            
+            # Check fields section
+            if "fields" in field_updates:
+                unknown_fields.extend([
+                    field for field in field_updates['fields']
+                    if field not in available_fields
+                ])
+            
+            # Check update section
+            if "update" in field_updates:
+                unknown_fields.extend([
+                    field for field in field_updates['update']
+                    if field not in available_fields
+                ])
+            
             if unknown_fields:
                 raise ValueError(f"Unknown Jira fields: {', '.join(unknown_fields)}")
             
