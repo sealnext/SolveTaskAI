@@ -1,12 +1,12 @@
 from agent.configuration import AgentConfiguration
-from .prompts import EDIT_TICKET_SYSTEM_PROMPT, EDIT_TICKET_USER_PROMPT_TEMPLATE, JSON_EXAMPLE
+from .prompts import EDIT_TICKET_SYSTEM_PROMPT, EDIT_TICKET_USER_PROMPT_TEMPLATE, JSON_EXAMPLE, TICKET_AGENT_PROMPT
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END, START
 from langchain_core.tools import tool
 from langchain_core.runnables import RunnableConfig
 from typing import Optional, Literal, Dict, Union, Any, TypedDict, Annotated
 from pydantic import BaseModel, Field
-from langchain_core.messages import FunctionMessage, ToolMessage, AnyMessage, AIMessage, HumanMessage
+from langchain_core.messages import FunctionMessage, ToolMessage, AnyMessage, AIMessage, HumanMessage, SystemMessage
 from config.logger import auto_log
 import logging
 from langgraph.prebuilt import ToolNode
@@ -33,11 +33,12 @@ class TicketToolInput(BaseModel):
 
 class TicketAgentState(BaseModel):
     """State for the ticket agent."""
-    messages: Sequence[AnyMessage]
+    messages: Annotated[Sequence[AnyMessage], add_messages]
+    internal_messages: Annotated[Sequence[AnyMessage], add_messages]
+    
     action: Optional[str] = None
     ticket_id: Optional[str] = None
     detailed_query: Optional[str] = None
-    original_tool_call: Optional[Dict[str, Any]] = None
     review_config: Optional[Dict[str, Any]] = None
     needs_review: bool = False
 
@@ -118,7 +119,10 @@ def clean_json_response(raw_response: str) -> dict:
     
     return json.loads(cleaned)
 
-def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None, client: BaseTicketingClient = None) -> StateGraph:
+def create_ticket_agent(
+    checkpointer: Optional[AsyncPostgresSaver] = None, 
+    client: BaseTicketingClient = None
+) -> StateGraph:
     """Create a new ticket agent graph instance."""
     
     if client is None:
@@ -153,110 +157,193 @@ def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None, clien
         state: Annotated[TicketAgentState, InjectedState],
         config: RunnableConfig,
     ) -> Command:
-        """Tool for editing tickets."""
-        
-        # 1. Get JIRA metadata and current values
-        metadata = await client.get_ticket_edit_issue_metadata(ticket_id)
-        available_fields = {}
-        for field_key, field_info in metadata['fields'].items():
-            field_dict = field_info.copy()
-            field_dict = {k: v for k, v in field_dict.items() if v is not None and v != {}}
-            if field_dict:
-                available_fields[field_key] = field_dict
-
-        current_values = await client.get_ticket_fields(ticket_id, list(available_fields.keys()))
-        
-        # Add current values to metadata
-        for field_key in available_fields:
-            available_fields[field_key]['current_value'] = current_values.get(field_key)
-
-        # 2. Use LLM to generate edit plan
-        agent_config = AgentConfiguration()
-        llm = ChatOpenAI(
-            model=agent_config.model, 
-            temperature=agent_config.temperature
-        )
-        
-        response = await llm.ainvoke([
-            {"role": "system", "content": EDIT_TICKET_SYSTEM_PROMPT},
-            {"role": "user", "content": EDIT_TICKET_USER_PROMPT_TEMPLATE.format(
-                detailed_query=detailed_query,
-                available_fields=available_fields,
-                json_example=JSON_EXAMPLE
-            )}
-        ])
-
-        # 3. Parse and validate LLM response
+        """Tool for editing JIRA tickets."""
         try:
-            # Replace direct json.loads with cleanup function
-            field_updates = clean_json_response(response.content)
+            # Notify about starting the process
+            dispatch_custom_event(
+                "agent_progress",
+                {
+                    "message": f"Mapping requested changes for ticket {ticket_id}...",
+                    "ticket_id": ticket_id
+                },
+                config=config
+            )
+
+            # Get JIRA metadata and current values
+            metadata = await client.get_ticket_edit_issue_metadata(ticket_id)
+            available_fields = {}
+            for field_key, field_info in metadata['fields'].items():
+                field_dict = field_info.copy()
+                field_dict = {k: v for k, v in field_dict.items() if v is not None and v != {}}
+                if field_dict:
+                    available_fields[field_key] = field_dict
+
+            current_values = await client.get_ticket_fields(ticket_id, list(available_fields.keys()))
             
-            # Basic validation
-            if not isinstance(field_updates, dict):
-                raise ValueError("LLM response is not a dictionary")
-            if "update" not in field_updates or "validation" not in field_updates:
-                raise ValueError("Missing required sections in LLM response")
+            # Add current values to metadata
+            for field_key in available_fields:
+                available_fields[field_key]['current_value'] = current_values.get(field_key)
+
+            # Use LLM to generate edit plan
+            agent_config = AgentConfiguration()
+            llm = ChatOpenAI(
+                model=agent_config.model, 
+                temperature=agent_config.temperature
+            )
             
-            # Validate fields exist in JIRA for both 'update' and 'fields' sections
-            unknown_fields = []
-            
-            # Check fields section
-            if "fields" in field_updates:
-                unknown_fields.extend([
-                    field for field in field_updates['fields']
-                    if field not in available_fields
-                ])
-            
-            # Check update section
-            if "update" in field_updates:
-                unknown_fields.extend([
-                    field for field in field_updates['update']
-                    if field not in available_fields
-                ])
-            
-            if unknown_fields:
-                raise ValueError(f"Unknown Jira fields: {', '.join(unknown_fields)}")
-            
+            response = await llm.ainvoke([
+                {"role": "system", "content": EDIT_TICKET_SYSTEM_PROMPT},
+                {"role": "user", "content": EDIT_TICKET_USER_PROMPT_TEMPLATE.format(
+                    detailed_query=detailed_query,
+                    available_fields=available_fields,
+                    json_example=JSON_EXAMPLE
+                )}
+            ])
+
+            # Parse and validate LLM response
+            try:
+                field_updates = clean_json_response(response.content)
+                
+                # Basic validation
+                if not isinstance(field_updates, dict):
+                    raise ValueError("LLM response is not a dictionary")
+                if "update" not in field_updates or "validation" not in field_updates:
+                    raise ValueError("Missing required sections in LLM response")
+                
+                # Check for unknown fields
+                unknown_fields = []
+                
+                # Check fields section
+                if "fields" in field_updates:
+                    unknown_fields.extend([
+                        field for field in field_updates['fields']
+                        if field not in available_fields
+                    ])
+                
+                # Check update section
+                if "update" in field_updates:
+                    unknown_fields.extend([
+                        field for field in field_updates['update']
+                        if field not in available_fields
+                    ])
+                
+                # Process unknown fields if any...
+                if unknown_fields:
+                    # Extract values from unknown fields and append to description only if description exists
+                    description_additions = []
+                    for field in unknown_fields:
+                        field_value = field_updates.get('fields', {}).get(field) or field_updates.get('update', {}).get(field)
+                        if field_value:
+                            description_additions.append(f"{field}: {json.dumps(field_value, indent=2)}")
+                    
+                    # Only append to description if it exists in field_updates
+                    if description_additions:
+                        description_exists = False
+                        current_description = ""
+                        
+                        # Check if description is being set in fields
+                        if 'fields' in field_updates and 'description' in field_updates['fields']:
+                            description_exists = True
+                            current_description = field_updates['fields']['description']
+                        # Check if description is being set in update
+                        elif 'update' in field_updates and 'description' in field_updates['update']:
+                            description_exists = True
+                            for update in field_updates['update']['description']:
+                                if 'set' in update:
+                                    current_description = update['set']
+                                    break
+                        
+                        # Only modify description if it exists in updates
+                        if description_exists:
+                            new_content = "\n\n".join([
+                                current_description,
+                                "Additional context from unmapped fields:",
+                                *description_additions
+                            ]).strip()
+                            
+                            # Update in the same section where it was found
+                            if 'fields' in field_updates and 'description' in field_updates['fields']:
+                                field_updates['fields']['description'] = new_content
+                            elif 'update' in field_updates and 'description' in field_updates['update']:
+                                field_updates['update']['description'] = [
+                                    {"set": new_content}
+                                ]
+                            
+                            # Add validation entries only for modified description
+                            if 'validation' not in field_updates:
+                                field_updates['validation'] = {}
+                            
+                            field_updates['validation']['description'] = {
+                                "confidence": "Medium",
+                                "validation": "Modified to include unmapped fields"
+                            }
+                    
+                    # Clean unknown fields from both sections
+                    for section in ['fields', 'update']:
+                        if section in field_updates:
+                            field_updates[section] = {
+                                k: v for k, v in field_updates[section].items() 
+                                if k in available_fields
+                            }
+                
+                # Setup review config
+                review_config = {
+                    "question": f"Review changes for ticket {ticket_id}:",
+                    "tool_call": state.messages[-1].tool_calls[0],
+                    "tool_call_id": tool_call_id,  # Use injected tool_call_id
+                    "operation_type": "edit",
+                    "available_actions": [
+                        ReviewAction.CONTINUE,
+                        ReviewAction.UPDATE_FIELDS,
+                        ReviewAction.MODIFY_CHANGES,
+                        ReviewAction.CANCEL
+                    ],
+                    "details": {
+                        "changes_description": detailed_query,
+                        "field_updates": field_updates,
+                        "api_mappings": available_fields,
+                        "metadata": {
+                            "ticket_id": ticket_id,
+                            "original_description": detailed_query,
+                        }
+                    }
+                }
+
+                return Command(
+                    goto="handle_review",
+                    update={
+                        "review_config": review_config,
+                        "needs_review": True
+                    }
+                )
+                
+            except Exception as e:
+                logger.error(f"Error processing LLM response: {str(e)}")
+                return Command(
+                    update={
+                        "internal_messages": [
+                            ToolMessage(
+                                content=f"Failed to process field updates: {str(e)}",
+                                tool_call_id=tool_call_id,
+                                name="edit_ticket"
+                            )
+                        ]
+                    }
+                )
+                
         except Exception as e:
-            logger.error(f"Error processing LLM response: {str(e)}")
-            raise ValueError(f"Failed to process field updates: {str(e)}")
-
-        # 4. Setup review config
-        review_config = {
-            "question": f"Review changes for ticket {ticket_id}:",
-            "tool_call": state.original_tool_call,
-            "tool_call_id": state.original_tool_call['id'],
-            "operation_type": "edit",
-            "available_actions": [
-                ReviewAction.CONTINUE,
-                ReviewAction.UPDATE_FIELDS,
-                ReviewAction.MODIFY_CHANGES,
-                ReviewAction.CANCEL
-            ],
-            "details": {
-                "changes_description": detailed_query,
-                "field_updates": field_updates,
-                "api_mappings": available_fields
-            },
-            "metadata": {
-                "ticket_id": ticket_id,
-                "original_description": detailed_query,
-            }
-        }
-
-        return Command(
-            update={
-                "messages": [
-                    ToolMessage(
-                        content="Review required for ticket changes",
-                        tool_call_id=tool_call_id,
-                        name="edit_ticket"
-                    )
-                ],
-                "review_config": review_config,
-                "needs_review": True
-            }
-        )
+            logger.error(f"Error in edit_ticket: {str(e)}")
+            return Command(
+                update={
+                    "internal_messages": [
+                        ToolMessage(
+                            content=f"Error processing edit request: {str(e)}",
+                            tool_call_id=tool_call_id,
+                            name="edit_ticket"
+                        )
+                    ]
+                }
+            )
 
     @tool(args_schema=TicketToolInput)
     @auto_log("ticket_agent.delete_ticket")
@@ -278,113 +365,131 @@ def create_ticket_agent(checkpointer: Optional[AsyncPostgresSaver] = None, clien
         tool_call_id = config.get("tool_call_id")
         return ToolMessage(content="Ticket deleted successfully", tool_call_id=tool_call_id)
     
+    @tool
+    async def search_jira_entity(
+        entity_type: Literal["account", "sprint", "issue"],
+        value: str
+    ) -> str:
+        """
+        Search for a Jira entity by specified criteria.
+        
+        Parameters:
+        - entity_type: account, sprint, issue, epic, project
+        - value: the value to search for
+        """
+        try:
+            match entity_type:
+                case "account":
+                    result = await client.search_user(value)
+                    total = result.get("total", 0)
+                    users = result.get("users", [])
+
+                    if total == 1:
+                        return f"Success! Use this accountId instead of the username: {users[0]['accountId']}"
+                    elif total > 1:
+                        user_list = "\n".join([
+                            f"- {user['displayName']}: {user['accountId']}"
+                            for user in users
+                        ])
+                        return (
+                            "There are multiple accounts that may match the name, "
+                            "please use only the accountId for the most relevant name:\n"
+                            f"{user_list}"
+                        )
+                    else:
+                        return f"No accounts found matching '{value}'. Please verify the username and try again."
+                case "sprint":
+                    result = await client.find_sprint_by_name(
+                        sprint_name=value
+                    )
+                case "issue":
+                    result = await client.search_issue_by_name(
+                        issue_name=value,
+                        max_results=5
+                    )
+                    total = result.get("total", 0)
+                    issues = result.get("issues", [])
+
+                    if total == 1:
+                        issue = issues[0]
+                        return f"Success! Use this issue reference - Key: {issue['key']}"
+                    elif total > 1:
+                        issue_list = "\n".join([
+                            f"- {issue['fields']['summary']}\n  Key: {issue['key']}"
+                            for issue in issues
+                        ])
+                        return (
+                            "Multiple matching issues found. Please use the most relevant Key:\n"
+                            f"{issue_list}"
+                        )
+                    else:
+                        return f"No issues found matching '{value}'. Please verify the issue name and try again."
+                case _:
+                    raise ValueError(f"Unsupported entity type: {entity_type}")
+            result = f"Successfully found entity, please use the id from the response instead of the raw names: {result}"
+            
+            return result
+            
+        except Exception as e:
+            return f"Search failed: {e}"
+
     builder = StateGraph(TicketAgentState)
     
-    prep_tools = ToolNode([create_ticket, edit_ticket, delete_ticket])
+    prep_tools = ToolNode(
+        tools=[create_ticket, edit_ticket, delete_ticket, search_jira_entity],
+        messages_key="internal_messages"
+    )
 
     async def call_model_with_tools(state: TicketAgentState, config: RunnableConfig):
-        """Node that calls the LLM with the current state."""
+        """Node that calls the LLM with internal message history."""
         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-        
-        # Find the original tool call and keep only the last 2 relevant messages
-        original_tool_call = None
-        for i, message in enumerate(reversed(state.messages)):
-            if (isinstance(message, AIMessage) and 
-                hasattr(message, 'tool_calls') and 
-                message.tool_calls and 
-                message.tool_calls[0]['name'] == 'ticket_tool'):
-                original_tool_call = message.tool_calls[0]
-                # Keep only the human message and the tool call message
-                human_message = state.messages[len(state.messages) - 2 - i]  # Get the human message before tool call
-                state.messages = [human_message, message]
-                break
+        llm_with_tools = llm.bind_tools([create_ticket, edit_ticket, delete_ticket, search_jira_entity])
+            
+        if not state.internal_messages and state.messages[-1].tool_calls:
+            args = state.messages[-1].tool_calls[0]['args']
+            
+            # Format the ticket_id section
+            ticket_id_section = f"- Ticket ID: {args['ticket_id']}" if args.get('ticket_id') else ''
+            
+            # Create the structured prompt using the template
+            structured_prompt = TICKET_AGENT_PROMPT.format(
+                action=args.get('action', 'Not specified'),
+                query=args.get('detailed_query', 'Not specified'),
+                ticket_id_section=ticket_id_section
+            )
 
-        if not original_tool_call:
-            logger.warning("No original tool call found")
-            return {"messages": state.messages}
+            if not state.internal_messages:
+                state.internal_messages = [SystemMessage(content=structured_prompt)]
+            else:
+                # Append the new message while keeping the history
+                state.internal_messages.append(SystemMessage(content=structured_prompt))
 
-        # Extract information from the original tool call
-        args = original_tool_call['args']
-        action = args['action']
-        ticket_id = args['ticket_id']
-        detailed_query = args['detailed_query']
-
-        # Create a single concatenated message
-        context_message = f"""Original request: {human_message.content}
-
-Ticket Details:
-- Ticket ID: {ticket_id}
-- Action: {action}
-- Changes Requested: {detailed_query}"""
-
-        initial_system_message = f"""You are a ticket management assistant handling the '{action}' operation for ticket {ticket_id}.
-First handle any necessary sub-operations for this ticket."""
-        
-        final_instruction = f"""Now that you've handled the sub-operations, you must use the {action}_ticket tool 
-to complete the main operation. Include all relevant information from your previous actions in the detailed_query parameter.
-
-Remember to use these exact parameters:
-- action: "{action}"
-- ticket_id: "{ticket_id}"
-- detailed_query: <your detailed summary>"""
-
-        # Combine all into a single system message
-        combined_system_message = f"""{initial_system_message}
-
-{context_message}
-
-{final_instruction}"""
-
-        messages = [{
-            "role": "system",
-            "content": combined_system_message
-        }]
-
-        llm_with_tools = llm.bind_tools([create_ticket, edit_ticket, delete_ticket])
-        response = await llm_with_tools.ainvoke(messages)
-        
-        return {
-            "messages": [response],
-            "original_tool_call": original_tool_call
-        }
-
-    async def format_final_response(state: TicketAgentState) -> Dict[str, Any]:
-        """Final node that formats the response using the original tool call."""
-        if not state.original_tool_call:
-            logger.warning("No original tool call found in state")
-            return {"messages": []}
-
-        # Just pass through the last message
-        return {"messages": state.messages}
-
-    def should_continue(state: TicketAgentState) -> Literal["tools", "format_response", "handle_review", "__end__"]:
-        """Enhanced flow control for subgraph operations."""
-        if not state.messages:
-            return "__end__"
-        
-        last_msg = state.messages[-1]
-        
-        # Check state for review flag instead of message metadata
         if state.needs_review:
-            return "handle_review"
-        
-        if isinstance(last_msg, ToolMessage):
-            if last_msg.tool_call_id and last_msg.tool_call_id.startswith(f"{state.action}_tool_"):
-                return "format_response"
-            return "tools"
-        
-        # Continue if there are pending tool calls
-        if hasattr(last_msg, "tool_calls") and len(last_msg.tool_calls) > 0:
-            return "tools"
-        
-        return "__end__"
+            return Command(goto="handle_review", update={"internal_messages": state.internal_messages})
 
-    async def handle_review(state: Annotated[TicketAgentState, InjectedState]) -> Dict[str, Any]:
+        response = await llm_with_tools.ainvoke(state.internal_messages)
+        state.internal_messages.append(response)
+
+        if len(response.tool_calls) > 0:
+            return Command(goto="tools", update={"internal_messages": state.internal_messages})
+        
+        return {"messages": [ToolMessage(content=response.content, tool_call_id=state.messages[-1].tool_calls[0]["id"])]}
+        
+    async def handle_review(state: Annotated[TicketAgentState, InjectedState]) -> Command | dict[str, Any]:
         """Review handler node that manages the review process and processes the response."""
         try:
             if not state.review_config:
                 logger.error("No review_config found in state or last message")
-                raise ValueError("No review configuration available")
+                return Command(
+                    update={
+                        "messages": [
+                            ToolMessage(
+                                content="Error: No review configuration available",
+                                tool_call_id=state.messages[-1].tool_calls[0]["id"]
+                            )
+                        ]
+                    }
+                )
             
             review_config = state.review_config
             # Define available actions with their formats
@@ -432,20 +537,40 @@ Remember to use these exact parameters:
                     case "modify_changes":
                         return await _handle_modify_changes_action(state, review_config["details"], human_review)
                     case "cancel":
-                        return {
-                            "messages": [
-                                ToolMessage(
-                                    content="Edit operation cancelled",
-                                    tool_call_id=review_config["tool_call_id"]
-                                )
-                            ]
-                        }
+                        return Command(
+                            update={
+                                "messages": [
+                                    ToolMessage(
+                                        content="Edit operation cancelled",
+                                        tool_call_id=review_config["tool_call_id"]
+                                    )
+                                ]
+                            }
+                        )
                     case _:
-                        raise ValueError(f"Invalid action: {human_review['action']}")
+                        return Command(
+                            update={
+                                "messages": [
+                                    ToolMessage(
+                                        content=f"Invalid action: {human_review['action']}",
+                                        tool_call_id=review_config["tool_call_id"]
+                                    )
+                                ]
+                            }
+                        )
 
             except Exception as e:
                 logger.error(f"Error in {human_review['action']} action: {e}", exc_info=True)
-                raise ValueError(f"Error in {human_review['action']} action: {str(e)}")
+                return Command(
+                    update={
+                        "messages": [
+                            ToolMessage(
+                                content=f"Error in {human_review['action']} action: {str(e)}",
+                                tool_call_id=review_config["tool_call_id"]
+                            )
+                        ]
+                    }
+                )
 
         except GraphInterrupt as i:
             # Re-raise interrupts to be handled by the graph
@@ -453,38 +578,94 @@ Remember to use these exact parameters:
         except Exception as e:
             error_msg = f"Error handling review: {str(e)}"
             logger.error(error_msg, exc_info=True)
-            raise ValueError(error_msg)
+            return Command(
+                update={
+                    "messages": [
+                        ToolMessage(
+                            content=error_msg,
+                            tool_call_id=state.messages[-1].tool_calls[0]["id"]
+                        )
+                    ]
+                }
+            )
 
     async def _handle_continue_action(state: TicketAgentState, details: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle the continue action from review."""
-        final_message = ToolMessage(
-            content=f"Changes applied successfully on JIRA",
-            tool_call_id=state.original_tool_call["id"]
-        )
-        
-        return {
-            "messages": [final_message],  # Just return the final message
-            "needs_review": False
-        }
+        """Handle the continue action - apply changes directly to Jira."""
+        try:
+            # Create payload with only fields and update sections
+            jira_payload = {
+                'fields': details['field_updates'].get('fields', {}),
+                'update': details['field_updates'].get('update', {})
+            }
+            
+            # Get ticket ID from metadata
+            ticket_id = details['metadata']['ticket_id']
+            
+            # Call update_ticket with notify_users=False to prevent spam
+            await client.update_ticket(
+                ticket_id=ticket_id,
+                payload=jira_payload,
+                notify_users=False
+            )
+            
+            return {
+                "messages": [
+                    ToolMessage(
+                        content="Changes applied successfully to Jira",
+                        tool_call_id=state.review_config["tool_call_id"]
+                    )
+                ],
+                "needs_review": False
+            }
+        except Exception as e:
+            logger.error(f"Failed to apply changes to Jira: {e}")
+            raise ValueError(f"Failed to apply changes to Jira: {str(e)}")
 
     async def _handle_update_fields_action(
         state: TicketAgentState, 
         details: Dict[str, Any], 
         review: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Handle the update_fields action from review."""
-        field_updates = review.get("data", {}).get("field_updates", {})
-        # Update the changes with new field values
-        updated_changes = {**details["changes_description"], **field_updates}
-        
-        return {
-            "messages": [
-                ToolMessage(
-                    content=f"Updated changes for ticket {details['ticket_id']}: {updated_changes}",
-                    tool_call_id=state.review_config["tool_call_id"]
-                )
-            ]
-        }
+        """Handle updating specific field values."""
+        try:
+            # Get the new field updates from review
+            new_field_updates = review.get("data", {}).get("field_updates", {})
+            
+            # Update the original field_updates with new values
+            original_updates = details['field_updates']
+            
+            # Update fields section
+            if 'fields' in new_field_updates:
+                if 'fields' not in original_updates:
+                    original_updates['fields'] = {}
+                original_updates['fields'].update(new_field_updates['fields'])
+                
+            # Update update section
+            if 'update' in new_field_updates:
+                if 'update' not in original_updates:
+                    original_updates['update'] = {}
+                original_updates['update'].update(new_field_updates['update'])
+            
+            # Return to review with updated fields
+            return {
+                "messages": [
+                    ToolMessage(
+                        content="Fields updated. Please review the changes.",
+                        tool_call_id=state.review_config["tool_call_id"]
+                    )
+                ],
+                "review_config": {
+                    **state.review_config,
+                    "details": {
+                        **details,
+                        "field_updates": original_updates
+                    }
+                },
+                "needs_review": True
+            }
+        except Exception as e:
+            logger.error(f"Failed to update fields: {e}")
+            raise ValueError(f"Failed to update fields: {str(e)}")
 
     async def _handle_modify_changes_action(
         state: TicketAgentState, 
@@ -505,19 +686,14 @@ Remember to use these exact parameters:
             ]
         }
 
-    # Add nodes
     builder.add_node("agent", call_model_with_tools)
     builder.add_node("tools", prep_tools)
-    builder.add_node("format_response", format_final_response)
     builder.add_node("handle_review", handle_review)
 
-    # Add edges - direct path through review
     builder.set_entry_point("agent")
     builder.add_edge(START, "agent")
-    builder.add_conditional_edges("agent", should_continue)
-    builder.add_edge("tools", "handle_review")  # Always go to review first
-    builder.add_edge("handle_review", "format_response")  # After review, go back to agent
-    builder.add_edge("format_response", END)
+    builder.add_edge("tools", "agent")
+    builder.add_edge("handle_review", "agent")
 
     graph = builder.compile(checkpointer=checkpointer)
     logger.info(f"Ticket agent graph created successfully: {graph}")

@@ -11,15 +11,17 @@ class BaseTicketingClient(ABC):
     
     DEFAULT_TIMEOUT = DEFAULT_REQUEST_TIMEOUT
     
-    def __init__(self, http_client: httpx.AsyncClient, api_key: APIKeySchema):
+    def __init__(self, http_client: httpx.AsyncClient, api_key: APIKeySchema, project: Any):
         """Initialize the client with an HTTP client and API key.
         
         Args:
             http_client: Pre-configured httpx.AsyncClient with connection pooling
             api_key: API key configuration for the ticketing system
+            project: Project configuration containing project key and other details
         """
         self.http_client = http_client
         self.api_key = api_key
+        self.project = project
 
     async def _make_request(
         self, 
@@ -86,8 +88,8 @@ class BaseTicketingClient(ABC):
         raise NotImplementedError
         
     @abstractmethod
-    async def get_tickets(self, project_key: str) -> AsyncGenerator[JiraIssueSchema, None]:
-        """Get all tickets for a project."""
+    async def get_tickets(self) -> AsyncGenerator[JiraIssueSchema, None]:
+        """Get all tickets for the project."""
         raise NotImplementedError
         
     @abstractmethod
@@ -104,6 +106,21 @@ class BaseTicketingClient(ABC):
     async def get_ticket_edit_issue_metadata(self, ticket_id: str) -> dict:
         """Get the metadata for editing a ticket."""
         raise NotImplementedError
+    
+    @abstractmethod
+    async def search_user(self, query: str) -> dict:
+        """Search for a user by name."""
+        raise NotImplementedError
+    
+    @abstractmethod
+    async def find_sprint_by_name(self, sprint_name: str) -> dict:
+        """Find a sprint by name."""
+        raise NotImplementedError
+    
+    @abstractmethod
+    async def search_issue_by_name(self, issue_name: str, max_results: int = 5) -> dict:
+        """Search for an issue by name."""
+        raise NotImplementedError
 
     @abstractmethod
     async def get_ticket_fields(self, ticket_id: str, fields: List[str]) -> Dict[str, Any]:
@@ -116,4 +133,31 @@ class BaseTicketingClient(ABC):
         Returns:
             Dictionary containing the requested fields and their current values
         """
+        raise NotImplementedError
+    
+    @abstractmethod
+    async def update_ticket(
+        self, 
+        ticket_id: str, 
+        payload: Dict[str, Any],
+        notify_users: bool = False,
+        transition_id: Optional[str] = None
+    ) -> None:
+        """Update a ticket with the provided fields and updates.
+        
+        Args:
+            ticket_id: The ID of the ticket to update
+            payload: Dictionary containing 'fields' and/or 'update' sections
+            notify_users: Whether to notify watchers
+            transition_id: ID of the transition to apply (e.g., for status changes)
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def revert_ticket_changes(
+        self,
+        ticket_id: str,
+        version_number: Optional[int] = None
+    ) -> None:
+        """Revert ticket changes to a previous version."""
         raise NotImplementedError

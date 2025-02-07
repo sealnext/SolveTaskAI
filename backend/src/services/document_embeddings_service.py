@@ -69,9 +69,12 @@ class DocumentEmbeddingsService:
         if not project:
             raise ValueError(f"Project {project_key} not found")
             
+        # Create client with project
+        client = self.factory.get_client(api_key, project)
+            
         # Create async generator for documents
         async def document_generator():
-            async for ticket in client.get_tickets(project_key):
+            async for ticket in client.get_tickets():
                 yield self._create_document_from_ticket(ticket)
         
         # Process documents
