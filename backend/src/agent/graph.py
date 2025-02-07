@@ -30,8 +30,8 @@ async def ticket_tool(action: Literal["create", "edit", "delete"], ticket_id: st
     """Tool for handling complex ticket operations.
     
     Parameters:
-    - action: create, edit, delete
-    - ticket_id: the id of the ticket to be created, edited or deleted
+    - action: create, edit, delete, search
+    - ticket_id (optional): the id of the ticket to be created, edited or deleted
     - detailed_query: the detailed query to be used for the ticket
     """
     
@@ -48,11 +48,6 @@ async def ticket_tool(action: Literal["create", "edit", "delete"], ticket_id: st
     # this specific architecture.
     return {}
 
-@tool
-@auto_log("graph.mock_retrieve_tool")
-def mock_retrieve_tool(state: TicketState, config: RunnableConfig) -> FunctionMessage:
-    """Mock tool that simulates retrieving data from a ticket."""
-    return FunctionMessage(content="The information you need cannot be retrieved", name="mock_retrieve_tool")
 
 @auto_log("graph.call_model")
 async def call_model(state: AgentState, config: RunnableConfig):
@@ -60,7 +55,7 @@ async def call_model(state: AgentState, config: RunnableConfig):
     messages = state.messages
     agent_config = AgentConfiguration()
     llm = ChatOpenAI(model=agent_config.model, temperature=agent_config.temperature)
-    llm_with_tools = llm.bind_tools([mock_retrieve_tool, ticket_tool])
+    llm_with_tools = llm.bind_tools([ticket_tool])
     response = await llm_with_tools.ainvoke(messages)
     
     if hasattr(response, "tool_calls") and len(response.tool_calls) > 0:
@@ -68,7 +63,7 @@ async def call_model(state: AgentState, config: RunnableConfig):
         if tool_name == "ticket_tool":
             dispatch_custom_event(
                 "agent_progress",
-                {"message": "Preparing to handle your ticket request..."},
+                {"message": "We are handling your ticket request..."},
                 config=config
             )
     
@@ -94,15 +89,18 @@ def tools_condition(
         return "tools"
     return "__end__"
 
-def create_agent_graph(checkpointer: AsyncPostgresSaver, ticketing_client: BaseTicketingClient) -> StateGraph:
-    """Create the main agent graph."""
+def create_agent_graph(
+    checkpointer: Optional[AsyncPostgresSaver] = None,
+    ticketing_client: Optional[BaseTicketingClient] = None
+) -> StateGraph:
+    """Create a new agent graph instance."""
     
     # Create ticket subgraph with client
     ticket_graph = create_ticket_agent(checkpointer=checkpointer, client=ticketing_client)
     
     builder = StateGraph(AgentState)
     
-    tool_node = ToolNode([mock_retrieve_tool, ticket_tool])
+    tool_node = ToolNode([ticket_tool])
 
     builder.add_node("agent", call_model)
     builder.add_node("tools", tool_node)

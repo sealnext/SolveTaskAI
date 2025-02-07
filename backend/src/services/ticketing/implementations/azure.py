@@ -12,7 +12,7 @@ class AzureClient(BaseTicketingClient):
         data = await self._make_request("GET", url, headers=headers)
         return [ExternalProjectSchema(**project) for project in data['value']]
         
-    async def get_tickets(self, api_key: APIKeySchema, project_key: str) -> AsyncGenerator[JiraIssueSchema, None]:
+    async def get_tickets(self) -> AsyncGenerator[JiraIssueSchema, None]:
         # TODO: Implement Azure-specific ticket fetching
         raise NotImplementedError("Azure ticket fetching not implemented yet")
 

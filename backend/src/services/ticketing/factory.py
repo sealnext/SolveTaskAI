@@ -1,4 +1,4 @@
-from typing import Dict, Type
+from typing import Dict, Type, Any
 import httpx
 from pydantic import BaseModel
 from schemas import APIKeySchema
@@ -58,14 +58,23 @@ class TicketingClientFactory:
             self._http_clients[service_type] = self._create_client(service_type)
         return self._http_clients[service_type]
         
-    def get_client(self, api_key: APIKeySchema) -> BaseTicketingClient:
-        """Get a client instance for the specified ticketing system."""
+    def get_client(self, api_key: APIKeySchema, project: Any = None) -> BaseTicketingClient:
+        """Get a client instance for the specified ticketing system.
+        
+        Args:
+            api_key: API key configuration
+            project: Project configuration (required for Jira client)
+        """
         client_class = self._clients.get(api_key.service_type)
         if not client_class:
             raise ValueError(f"Unsupported ticketing system type: {api_key.service_type}")
         
         http_client = self.get_http_client(api_key.service_type)
-        return client_class(http_client, api_key)
+        
+        if api_key.service_type == TicketingSystemType.JIRA and project is None:
+            raise ValueError("Project is required for Jira client")
+            
+        return client_class(http_client, api_key, project)
 
     async def cleanup(self):
         """Cleanup all HTTP clients when shutting down."""
