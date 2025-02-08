@@ -156,13 +156,17 @@ def create_ticket_agent(
     ) -> str:
         """Simplified review handler with direct confirmation flow."""
         try:
+            preview_data = review_config.get("preview_data", {})
             # Get final payload from review response
             review_response = interrupt({
                 "question": review_config.get("question", ""),
-                "preview": review_config.get("preview_data", {}),
-                "expected_schema": review_config.get("expected_payload_schema", {}),
-                "available_actions": review_config.get("available_actions", []),
-                "metadata": review_config.get("metadata", {})
+                "ticket": review_config.get("metadata", {}).get("ticket_id"),
+                "validation": preview_data.get("validation", {}),
+                "payload": {
+                    "fields": preview_data.get("fields", {}),
+                    "update": preview_data.get("update", {})
+                },
+                "available_actions": review_config.get("available_actions", [])
             })
 
             match review_response["action"]:
@@ -188,12 +192,13 @@ def create_ticket_agent(
     async def edit_ticket(
         detailed_query: str,
         ticket_id: str,
-        action: str,
         tool_call_id: Annotated[str, InjectedToolCallId],
-        state: Annotated[TicketAgentState, InjectedState],
         config: RunnableConfig,
     ) -> Command:
-        """Tool for editing JIRA tickets."""
+        """Tool for editing JIRA tickets.
+        We only accept ids for tickets and accouns, don't use names
+        Use the ids you previously found for tickets and accounts.
+        """
         try:
             is_resuming = config.get("configurable")['__pregel_resuming']
 
@@ -409,7 +414,7 @@ def create_ticket_agent(
 
                     if total == 1:
                         issue = issues[0]
-                        return f"Success! Use this issue reference - Key: {issue['key']}"
+                        return f"Success! Use this issue reference instead of the name - Key: {issue['key']}"
                     elif total > 1:
                         issue_list = "\n".join([
                             f"- {issue['fields']['summary']}\n  Key: {issue['key']}"
