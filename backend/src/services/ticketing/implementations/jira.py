@@ -615,11 +615,11 @@ class JiraClient(BaseTicketingClient):
             
         except httpx.HTTPStatusError as e:
             error_msg = {
-                400: "Invalid fields or updates provided",
-                403: "Permission denied. Check if you have 'Edit Issues' permission.",
-                404: f"Ticket {ticket_id} not found",
-                401: "Authentication failed. Please check your API credentials."
-            }.get(e.response.status_code, f"Failed to update ticket: {str(e)}")
+                400: "Invalid fields or updates provided: " + e.response.text,
+                403: "Permission denied. Check if you have 'Edit Issues' permission." + e.response.text,
+                404: f"Ticket {ticket_id} not found" + e.response.text,
+                401: "Authentication failed. Please check your API credentials." + e.response.text
+            }.get(e.response.status_code, f"Failed to update ticket: {e.response.text}")
             
             logger.error(f"Error updating ticket {ticket_id}: {error_msg}")
             logger.error(f"Response content: {e.response.text}")
