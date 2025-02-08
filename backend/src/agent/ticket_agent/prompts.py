@@ -85,7 +85,7 @@ Important:
 After your analysis, provide only the JSON output, in <json_output> tags, without any additional comments or explanations in it or tags.
 ONLY RETURN THE JSON OUTPUT IN <json_output> TAGS.
 """
-
+# TODO, OPTIMIZE THIS PROMPT SO IT IS NOT SO LONG WITH SO MANY FIELDS
 JSON_EXAMPLE = """{{
   "fields": {{
     "summary": "New Issue Summary",

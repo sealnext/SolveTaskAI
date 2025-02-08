@@ -164,21 +164,21 @@ async def message_generator(
 
         graph = create_agent_graph(checkpointer, ticketing_client)
         
-        if user_input.get("action") == "continue":
+        if user_input.get("action") == "confirm":
             initial_state = Command(resume={
-                "action": "continue"
+                "action": "confirm",
+                "payload": user_input["payload"],
+                "ticket": user_input["ticket"]
             })
-        elif user_input.get("action") == "update":
-            initial_state = Command(resume={"action": "update", "data": user_input.get("data")})
-        elif user_input.get("action") == "feedback":
-            initial_state = Command(resume={"action": "feedback", "data": user_input.get("data")})
+        elif user_input.get("action") == "cancel":
+            initial_state = Command(resume={"action": "cancel"})
         else:
             initial_state = AgentState(
                 messages=messages,  # Now uses parsed messages list
                 project_data={"id": project.id, "name": project.name},
                 api_key=api_key
             )
-        
+
         thread = {"configurable": {"thread_id": thread_id}}
 
         async for event in graph.astream_events(initial_state, thread, version="v2", subgraphs=True):
