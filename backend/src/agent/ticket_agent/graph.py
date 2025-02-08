@@ -37,11 +37,9 @@ class TicketAgentState(BaseModel):
     messages: Annotated[Sequence[AnyMessage], add_messages]
     internal_messages: Annotated[Sequence[AnyMessage], add_messages]
 
-    action: Optional[str] = None
-    ticket_id: Optional[str] = None
-    detailed_query: Optional[str] = None
     review_config: Optional[Dict[str, Any]] = None
     needs_review: bool = False
+    done: bool = False
 
 class ReviewAction(str, Enum):
     """Available review actions based on operation type."""
@@ -194,7 +192,7 @@ def create_ticket_agent(
         tool_call_id: Annotated[str, InjectedToolCallId],
         state: Annotated[TicketAgentState, InjectedState],
         config: RunnableConfig,
-    ) -> ToolMessage:
+    ) -> Command:
         """Tool for editing JIRA tickets."""
         try:
             is_resuming = config.get("configurable")['__pregel_resuming']
@@ -202,15 +200,17 @@ def create_ticket_agent(
             if is_resuming:
                 message = await handle_review_process({})
 
-                # Clear config if process completed
-                if not state.needs_review:
-                    state.review_config = None
+                tool_message = ToolMessage(
+                            content=message,
+                            tool_call_id=tool_call_id)
 
-                return ToolMessage(
-                    content=message,
-                    tool_call_id=tool_call_id,
-                    name="edit_ticket"
-                )
+                return Command(
+                    goto="agent",
+                    update={
+                        "internal_messages": [tool_message],
+                        "done": True
+                        }
+                    )
 
             # --- Initial Execution Path ---
             # Notify about starting the process
@@ -442,6 +442,9 @@ def create_ticket_agent(
         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
         llm_with_tools = llm.bind_tools([create_ticket, edit_ticket, delete_ticket, search_jira_entity])
 
+        if state.done:
+            return {"messages": [ToolMessage(content=state.internal_messages[-1].content, tool_call_id=state.messages[-1].tool_calls[-1]['id'])]}
+
         if not state.internal_messages and state.messages[-1].tool_calls:
             args = state.messages[-1].tool_calls[0]['args']
 
@@ -481,7 +484,16 @@ def create_ticket_agent(
                 notify_users=False
             )
 
-            return "Changes successfully applied to Jira"
+            fields_changed = ", ".join(jira_payload.get('fields', {}).keys())
+            updates_made = ", ".join(jira_payload.get('update', {}).keys())
+            
+            changes_list = []
+            if fields_changed:
+                changes_list.append(f"fields: {fields_changed}")
+            if updates_made:
+                changes_list.append(f"updates: {updates_made}")
+                
+            return "Successfully updated Jira ticket " + ticket_id + ". Please let the user know we changed ONLY the following fields: " + "; ".join(changes_list)
 
         except ValidationError as e:
             logger.error(f"Invalid Jira payload: {e.errors()}")
