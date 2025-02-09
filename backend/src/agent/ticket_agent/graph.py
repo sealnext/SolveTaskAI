@@ -1,153 +1,29 @@
-from http.client import HTTPException
-
-from agent.configuration import AgentConfiguration
-from .prompts import EDIT_TICKET_SYSTEM_PROMPT, EDIT_TICKET_USER_PROMPT_TEMPLATE, JSON_EXAMPLE, TICKET_AGENT_PROMPT
-from langchain_openai import ChatOpenAI
-from langgraph.graph import StateGraph, END, START
-from langchain_core.tools import tool
-from langchain_core.runnables import RunnableConfig
-from typing import Optional, Literal, Dict, Union, Any, TypedDict, Annotated
-from pydantic import BaseModel, Field
-from langchain_core.messages import FunctionMessage, ToolMessage, AnyMessage, AIMessage, HumanMessage, SystemMessage
-from config.logger import auto_log
 import logging
-from langgraph.prebuilt import ToolNode
+from typing import Optional, Literal, Annotated
+
+from config.logger import auto_log
 from services.ticketing.client import BaseTicketingClient
-from langgraph.types import interrupt, Command
-from langgraph.prebuilt import InjectedState
-from langchain_core.tools.base import InjectedToolCallId
-from typing import Sequence
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from enum import Enum
-from langgraph.errors import GraphInterrupt
-from langgraph.graph import add_messages
+
 from langchain_core.callbacks import dispatch_custom_event
-import json
-import re
-from pydantic import ValidationError
+from langchain_core.messages import ToolMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import tool
+from langchain_core.tools.base import InjectedToolCallId
+from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.errors import GraphInterrupt
+from langgraph.graph import StateGraph, START
+from langgraph.prebuilt import ToolNode, InjectedState
+from langgraph.types import Command
+
+from .models import TicketAgentState
+from .utils import handle_review_process, prepare_ticket_fields, generate_field_updates, create_review_config, handle_edit_error
+from .prompts import (
+    TICKET_AGENT_PROMPT
+)
 
 logger = logging.getLogger(__name__)
 
-class TicketToolInput(BaseModel):
-    """Schema for ticket tool input."""
-    action: Literal["edit", "create", "delete"] = Field(description="The action to perform on the ticket")
-    detailed_query: str = Field(description="Detailed description of what needs to be done")
-    ticket_id: str = Field(description="The ID of the ticket to operate on")
-
-class TicketAgentState(BaseModel):
-    """State for the ticket agent."""
-    messages: Annotated[Sequence[AnyMessage], add_messages]
-    internal_messages: Annotated[Sequence[AnyMessage], add_messages]
-
-    review_config: Optional[Dict[str, Any]] = None
-    needs_review: bool = False
-    done: bool = False
-    retry_count: int = 0
-class ReviewAction(str, Enum):
-    """Available review actions based on operation type."""
-    # Common actions
-    CONFIRM = "confirm"  # Proceed with operation as is
-    CANCEL = "cancel"      # Cancel the entire operation
-
-    # Edit specific
-    UPDATE_FIELDS = "update_fields"     # Update specific fields
-    MODIFY_CHANGES = "modify_changes"   # Modify the proposed changes
-
-    # Create specific
-    ADJUST_TEMPLATE = "adjust_template" # Adjust the ticket template
-    MODIFY_DETAILS = "modify_details"   # Modify ticket details
-
-    # Delete specific
-    ARCHIVE_INSTEAD = "archive_instead" # Archive instead of delete
-    SOFT_DELETE = "soft_delete"        # Soft delete option
-
-class OperationDetails(TypedDict):
-    """Details specific to the operation type."""
-    field_updates: Optional[dict[str, Any]]  # For JIRA field mappings
-    changes_description: str                 # Human readable changes
-    api_mappings: Optional[dict[str, Any]]   # Future JIRA API mappings
-
-class ReviewConfig(TypedDict):
-    """Enhanced review configuration."""
-    question: str                    # Review prompt
-    operation_type: Literal["create", "edit", "delete"] # Operation type
-    available_actions: list[ReviewAction]  # Actions available for this operation
-    expected_payload_schema: dict       # Reference to Pydantic model schema
-    preview_data: dict                  # Preview data for review
-    metadata: Optional[dict[str, Any]] # Additional metadata
-
-class JiraTicketUpdate(BaseModel):
-    """Pydantic model for Jira ticket update."""
-    fields: dict[str, Any]
-    update: dict[str, Any]
-
-
-# Start of Selection
-def clean_json_response(raw_response: str) -> dict:
-    """
-    Extract and clean JSON content from LLM response which may contain:
-    - Optional <json_output> tags or ```json code blocks
-    - Potential code comments
-    - Extra text surrounding JSON
-
-    Example valid inputs:
-    1. With JSON tags:
-    Here's the suggested update:
-    <json_output>
-    {
-        // This is a comment
-        "update": {
-            "priority": "High" /* inline comment */
-        },
-        "validation": {...}
-    }
-    </json_output>
-    Please review carefully.
-
-    2. With JSON code block:
-    ```json
-    {
-        "update": { /* inline comment */
-            "priority": "High"
-        },
-        // Comment here
-        "validation": {...}
-    }
-    ```
-
-    3. Without markers:
-    {
-        "update": { 
-            "priority": "High"
-        }
-    }
-    """
-    # First try to extract JSON between XML-style tags
-    json_matches = re.findall(r'<json_output>(.*?)</json_output>', raw_response, re.DOTALL)
-    if not json_matches:
-        # Fallback to check for markdown-style code blocks
-        json_matches = re.findall(r'```json(.*?)```', raw_response, re.DOTALL)
-    
-    if json_matches:
-        # Use last JSON block if multiple present
-        json_content = json_matches[-1].strip()
-    else:
-        # If no tags found, try processing entire input
-        json_content = raw_response.strip()
-
-    # Remove line comments and inline comments
-    cleaned = '\n'.join([
-        line.split('//')[0].split('#')[0].strip()
-        for line in json_content.split('\n')
-        if not line.strip().startswith('//') and not line.strip().startswith('#')
-    ])
-    # Remove /* */ comments
-    cleaned = re.sub(r'/\*.*?\*/', '', cleaned, flags=re.DOTALL)
-
-    # Remove trailing commas that break JSON parsing
-    cleaned = re.sub(r',\s*([}\]])', r'\1', cleaned)
-    
-    return json.loads(cleaned)
 
 def create_ticket_agent(
     checkpointer: Optional[AsyncPostgresSaver] = None,
@@ -155,10 +31,7 @@ def create_ticket_agent(
 ) -> StateGraph:
     """Create a new ticket agent graph instance."""
 
-    if client is None:
-        raise ValueError("Ticketing client is required")
-
-    @tool(args_schema=TicketToolInput)
+    @tool
     @auto_log("ticket_agent.create_ticket")
     async def create_ticket(
         detailed_query: str,
@@ -178,43 +51,6 @@ def create_ticket_agent(
         tool_call_id = config.get("tool_call_id")
         return ToolMessage(content="Ticket created successfully", tool_call_id=tool_call_id)
 
-    async def handle_review_process(
-        review_config: ReviewConfig,
-    ) -> str:
-        """Simplified review handler with direct confirmation flow."""
-        try:
-            preview_data = review_config.get("preview_data", {})
-            # Get final payload from review response
-            review_response = interrupt({
-                "question": review_config.get("question", ""),
-                "ticket": review_config.get("metadata", {}).get("ticket_id"),
-                "validation": preview_data.get("validation", {}),
-                "payload": {
-                    "fields": preview_data.get("fields", {}),
-                    "update": preview_data.get("update", {})
-                },
-                "available_actions": review_config.get("available_actions", [])
-            })
-
-            match review_response["action"]:
-                case ReviewAction.CONFIRM:
-                    return await _handle_direct_confirmation(
-                        review_response["payload"],
-                        review_response["ticket"]
-                    )
-
-                case ReviewAction.CANCEL:
-                    return "Operation cancelled by user"
-
-                case _:
-                    raise ValueError(f"Unsupported action: {review_response["action"]}")
-
-        except GraphInterrupt as i:
-            raise i
-        except Exception as e:
-            logger.error(f"Review process failed: {str(e)}", exc_info=True)
-            return f"Review process error: {str(e)}"
-
     @auto_log("ticket_agent.edit_ticket")
     async def edit_ticket(
         detailed_query: str,
@@ -223,181 +59,52 @@ def create_ticket_agent(
         state: Annotated[TicketAgentState, InjectedState],
         config: RunnableConfig,
     ) -> Command:
-        """Tool for editing JIRA tickets.
-        We only accept ids for tickets and accouns, don't use names
-        Use the ids you previously found for tickets and accounts.
-        """
+        """Tool for editing JIRA tickets."""
         try:
             is_resuming = config.get("configurable")['__pregel_resuming']
-
             if is_resuming:
-                message = await handle_review_process({})
-
-                tool_message = ToolMessage(
-                            content=message,
-                            tool_call_id=tool_call_id)
-
+                message = await handle_review_process({}, client)
                 return Command(
                     goto="agent",
                     update={
-                        "internal_messages": [tool_message],
+                        "internal_messages": [ToolMessage(content=message, tool_call_id=tool_call_id)],
                         "done": True
-                        }
-                    )
+                    }
+                )
 
-            # --- Initial Execution Path ---
-            # Notify about starting the process
             dispatch_custom_event(
                 "agent_progress",
                 {"message": f"Mapping changes for ticket {ticket_id}...", "ticket_id": ticket_id},
                 config=config
             )
 
-            # Get metadata and current values
-            metadata = await client.get_ticket_edit_issue_metadata(ticket_id)
-            available_fields = {
-                k: {sk: sv for sk, sv in v.items() if sv not in (None, {})}
-                for k, v in metadata['fields'].items()
-            }
-            current_values = await client.get_ticket_fields(ticket_id, list(available_fields.keys()))
-
-            # Add current values to metadata
-            for field_key in available_fields:
-                available_fields[field_key]['current_value'] = current_values.get(field_key)
-
-            # Generate edit plan with LLM
-            agent_config = AgentConfiguration()
-            llm = ChatOpenAI(model=agent_config.model, temperature=agent_config.temperature)
-
-            response = await llm.ainvoke([{
-                "role": "system",
-                "content": EDIT_TICKET_SYSTEM_PROMPT
-            }, {
-                "role": "user",
-                "content": EDIT_TICKET_USER_PROMPT_TEMPLATE.format(
-                    detailed_query=detailed_query,
-                    available_fields=available_fields,
-                    json_example=JSON_EXAMPLE
-                )
-            }])
-
-            # Process and validate response
-            field_updates = clean_json_response(response.content)
-            if not isinstance(field_updates, dict) or "update" not in field_updates or "validation" not in field_updates:
-                raise ValueError("Invalid LLM response structure")
-
-            # Handle unknown fields and update description
-            unknown_fields = [
-                field for section in ['fields', 'update']
-                for field in field_updates.get(section, {})
-                if field not in available_fields
-            ]
-
-            # Process unknown fields if any...
-            if unknown_fields:
-                # Extract values from unknown fields and append to description only if description exists
-                description_additions = []
-                for field in unknown_fields:
-                    field_value = field_updates.get('fields', {}).get(field) or field_updates.get('update', {}).get(field)
-                    if field_value:
-                        description_additions.append(f"{field}: {json.dumps(field_value, indent=2)}")
-
-                # Only append to description if it exists in field_updates
-                if description_additions:
-                    description_exists = False
-                    current_description = ""
-
-                    # Check if description is being set in fields
-                    if 'fields' in field_updates and 'description' in field_updates['fields']:
-                        description_exists = True
-                        current_description = field_updates['fields']['description']
-                    # Check if description is being set in update
-                    elif 'update' in field_updates and 'description' in field_updates['update']:
-                        description_exists = True
-                        for update in field_updates['update']['description']:
-                            if 'set' in update:
-                                current_description = update['set']
-                                break
-
-                    # Only modify description if it exists in updates
-                    if description_exists:
-                        new_content = "\n\n".join([
-                            current_description,
-                            "Additional context from unmapped fields:",
-                            *description_additions
-                        ]).strip()
-
-                        # Update in the same section where it was found
-                        if 'fields' in field_updates and 'description' in field_updates['fields']:
-                            field_updates['fields']['description'] = new_content
-                        elif 'update' in field_updates and 'description' in field_updates['update']:
-                            field_updates['update']['description'] = [
-                                {"set": new_content}
-                            ]
-
-                        # Add validation entries only for modified description
-                        if 'validation' not in field_updates:
-                            field_updates['validation'] = {}
-
-                        field_updates['validation']['description'] = {
-                            "confidence": "Medium",
-                            "validation": "Modified to include unmapped fields"
-                        }
-
-                # Clean unknown fields from both sections
-                for section in ['fields', 'update']:
-                    if section in field_updates:
-                        field_updates[section] = {
-                            k: v for k, v in field_updates[section].items()
-                            if k in available_fields
-                        }
+            # Get metadata and prepare fields
+            available_fields = await prepare_ticket_fields(ticket_id, client)
+            
+            # Generate field updates using LLM
+            field_updates = await generate_field_updates(
+                detailed_query, 
+                available_fields, 
+                config
+            )
 
             # Prepare review configuration
-            review_config = ReviewConfig(
-                question=f"Confirm changes for ticket {ticket_id}:",
-                operation_type="edit",
-                available_actions=[ReviewAction.CONFIRM, ReviewAction.CANCEL],
-                expected_payload_schema=JiraTicketUpdate.schema(),
-                preview_data=field_updates,
-                metadata={"ticket_id": ticket_id}
+            review_config = create_review_config(
+                ticket_id=ticket_id,
+                field_updates=field_updates
             )
-            message = await handle_review_process(
-                review_config
-            )
+            
+            message = await handle_review_process(review_config, client)
 
         except GraphInterrupt as i:
             raise i
         except Exception as e:
-            if state.retry_count >= 2:
-                review_config.question = (
-                    f"Failed to apply changes (Attempt 3). Error: {str(e)}\n"
-                    f"Please adjust your request:"
-                )
-                review_config.available_actions = ["retry", "cancel"]
-                review_config.preview_data["error_details"] = {
-                    "jira_error": str(e),
-                    "last_payload": field_updates
-                }
-            
-            return Command(
-                goto="edit_ticket",
-                update={
-                    "field_updates": await self_correct_payload(
-                        error=str(e),
-                        payload=field_updates,
-                        jira_response=getattr(e, 'response', None),
-                        attempt=state.retry_count
-                    ),
-                    "retry_count": state.retry_count + 1
-                }
-            )
+            return handle_edit_error(e, state, field_updates)
 
-    @tool(args_schema=TicketToolInput)
+    @tool
     @auto_log("ticket_agent.delete_ticket")
     async def delete_ticket(
-        detailed_query: str,
         ticket_id: str,
-        action: str,
         config: RunnableConfig,
     ) -> ToolMessage:
         """Tool for deleting tickets."""
@@ -522,84 +229,8 @@ def create_ticket_agent(
 
         return {"messages": [ToolMessage(content=response.content, tool_call_id=state.messages[-1].tool_calls[0]["id"])]}
 
-    async def _handle_direct_confirmation(
-        jira_payload: Dict[str, Any],
-        ticket_id: str
-    ) -> str:
-        """Validează și aplică payload-ul direct în Jira cu retry logic incorporat."""
-        MAX_RETRIES = 2
-        current_payload = jira_payload
-        
-        for attempt in range(MAX_RETRIES + 1):
-            try:
-                await client.update_ticket(ticket_id, current_payload)
-                
-                # Get successfully changed fields
-                changed_fields = list(current_payload.get('update', {}).keys()) + list(current_payload.get('fields', {}).keys())
-                message = f"Successfully applied changes to ticket {ticket_id}"
-                
-                if changed_fields:
-                    message += f": {', '.join(changed_fields)} we're changed"
-                    message += " (these fields only you need to tell the user)"
-                    
-                return message
-                
-            except Exception as e:
-                if attempt >= MAX_RETRIES:
-                    raise 
-                
-                error = e.detail if hasattr(e, 'detail') else str(e)
-                    
-                # Get corrected payload AND track removed fields
-                current_payload = await self_correct_payload(
-                    error=str(e),
-                    payload=current_payload,
-                    jira_response=error,
-                    attempt=attempt
-                )
-
-    async def self_correct_payload(
-        error: str,
-        payload: dict,
-        jira_response: Optional[str],
-        attempt: int
-    ) -> dict:
-        """Returns corrected payload based on error analysis."""
-        llm = ChatOpenAI(model=AgentConfiguration.model, temperature=0.3)
-        
-        try:
-            response = await llm.ainvoke(f"""
-### JIRA Error Analysis (Attempt {attempt + 1}) ###
-Error: {error}
-API Response: {jira_response or 'N/A'}
-Current Payload: {json.dumps(payload, indent=2)}
-
-### Correction Rules ###
-1. Analyze error message and fix root cause
-2. For invalid fields:
-   - Remove unsupported/invalid fields immediately
-   - Keep only fields that are 100% valid
-   - Never attempt to guess or fix field values
-   - When in doubt, remove the field entirely
-3. For structure issues:
-   - Fix JSON syntax errors only
-   - Ensure proper nesting
-   - Match JIRA field types exactly
-4. General rules:
-   - Make absolute minimal changes
-   - Never add new fields
-   - Prefer removing fields over guessing fixes, but if you can resolve the error, DO IT!!!
-   - If error is field-related, default to removal
-""")
-            return clean_json_response(response.content)
-            
-        except json.JSONDecodeError:
-            logger.error("Failed to parse LLM correction, using original payload")
-            return payload
-
     builder.add_node("agent", call_model_with_tools)
     builder.add_node("tools", prep_tools)
-    # builder.add_node("handle_review", handle_review)
 
     builder.set_entry_point("agent")
     builder.add_edge(START, "agent")
