@@ -98,7 +98,7 @@ class BaseTicketingClient(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete_ticket(self, ticket_id: str) -> None:
+    async def delete_ticket(self, ticket_id: str, delete_subtasks: bool = False) -> str:
         """Delete a ticket by ID."""
         raise NotImplementedError
     

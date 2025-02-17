@@ -5,7 +5,6 @@ from schemas import (
     ExternalProjectSchema, 
     JiraIssueSchema, 
     JiraIssueContentSchema,
-    JiraProjectResponse,
     JiraSearchResponse
 )
 
@@ -201,10 +200,25 @@ class JiraClient(BaseTicketingClient):
         data = await self._make_request("GET", url, headers=self._get_auth_headers())
         return JiraIssueContentSchema(**data)
 
-    async def delete_ticket(self, ticket_id: str, delete_subtasks: bool = True) -> None:
-        """Delete a Jira ticket and optionally its subtasks."""
+    async def delete_ticket(self, ticket_id: str, delete_subtasks: bool = False) -> str:
+        """Delete a Jira ticket and optionally its subtasks.
+        
+        Args:
+            ticket_id: The ID or key of the issue to delete
+            delete_subtasks: If True, deletes the issue's subtasks when the issue is deleted
+            
+        Returns:
+            str: Success message
+            
+        Raises:
+            HTTPException: If deletion fails or if trying to delete an issue with subtasks
+                         without setting delete_subtasks=True
+        """
         if not ticket_id or not isinstance(ticket_id, str):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid ticket ID")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid ticket ID"
+            )
             
         url = self._build_url("issue", ticket_id)
         params = {"deleteSubtasks": str(delete_subtasks).lower()}
@@ -218,22 +232,33 @@ class JiraClient(BaseTicketingClient):
             )
             
             if response.status_code == 204:
-                logger.info(f"Successfully deleted ticket {ticket_id}")
-                return
+                message = f"Ticket {ticket_id} deleted successfully"
+                if delete_subtasks:
+                    message += " (including subtasks)"
+                logger.info(message)
+                return message
                 
             response.raise_for_status()
             
         except httpx.HTTPStatusError as e:
             error_msg = {
-                404: f"Ticket {ticket_id} not found",
-                403: "Permission denied. Check if you have 'Delete Issues' permission.",
-                400: "Cannot delete issue with subtasks. Set deleteSubtasks=true to delete with subtasks."
-            }.get(e.response.status_code, f"Failed to delete ticket: {str(e)}")
+                400: "Please return and tell the user that you cannot delete issue with subtasks. Set deleteSubtasks=true to delete with subtasks: " + e.response.text,
+                403: "Please return and tell the user that you do not have permission to delete issues. Check if you have 'Browse projects' and 'Delete issues' permissions: " + e.response.text,
+                404: f"Please return and tell the user that the ticket {ticket_id} does not exist and he should check the ticket ID",
+                401: "Please return and tell the user that your API credentials are invalid. Please check your API credentials: " + e.response.text
+            }.get(e.response.status_code, f"Failed to delete ticket: {e.response.text}")
             
-            logger.error(f"{error_msg} at URL: {url}")
+            logger.error(f"Error deleting ticket {ticket_id}: {error_msg}")
+            logger.error(f"Response content: {e.response.text}")
             raise HTTPException(
                 status_code=e.response.status_code,
                 detail=error_msg
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error deleting ticket {ticket_id}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete ticket: {str(e)}"
             )
 
     async def get_ticket_edit_issue_metadata(self, ticket_id: str) -> dict:
@@ -551,7 +576,7 @@ class JiraClient(BaseTicketingClient):
         payload: Dict[str, Any],
         notify_users: bool = False,
         transition_id: Optional[str] = None
-    ) -> None:
+    ) -> str:
         """Update a Jira ticket with the provided fields and updates.
         
         Args:
@@ -609,7 +634,7 @@ class JiraClient(BaseTicketingClient):
             
             if response.status_code == 204:
                 logger.info(f"Successfully updated ticket {ticket_id}")
-                return
+                return f"Ticket {ticket_id} updated successfully"
                 
             response.raise_for_status()
             

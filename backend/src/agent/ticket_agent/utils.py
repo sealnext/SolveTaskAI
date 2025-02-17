@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Literal
 
 from agent.configuration import AgentConfiguration
 from services.ticketing.client import BaseTicketingClient
@@ -92,40 +92,83 @@ async def handle_review_process(
     review_config: ReviewConfig,
     client: BaseTicketingClient
 ) -> str:
-    """Simplified review handler with direct confirmation flow."""
+    """Unified review handler with operation-type specific logic."""
     try:
-        preview_data = review_config.get("preview_data", {})
-        # Get final payload from review response
-        review_response = interrupt({
-            "question": review_config.get("question", ""),
-            "ticket": review_config.get("metadata", {}).get("ticket_id"),
-            "validation": preview_data.get("validation", {}),
-            "payload": {
-                "fields": preview_data.get("fields", {}),
-                "update": preview_data.get("update", {})
-            },
-            "available_actions": review_config.get("available_actions", [])
-        })
+        # For resuming operations when no config is provided
+        if not review_config:
+            return "Operation completed successfully"
 
-        match review_response["action"]:
-            case ReviewAction.CONFIRM:
-                return await _handle_direct_confirmation(
-                    review_response["payload"],
-                    review_response["ticket"],
-                    client
-                )
+        action_map = {
+            "edit": _handle_edit_confirmation,
+            "delete": _handle_delete_confirmation
+        }
 
-            case ReviewAction.CANCEL:
-                return "Operation cancelled by user"
-
-            case _:
-                raise ValueError(f"Unsupported action: {review_response["action"]}")
+        handler = action_map.get(review_config.get("operation_type"))
+        if not handler:
+            raise ValueError(f"Unsupported operation type: {review_config.get('operation_type')}")
+            
+        return await handler(review_config, client)
 
     except GraphInterrupt as i:
         raise i
     except Exception as e:
         logger.error(f"Review process failed: {str(e)}", exc_info=True)
         return f"Review process error: {str(e)}"
+
+async def _handle_edit_confirmation(
+    review_config: ReviewConfig,
+    client: BaseTicketingClient
+) -> str:
+    """Handle edit confirmation."""
+    preview_data = review_config.get("preview_data", {})
+    # Get final payload from review response
+    review_response = interrupt({
+        "question": review_config.get("question", ""),
+        "ticket": review_config.get("metadata", {}).get("ticket_id"),
+        "validation": preview_data.get("validation", {}),
+        "payload": {
+            "fields": preview_data.get("fields", {}),
+            "update": preview_data.get("update", {})
+        },
+        "available_actions": review_config.get("available_actions", [])
+    })
+
+    match review_response.get("action", "none"):
+        case ReviewAction.CONFIRM:
+            payload = review_response.get("payload")
+            ticket = review_response.get("ticket")
+            
+            if not payload or not ticket:
+                raise ValueError("Missing required fields in review response: payload and ticket are required")
+                
+            return await _handle_direct_confirmation(
+                payload,
+                ticket, 
+                client
+            )
+
+        case ReviewAction.CANCEL:
+            return "Operation cancelled by user"
+
+        case _:
+            raise ValueError(f"Unsupported action: {review_response.get('action', 'none')}")
+
+async def _handle_delete_confirmation(review_config: ReviewConfig, client: BaseTicketingClient) -> str:
+    """Execute the actual ticket deletion after confirmation."""
+    # Get user confirmation through interrupt
+    review_response = interrupt({
+        "question": review_config.get("question", ""),
+        "ticket": review_config.get("metadata", {}).get("ticket_id", ""),
+        "available_actions": review_config.get("available_actions", [])
+    })
+
+    if review_response["action"] == ReviewAction.CONFIRM:
+        ticket_id = review_response.get("ticket", "")
+        if not ticket_id:
+            raise ValueError("Ticket ID is required for deletion, but was not provided in the resume process")
+        return await client.delete_ticket(ticket_id, delete_subtasks=False)
+
+    return "Deletion cancelled by user"
 
 async def _handle_direct_confirmation(
     jira_payload: Dict[str, Any],
@@ -245,16 +288,30 @@ async def generate_field_updates(
         
     return field_updates
 
-def create_review_config(ticket_id: str, field_updates: Dict) -> ReviewConfig:
-    """Create review configuration for the ticket update."""
-    return ReviewConfig(
-        question=f"Confirm changes for ticket {ticket_id}:",
-        operation_type="edit",
-        available_actions=[ReviewAction.CONFIRM, ReviewAction.CANCEL],
-        expected_payload_schema=JiraTicketUpdate.schema(),
-        preview_data=field_updates,
-        metadata={"ticket_id": ticket_id}
-    )
+def create_review_config(
+    ticket_id: str,
+    operation_type: Literal["edit", "delete"],
+    question: str,
+    available_actions: list[ReviewAction],
+    field_updates: Optional[Dict] = None
+) -> ReviewConfig:
+    """Create review configuration for ticket operations."""
+    base_config = {
+        "operation_type": operation_type,
+        "question": question,
+        "available_actions": available_actions,
+        "expected_payload_schema": JiraTicketUpdate.schema() if operation_type == "edit" else None,
+        "metadata": {"ticket_id": ticket_id}
+    }
+    
+    if operation_type == "edit" and field_updates:
+        base_config["preview_data"] = {
+            "validation": field_updates.get("validation", {}),
+            "fields": field_updates.get("fields", {}),
+            "update": field_updates.get("update", {})
+        }
+    
+    return ReviewConfig(**base_config)
 
 async def handle_edit_error(e: Exception, state: TicketAgentState, field_updates: Dict) -> Command:
     """Handle errors during ticket editing."""
@@ -286,3 +343,51 @@ async def handle_edit_error(e: Exception, state: TicketAgentState, field_updates
             "retry_count": state.retry_count + 1
         }
     )
+
+async def handle_account_search(client: BaseTicketingClient, value: str) -> str:
+    """Handle Jira account search logic."""
+    result = await client.search_user(value)
+    total = result.get("total", 0)
+    users = result.get("users", [])
+
+    if total == 1:
+        return f"Success! Use this accountId instead of the username: {users[0]['accountId']}"
+    elif total > 1:
+        user_list = "\n".join([
+            f"- {user['displayName']}: {user['accountId']}"
+            for user in users
+        ])
+        return (
+            "There are multiple accounts that may match the name, "
+            "please use only the accountId for the most relevant name:\n"
+            f"{user_list}"
+        )
+    return f"No accounts found matching '{value}'. Please verify the username and try again."
+
+async def handle_issue_search(client: BaseTicketingClient, value: str) -> str:
+    """Handle Jira issue search logic."""
+    result = await client.search_issue_by_name(
+        issue_name=value,
+        max_results=5
+    )
+    total = result.get("total", 0)
+    issues = result.get("issues", [])
+
+    if total == 1:
+        issue = issues[0]
+        return f"Success! Use this issue reference instead of the name - Key: {issue['key']}"
+    elif total > 1:
+        issue_list = "\n".join([
+            f"- {issue['fields']['summary']}\n  Key: {issue['key']}"
+            for issue in issues
+        ])
+        return (
+            "Multiple matching issues found. Please use the most relevant Key:\n"
+            f"{issue_list}"
+        )
+    return f"No issues found matching '{value}'. Please verify the issue name and try again."
+
+async def handle_sprint_search(client: BaseTicketingClient, value: str) -> str:
+    """Handle Jira sprint search logic."""
+    result = await client.find_sprint_by_name(sprint_name=value)
+    return f"Successfully found entity, please use the id from the response instead of the raw names: {result}"

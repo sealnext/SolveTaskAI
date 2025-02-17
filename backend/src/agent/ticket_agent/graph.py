@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Literal, Annotated
+from typing import Optional, Literal, Annotated, Any, Coroutine
 
 from config.logger import auto_log
 from services.ticketing.client import BaseTicketingClient
@@ -16,14 +16,14 @@ from langgraph.graph import StateGraph, START
 from langgraph.prebuilt import ToolNode, InjectedState
 from langgraph.types import Command
 
-from .models import TicketAgentState
-from .utils import handle_review_process, prepare_ticket_fields, generate_field_updates, create_review_config, handle_edit_error
+from .models import TicketAgentState, ReviewAction, ReviewConfig
+from .utils import handle_review_process, prepare_ticket_fields, generate_field_updates, create_review_config, handle_edit_error, handle_account_search, handle_issue_search, handle_sprint_search
 from .prompts import (
     TICKET_AGENT_PROMPT
 )
+from .. import AgentConfiguration
 
 logger = logging.getLogger(__name__)
-
 
 def create_ticket_agent(
     checkpointer: Optional[AsyncPostgresSaver] = None,
@@ -58,12 +58,13 @@ def create_ticket_agent(
         tool_call_id: Annotated[str, InjectedToolCallId],
         state: Annotated[TicketAgentState, InjectedState],
         config: RunnableConfig,
-    ) -> Command:
+    ) -> Command | Coroutine[Any, Any, Command]:
         """Tool for editing JIRA tickets."""
         try:
             is_resuming = config.get("configurable")['__pregel_resuming']
+            
             if is_resuming:
-                message = await handle_review_process({}, client)
+                message = await handle_review_process(ReviewConfig(operation_type="edit"), client)
                 return Command(
                     goto="agent",
                     update={
@@ -99,25 +100,45 @@ def create_ticket_agent(
         except GraphInterrupt as i:
             raise i
         except Exception as e:
-            return handle_edit_error(e, state, field_updates)
+            return e
 
     @tool
     @auto_log("ticket_agent.delete_ticket")
     async def delete_ticket(
         ticket_id: str,
+        tool_call_id: Annotated[str, InjectedToolCallId],
+        state: Annotated[TicketAgentState, InjectedState],
         config: RunnableConfig,
-    ) -> ToolMessage:
-        """Tool for deleting tickets."""
-        dispatch_custom_event(
-            "agent_progress",
-            {
-                "message": f"Deleting ticket {ticket_id}...",
-                "ticket_id": ticket_id
-            },
-            config=config
-        )
-        tool_call_id = config.get("tool_call_id")
-        return ToolMessage(content="Ticket deleted successfully", tool_call_id=tool_call_id)
+    ) -> Command | Coroutine[Any, Any, Command]:
+        """Tool for deleting tickets with confirmation flow."""
+        try:
+            is_resuming = config.get("configurable", {}).get('__pregel_resuming', False)
+            
+            if is_resuming:
+                message = await handle_review_process(ReviewConfig(operation_type="delete"), client)
+                return Command(
+                    goto="agent",
+                    update={
+                        "internal_messages": [ToolMessage(content=message, tool_call_id=tool_call_id)],
+                        "done": True
+                    }
+                )
+
+            # Create review configuration for deletion
+            review_config = create_review_config(
+                ticket_id=ticket_id,
+                operation_type="delete",
+                question=f"Confirm permanent deletion of ticket {ticket_id}?",
+                available_actions=[ReviewAction.CONFIRM, ReviewAction.CANCEL]
+            )
+            
+            message = await handle_review_process(review_config, client)
+            return ToolMessage(content=message, tool_call_id=tool_call_id)
+
+        except GraphInterrupt as i:
+            raise i
+        except Exception as e:
+            return e
 
     @tool
     async def search_jira_entity(
@@ -134,55 +155,14 @@ def create_ticket_agent(
         try:
             match entity_type:
                 case "account":
-                    result = await client.search_user(value)
-                    total = result.get("total", 0)
-                    users = result.get("users", [])
-
-                    if total == 1:
-                        return f"Success! Use this accountId instead of the username: {users[0]['accountId']}"
-                    elif total > 1:
-                        user_list = "\n".join([
-                            f"- {user['displayName']}: {user['accountId']}"
-                            for user in users
-                        ])
-                        return (
-                            "There are multiple accounts that may match the name, "
-                            "please use only the accountId for the most relevant name:\n"
-                            f"{user_list}"
-                        )
-                    else:
-                        return f"No accounts found matching '{value}'. Please verify the username and try again."
+                    return await handle_account_search(client, value)
                 case "sprint":
-                    result = await client.find_sprint_by_name(
-                        sprint_name=value
-                    )
+                    # TODO: to be optimized
+                    return await handle_sprint_search(client, value)
                 case "issue":
-                    result = await client.search_issue_by_name(
-                        issue_name=value,
-                        max_results=5
-                    )
-                    total = result.get("total", 0)
-                    issues = result.get("issues", [])
-
-                    if total == 1:
-                        issue = issues[0]
-                        return f"Success! Use this issue reference instead of the name - Key: {issue['key']}"
-                    elif total > 1:
-                        issue_list = "\n".join([
-                            f"- {issue['fields']['summary']}\n  Key: {issue['key']}"
-                            for issue in issues
-                        ])
-                        return (
-                            "Multiple matching issues found. Please use the most relevant Key:\n"
-                            f"{issue_list}"
-                        )
-                    else:
-                        return f"No issues found matching '{value}'. Please verify the issue name and try again."
+                    return await handle_issue_search(client, value)
                 case _:
                     raise ValueError(f"Unsupported entity type: {entity_type}")
-            result = f"Successfully found entity, please use the id from the response instead of the raw names: {result}"
-
-            return result
 
         except Exception as e:
             return f"Search failed: {e}"
@@ -194,9 +174,9 @@ def create_ticket_agent(
         messages_key="internal_messages"
     )
 
-    async def call_model_with_tools(state: TicketAgentState, config: RunnableConfig):
+    async def call_model_with_tools(state: TicketAgentState):
         """Node that calls the LLM with internal message history."""
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        llm = ChatOpenAI(model=AgentConfiguration.model, temperature=0)
         llm_with_tools = llm.bind_tools([create_ticket, edit_ticket, delete_ticket, search_jira_entity])
 
         if state.done:
