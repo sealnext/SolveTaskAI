@@ -167,8 +167,8 @@ async def message_generator(
         if user_input.get("action") == "confirm":
             initial_state = Command(resume={
                 "action": "confirm",
-                "payload": user_input["payload"],
-                "ticket": user_input["ticket"]
+                "payload": user_input.get("payload"),
+                "ticket": user_input.get("ticket")
             })
         elif user_input.get("action") == "cancel":
             initial_state = Command(resume={"action": "cancel"})

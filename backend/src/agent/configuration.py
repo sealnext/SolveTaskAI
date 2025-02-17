@@ -14,9 +14,6 @@ class AgentConfiguration:
     # Temperature for the model
     temperature: float = 0.0
     
-    # System prompt for the agent
-    system_prompt: str = """You are a helpful AI assistant."""
-    
     # Maximum number of iterations
     max_iterations: int = 10
     

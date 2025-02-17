@@ -52,13 +52,14 @@ class ReviewAction(str, Enum):
     SOFT_DELETE = "soft_delete"        # Soft delete option
 
 class ReviewConfig(TypedDict):
-    """Enhanced review configuration."""
-    question: str                    # Review prompt
-    operation_type: Literal["create", "edit", "delete"] # Operation type
-    available_actions: list[ReviewAction]  # Actions available for this operation
-    expected_payload_schema: dict       # Reference to Pydantic model schema
-    preview_data: dict                  # Preview data for review
-    metadata: Optional[dict[str, Any]] # Additional metadata
+    """Configuration for review workflows."""
+    question: str
+    operation_type: Literal["edit", "delete", "create"]
+    available_actions: list[ReviewAction]
+    expected_payload_schema: Optional[dict]
+    preview_data: Optional[dict]
+    metadata: dict
+    operation_type: dict
 
 class JiraTicketUpdate(BaseModel):
     """Pydantic model for Jira ticket update."""
