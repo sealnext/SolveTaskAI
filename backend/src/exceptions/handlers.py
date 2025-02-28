@@ -13,7 +13,7 @@ def register_exception_handlers(app: FastAPI):
             status_code=exc.status_code,
             content={"message": exc.detail}
         )
-        
+
     @app.exception_handler(NotImplementedError)
     async def not_implemented_exception_handler(request: Request, exc: NotImplementedError):
         return NotImplementedException()

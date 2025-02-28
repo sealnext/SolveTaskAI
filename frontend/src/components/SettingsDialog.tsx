@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
-import { 
-  Shield, X, CreditCard, 
+import {
+  Shield, X, CreditCard,
   KeyRound, Receipt, Wallet
 } from 'lucide-react'
 
@@ -50,8 +50,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors duration-200 whitespace-nowrap",
-                    activeTab === tab.id 
-                      ? "bg-accent text-accent-foreground" 
+                    activeTab === tab.id
+                      ? "bg-accent text-accent-foreground"
                       : "text-muted-foreground hover:bg-muted/50"
                   )}
                 >
@@ -77,8 +77,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       </p>
                     </div>
                   </div>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     className="border-border/20 hover:bg-muted/20 text-sm"
                   >
@@ -96,8 +96,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       </p>
                     </div>
                   </div>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     className="border-border/20 hover:bg-muted/20 text-sm"
                   >
@@ -115,8 +115,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       </p>
                     </div>
                   </div>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     className="border-border/20 hover:bg-muted/20 text-sm"
                   >
@@ -138,8 +138,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       </p>
                     </div>
                   </div>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     className="border-border/20 hover:bg-muted/20 text-sm"
                   >
@@ -153,4 +153,4 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       </DialogContent>
     </Dialog>
   );
-} 
+}

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { X, PenSquare, LogOut } from "lucide-react"
+import { X, PenSquare } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   Sidebar,
@@ -12,13 +12,11 @@ import {
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useSession } from "next-auth/react"
 import ApiClient from "@/lib/apiClient"
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { SettingsDialog } from '@/components/SettingsDialog'
-import { LogoutButton } from "@/components/LogoutButton"
 import { ChatSession, groupChatsByDate } from "@/lib/chatUtils"
 
 interface MobileSidebarProps {
@@ -29,7 +27,7 @@ interface MobileSidebarProps {
 
 function CloseButton() {
   const { toggleSidebar } = useSidebar()
-  
+
   return (
     <Button
       variant="ghost"
@@ -64,11 +62,11 @@ function NewChatButton({ onClick }: { onClick?: () => void }) {
   )
 }
 
-function SidebarContent({ 
-  chatSessions, 
-  selectedChatId, 
-  onSelectChat, 
-  isLoading, 
+function SidebarContent({
+  chatSessions,
+  selectedChatId,
+  onSelectChat,
+  isLoading,
   groupedChats,
   session
 }: {
@@ -123,9 +121,9 @@ function SidebarContent({
                           </div>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {new Date(chat.created_at).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
+                          {new Date(chat.created_at).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
                           })}
                         </div>
                       </div>
@@ -146,7 +144,7 @@ function SidebarContent({
 
       <div className="p-4">
         <div className="flex items-center justify-between">
-          <div 
+          <div
             className="flex items-center space-x-3 cursor-pointer"
             onClick={() => setIsSettingsOpen(true)}
           >
@@ -161,43 +159,27 @@ function SidebarContent({
               </p>
             </div>
           </div>
-
-          <LogoutButton>
-            {({ logout, isLoading }) => (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={logout}
-                disabled={isLoading}
-                className="h-6 w-6"
-                aria-label="Log out"
-              >
-                <LogOut className="h-5 w-5 text-muted-foreground" />
-                <span className="sr-only">Log out</span>
-              </Button>
-            )}
-          </LogoutButton>
         </div>
       </div>
 
-      <SettingsDialog 
-        open={isSettingsOpen} 
+      <SettingsDialog
+        open={isSettingsOpen}
         onOpenChange={setIsSettingsOpen}
       />
     </div>
   )
 }
 
-export function MobileSidebar({ 
+export function MobileSidebar({
   selectedChatId,
   onSelectChat,
-  onNewChat 
+  onNewChat
 }: MobileSidebarProps) {
   const [open, setOpen] = React.useState(false)
   const [chatSessions, setChatSessions] = React.useState<ChatSession[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const { data: session } = useSession()
-  
+
   const apiclient = React.useMemo(() => ApiClient(), [])
 
   React.useEffect(() => {
@@ -219,8 +201,8 @@ export function MobileSidebar({
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
-      <Sidebar 
-        className="md:hidden fixed inset-y-0 left-0 z-50" 
+      <Sidebar
+        className="md:hidden fixed inset-y-0 left-0 z-50"
         collapsible="offcanvas"
         aria-label="Chat history sidebar"
         title={
@@ -238,8 +220,8 @@ export function MobileSidebar({
           <CloseButton />
           <NewChatButton onClick={onNewChat} />
         </SidebarHeader>
-        
-        <SidebarContent 
+
+        <SidebarContent
           chatSessions={chatSessions}
           selectedChatId={selectedChatId}
           onSelectChat={onSelectChat}
@@ -248,10 +230,10 @@ export function MobileSidebar({
           session={session}
         />
       </Sidebar>
-      
+
       <div className="fixed top-4 left-4 z-50 md:hidden">
         <SidebarTrigger aria-label="Open chat history" />
       </div>
     </SidebarProvider>
   )
-} 
+}

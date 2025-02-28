@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Tuple
 
 # Third-party imports
+from schemas import UserPassword
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from jose import JWTError, jwt
@@ -25,16 +26,19 @@ from exceptions import (
 )
 from models import UserDB
 from repositories import UserRepository
-from utils.security import decode_next_auth_token, verify_password
+from utils.security import decode_next_auth_token, hash_password, verify_password
 
 logger = logging.getLogger(__name__)
+
 
 class AuthService:
     revoked_tokens: Dict[str, datetime] = {}
 
+
     def __init__(self, user_repository: UserRepository):
         self.user_repository = user_repository
-    
+
+
     def revoke_session_tokens(self, session_data: dict) -> None:
         refresh_token = session_data.get("refresh_token")
         if refresh_token:
@@ -46,10 +50,14 @@ class AuthService:
         self.revoke_token(access_token)
     
     async def authenticate(self, password: str, user: UserDB, request: Request) -> Tuple[str, str]:
+
+
+    async def authenticate(self, password: str, user: UserDB, request: Request) -> Tuple[str, str]:
         if not user or not verify_password(password, user.hashed_password):
             raise InvalidCredentialsException("Invalid email or password")
-        
+
         return self.create_token_pair(user.email, request)
+
 
     def create_token_pair(self, email: str, request: Request) -> Tuple[str, str]:
         location = self.extract_request_localization(request)
@@ -57,28 +65,30 @@ class AuthService:
         refresh_token = self._create_refresh_token(email, location)
         return access_token, refresh_token
 
+
     def _create_access_token(self, email: str, location: str) -> str:
         try:
             expires_delta = timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
             expire = datetime.now(timezone.utc) + expires_delta
-            
+
             to_encode = {
                 "sub": email,
                 "exp": expire,
                 "location": location,
                 "type": "access"
             }
-            
+
             return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
         except Exception as e:
             logger.error(f"Access token creation failed: {str(e)}")
             raise InvalidTokenException("Failed to create access token")
 
+
     def _create_refresh_token(self, email: str, location: str) -> str:
         try:
             expires_delta = timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS)
             expire = datetime.now(timezone.utc) + expires_delta
-            
+
             to_encode = {
                 "sub": email,
                 "exp": expire,
@@ -86,12 +96,13 @@ class AuthService:
                 "type": "refresh",
                 "jti": str(uuid.uuid4())
             }
-            
+
             return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
         except Exception as e:
             logger.error(f"Refresh token creation failed: {str(e)}")
             raise InvalidTokenException("Failed to create refresh token")
-        
+
+
     async def get_current_user(self, request: Request) -> UserDB:
         next_auth_token = request.cookies.get("next-auth.session-token")
         if not next_auth_token:
@@ -122,6 +133,7 @@ class AuthService:
             logger.error(f"Unexpected error during authorization: {str(e)}")
             raise UnexpectedErrorException("An unexpected error occurred during authorization")
 
+
     def verify_and_decode_token(self, token: str, current_location: str) -> str:
         try:
             session_data = decode_next_auth_token(token)
@@ -148,6 +160,7 @@ class AuthService:
             logger.error(f"Token verification failed: {str(e)}")
             raise InvalidTokenException("Failed to verify token")
 
+
     def refresh_token_pair(self, expired_refresh_token: str, request: Request) -> Tuple[str, str]:
         logger.info("Refreshing token pair")
         if not expired_refresh_token:
@@ -156,25 +169,26 @@ class AuthService:
 
         try:
             payload = jwt.decode(expired_refresh_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-            
+
             if payload.get("type") != "refresh":
                 logger.info("Invalid token type detected")
                 raise InvalidTokenException("Invalid token type")
-            
+
             if payload.get("jti") in self.revoked_tokens:
                 logger.info("Refresh token has been revoked")
                 raise SecurityException("Refresh token has been revoked")
-            
+
             email = payload.get("sub")
             return self.create_token_pair(email, request)
 
         except JWTError as e:
             logger.error(f"JWT decoding failed: {str(e)}")
             raise InvalidTokenException("Invalid refresh token")
-        
+
         except Exception as e:
             logger.error(f"Unexpected error during token refresh: {str(e)}")
             raise InvalidTokenException("Failed to refresh tokens")
+
 
     def _decode_next_auth_token(self, next_auth_token: str) -> dict:
         if not next_auth_token:
@@ -184,6 +198,7 @@ class AuthService:
         except Exception as e:
             logger.error(f"Failed to decode next-auth token: {str(e)}")
             raise InvalidTokenException("Invalid next-auth token")
+
 
     @classmethod
     def revoke_token(cls, refresh_token: str):
@@ -197,25 +212,30 @@ class AuthService:
                 cls._clean_expired_tokens()
         except JWTError:
             logger.warning("Failed to revoke token: Invalid token")
-    
+
+
     @classmethod
     def is_token_revoked(cls, jti: str) -> bool:
         cls._clean_expired_tokens()
         return jti in cls.revoked_tokens
+
 
     @classmethod
     def _clean_expired_tokens(cls):
         current_time = datetime.now(timezone.utc)
         cls.revoked_tokens = {jti: exp for jti, exp in cls.revoked_tokens.items() if exp > current_time}
 
+
     @staticmethod
     def _check_location(stored_location: str, current_location: str):
         if stored_location != current_location:
             raise SecurityException("Unusual activity detected: Location mismatch")
 
+
     def extract_request_localization(self, request: Request):
         return request.headers.get("X-Forwarded-For", request.client.host)
-    
+
+
     @staticmethod
     def clear_session(response: JSONResponse) -> None:
         response.delete_cookie(
@@ -225,3 +245,20 @@ class AuthService:
             samesite="lax"
         )
         response.headers["Clear-Site-Data"] = '"cache", "cookies", "storage"'
+
+
+    async def change_password(self, email: str, old_password: str, new_password: str) -> None:
+        try:
+            UserPassword(password=new_password)
+        except ValueError as e:
+            raise InvalidCredentialsException(str(e))
+
+        user = await self.user_repository.get_by_email(email)
+        if not user:
+            raise UserNotFoundException("User not found")
+
+        if not verify_password(old_password, user.hashed_password):
+            raise InvalidCredentialsException("Invalid old password")
+
+        hashed_new_password = hash_password(new_password)
+        await self.user_repository.update_password(user.id, hashed_new_password)

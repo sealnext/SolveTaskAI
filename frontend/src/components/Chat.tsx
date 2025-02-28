@@ -48,7 +48,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
     let processedText = text
       .replace(/\\n\\n/g, '\n\n')
       .replace(/\\n/g, '\n');
-    
+
     processedText = processedText
       .replace(/\n### (.*?)$/gm, '\n<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>')
       .replace(/\n## (.*?)$/gm, '\n<h2 class="text-xl font-bold mt-4 mb-2">$1</h2>')
@@ -56,11 +56,11 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
       .replace(/^### (.*?)$/gm, '<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>')
       .replace(/^## (.*?)$/gm, '<h2 class="text-xl font-bold mt-4 mb-2">$1</h2>')
       .replace(/^# (.*?)$/gm, '<h1 class="text-2xl font-bold mt-4 mb-2">$1</h1>');
-    
+
     processedText = processedText
       .replace(/\n\n/g, '<br><br>')
       .replace(/\n/g, '<br>');
-    
+
     processedText = formatJiraTickets(processedText);
 
     processedText = processedText
@@ -74,16 +74,16 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
 
   const formatMessage = (message: Message) => {
     const formattedText = formatText(message.text);
-    
+
     return (
-      <div 
+      <div
         className="markdown-content"
-        dangerouslySetInnerHTML={{ 
+        dangerouslySetInnerHTML={{
           __html: DOMPurify.sanitize(formattedText, {
             ALLOWED_TAGS: ['strong', 'em', 'code', 'pre', 'a', 'br'],
             ALLOWED_ATTR: ['href', 'target', 'class']
-          }) 
-        }} 
+          })
+        }}
       />
     );
   };
@@ -113,7 +113,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
       <div className="relative mb-2">
         <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-primary/40 rounded-full blur-2xl" />
       </div>
-      
+
       <div className="space-y pb-2 max-w-xl px-2">
         <h3 className="text-lg md:text-xl font-bold text-foreground">
           Hello! I&apos;m your AI Development Assistant
@@ -167,7 +167,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
           </p>
         </div>
         <div className="mb-auto pt-2">
-          <div 
+          <div
             className="group/item flex items-start space-x-2 md:space-x-2 text-sm md:text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <span className="md:text-sm text-xs">{example}</span>
@@ -212,8 +212,8 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
                     {message.sender === 'ai' && <BotIcon />}
                     <div
                       className={`rounded-xl p-3 ${
-                        message.sender === 'ai' 
-                          ? 'bg-transparent max-w-[90%]' 
+                        message.sender === 'ai'
+                          ? 'bg-transparent max-w-[90%]'
                           : 'bg-accent max-w-[70%]'
                       } text-foreground`}
                     >
@@ -225,7 +225,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
                     </div>
                   </div>
                 ))}
-                
+
                 {loadingMessage && (
                   <div className="flex justify-start items-start gap-3 animate-fade-in">
                     <BotIcon />
@@ -238,7 +238,7 @@ const Chat: React.FC<ChatProps> = ({ messages, loadingMessage }) => {
                     </div>
                   </div>
                 )}
-                
+
                 <div ref={messagesEndRef} />
               </div>
             )}

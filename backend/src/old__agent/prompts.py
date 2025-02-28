@@ -212,4 +212,4 @@ query_optimization_template = ChatPromptTemplate.from_messages([
 
 ticketing_actions_template = ChatPromptTemplate.from_messages([
     ("system", TICKETING_ACTIONS_PROMPT)
-]) 
+])

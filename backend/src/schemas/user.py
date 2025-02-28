@@ -2,16 +2,9 @@ from typing import Optional
 from pydantic import BaseModel, EmailStr, Field, validator
 import re
 
-class UserCreate(BaseModel):
-    username: str = Field(..., min_length=3, max_length=50)
-    email: EmailStr
-    password: str = Field(..., min_length=8, max_length=128)
 
-    @validator('username')
-    def username_alphanumeric(cls, v):
-        if not v.isalnum():
-            raise ValueError('Username must be alphanumeric')
-        return v
+class UserPassword(BaseModel):
+    password: str = Field(..., min_length=8, max_length=128)
 
     @validator('password')
     def password_strength(cls, v):
@@ -25,12 +18,24 @@ class UserCreate(BaseModel):
             raise ValueError('Password must contain at least one special character')
         return v
 
+
+class UserCreate(UserPassword):
+    username: str = Field(..., min_length=3, max_length=50)
+    email: EmailStr
+
+    @validator('username')
+    def username_alphanumeric(cls, v):
+        if not v.isalnum():
+            raise ValueError('Username must be alphanumeric')
+        return v
+
     @validator('email')
     def email_domain(cls, v):
         domain = v.split('@')[1]
         if domain in ['example.com', 'test.com']:
             raise ValueError('This email domain is not allowed')
         return v
+
 
 class UserRead(BaseModel):
     id: Optional[int]

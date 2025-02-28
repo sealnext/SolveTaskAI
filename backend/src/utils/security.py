@@ -3,7 +3,7 @@ from Crypto.Protocol.KDF import HKDF
 from Crypto.Hash import SHA256
 from jose import jwe
 import logging
-from config import NEXTAUTH_SECRET 
+from config import NEXTAUTH_SECRET
 import bcrypt
 
 logger = logging.getLogger(__name__)
