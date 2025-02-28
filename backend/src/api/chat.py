@@ -3,7 +3,7 @@ from middleware.auth_middleware import auth_middleware
 from dependencies import get_api_key_repository, get_project_service, get_chat_session_repository
 from repositories import APIKeyRepository
 from services.project_service import ProjectService
-from services import Agent
+
 from schemas import QuestionRequest, QuestionResponse
 import logging
 import uuid
@@ -98,8 +98,6 @@ async def get_chat_history_list(
         logger.info(f"Getting chat sessions for user {user_id}")
 
         chat_sessions = await chat_session_repository.get_all_by_user_id(user_id)
-
-        logger.info(f"Chat sessions: {chat_sessions}")
 
         formatted_sessions = []
         for session in chat_sessions:

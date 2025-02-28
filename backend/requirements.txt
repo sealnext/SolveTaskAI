@@ -12,7 +12,12 @@ pgvector==0.2.5
 aiohttp==3.10.9
 psycopg[binary]==3.2.3
 colorlog==6.8.2
-langgraph==0.2.39
+langgraph==0.2.57
 langchain-postgres==0.0.12
-langchain-openai==0.2.3
+langchain-openai==0.2.14
 langchain==0.3.4
+langgraph-sdk==0.1.45
+langgraph-checkpoint-postgres==2.0.8
+aiostream==0.6.4
+tenacity==9.0.0
+httpx[http2]==0.28.1

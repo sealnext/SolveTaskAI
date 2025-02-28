@@ -2,11 +2,10 @@ from typing import List
 from repositories import APIKeyRepository
 from middleware.auth_middleware import auth_middleware
 from fastapi import APIRouter, Depends, Request, HTTPException
-from config.enums import TicketingSystemType
-from dependencies import get_project_service, get_user_service, get_api_key_repository
-from services import ProjectService, UserService
-from schemas.status_schema import StatusSchema
-from services.agent_service.ticketing_tool import create_ticketing_client
+from dependencies import get_project_service, get_api_key_repository
+from services import ProjectService
+from schemas.status import StatusSchema
+from agent.ticket_agent.graph import create_ticket_agent
 
 router = APIRouter(
     prefix="/ticketing",
@@ -37,17 +36,18 @@ async def get_issue_statuses(
             raise HTTPException(status_code=404, detail="API key not found for this project")
 
         # Get the appropriate ticketing client
-        ticketing_client = await create_ticketing_client(api_key, project)
-
+        ticketing_client = await create_ticket_agent(api_key, project)
+        
         if not ticketing_client:
             raise HTTPException(
-                status_code=400,
+                status_code=400, 
                 detail=f"Unsupported ticketing system: {project.service_type}"
             )
 
         # Get statuses using the appropriate client
+        # TODO PLEASE FIX THIS
         statuses = await ticketing_client.get_project_statuses()
         return statuses
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) 

@@ -52,7 +52,7 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
 
     setIsLoading(true);
     try {
-      const fetchedProjects = await apiClient.post<ExternalProjectSchema[]>(`/projects/external/id/${keyId}`);
+      const fetchedProjects = await apiClient.get(`/projects/external/id/${keyId}`);
       setExternalProjects(fetchedProjects.data);
       
       if (fetchedProjects.data.length > 0) {
@@ -90,21 +90,43 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
         domain_email: formData.email
       });
       
-      if (response.data && response.data.id) {
+      if (response.data?.data?.id) {
         setMessage('API Key added successfully!');
         await fetchExistingApiKeys();
         setApiKeySource('existing');
-        setSelectedApiKeyId(response.data.id);
-        // Automatically fetch external projects after adding the key
-        await fetchExternalProjects(response.data.id);
+        setSelectedApiKeyId(response.data.data.id);
+        await fetchExternalProjects(response.data.data.id);
+        
+        toast({
+          title: "Success",
+          description: "API key added successfully!",
+        });
       } else {
         setMessage('API Key added, but no ID was returned. Please try refreshing.');
       }
-    } catch (error) {
-      if (error.response && error.response.data && error.response.data.message) {
-        setMessage(`Error: ${error.response.data.message}`);
+    } catch (error: any) {
+      console.log('Error details:', error);
+      
+      if (error.message === "An API key with this value already exists") {
+        toast({
+          variant: "destructive",
+          title: "Duplicate API Key",
+          description: "An API key with this value already exists in your account.",
+        });
+      } else if (error.response?.status === 403) {
+        toast({
+          variant: "destructive",
+          title: "Permission Error",
+          description: "You do not have permission to add this API key.",
+        });
       } else {
-        setMessage(`Error adding API key: ${error.message}`);
+        const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
+        setMessage(`Error: ${errorMessage}`);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: errorMessage,
+        });
       }
     } finally {
       setIsLoading(false);
@@ -115,16 +137,39 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
     const id = parseInt(keyId);
     setSelectedApiKeyId(id);
     setIsLoading(true);
-    setExternalProjects([]); // Golim lista de proiecte externe înainte de a încărca altele noi
+    setExternalProjects([]); // Clear existing projects
+    setMessage('Loading projects...'); // Add loading message
     
     const selectedKey = existingApiKeys.find(key => key.id === id);
     if (selectedKey) {
-      setServiceType(selectedKey.service_type as 'jira' | 'azure');
-      setDomain(selectedKey.domain);
-      setEmail(selectedKey.domain_email);
-      
-      await fetchExternalProjects(id);
+        setServiceType(selectedKey.service_type as 'jira' | 'azure');
+        setDomain(selectedKey.domain);
+        setEmail(selectedKey.domain_email);
+        
+        try {
+            const fetchedProjects = await apiClient.get(`/projects/external/id/${id}`);
+            setExternalProjects(fetchedProjects.data);
+            
+            if (fetchedProjects.data.length > 0) {
+                setMessage(`${fetchedProjects.data.length} external projects found.`);
+                toast({
+                    title: "Success",
+                    description: `Found ${fetchedProjects.data.length} projects in ${selectedKey.domain}`,
+                });
+            } else {
+                setMessage('No external projects found in this account.');
+            }
+        } catch (error: any) {
+            setExternalProjects([]);
+            if (error.response?.status === 404) {
+                setMessage(`Could not find any projects for ${selectedKey.domain}. Please check your API key permissions.`);
+            } else {
+                const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch projects';
+                setMessage(`${errorMessage}`);
+            }
+        }
     }
+    setIsLoading(false);
   };
 
   const handleApiKeySourceChange = (value: 'new' | 'existing') => {
@@ -307,17 +352,24 @@ const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({ projects, onProjectsUpdat
 
           {externalProjects.length > 0 && apiKeySource === 'existing' && (
             <div className="mt-2">
-              <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                <ExternalProjectsList
-                  externalProjects={externalProjects}
-                  projects={projects}
-                  isLoading={isLoading}
-                  newlyAddedProjects={newlyAddedProjects}
-                  onAddInternalProject={handleAddInternalProject}
-                  onReloadEmbeddings={handleReloadEmbeddings}
-                  onDeleteProject={handleDeleteProject}
-                />
-              </div>
+                <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <p className="text-sm text-muted-foreground">Loading projects...</p>
+                        </div>
+                    ) : (
+                        <ExternalProjectsList
+                            externalProjects={externalProjects}
+                            projects={projects}
+                            isLoading={isLoading}
+                            newlyAddedProjects={newlyAddedProjects}
+                            onAddInternalProject={handleAddInternalProject}
+                            onReloadEmbeddings={handleReloadEmbeddings}
+                            onDeleteProject={handleDeleteProject}
+                        />
+                    )}
+                </div>
             </div>
           )}
         </div>

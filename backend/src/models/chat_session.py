@@ -16,8 +16,8 @@ class ChatSession(Base):
                        onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
-    user = relationship("User", back_populates="chat_sessions")
-    project = relationship("Project", back_populates="chat_sessions")
+    user = relationship("UserDB", back_populates="chat_sessions")
+    project = relationship("ProjectDB", back_populates="chat_sessions")
 
     def __repr__(self):
         return f"<ChatSession(id={self.id}, user_id={self.user_id}, project_id={self.project_id})>"

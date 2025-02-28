@@ -12,11 +12,10 @@ from exceptions import (
     APIKeyNotFoundException,
     APIKeyExpiredException
 )
-from schemas import UserCreate
-from models import User
+from schemas import UserCreate, APIKey
+from models import UserDB
 from utils.security import hash_password, verify_password
 from services import AuthService
-from models import APIKey
 
 
 logger = logging.getLogger(__name__)
@@ -26,7 +25,7 @@ class UserService:
         self.user_repository = user_repository
         self.api_key_repository = api_key_repository
 
-    async def get_api_keys_by_user(self, user: User) -> List[APIKey]:
+    async def get_api_keys_by_user(self, user: UserDB) -> List[APIKey]:
         api_keys = await self.api_key_repository.get_api_keys_by_user(user.id)
         # decrypt api keys, for the moment we dont store them encrypted
         # TODO: encrypt them
@@ -45,7 +44,7 @@ class UserService:
         api_key = await self.api_key_repository.get_by_id(api_key_id, user_id)
         return api_key
 
-    async def create_new_user(self, user_create: UserCreate) -> User:
+    async def create_new_user(self, user_create: UserCreate) -> UserDB:
         existing_user = await self.user_repository.get_by_email(user_create.email)
         if existing_user:
             logger.info(f"User creation failed: User with email {user_create.email} already exists")
@@ -61,7 +60,7 @@ class UserService:
             logger.error(f"Validation error during user creation: {e.errors()}")
             raise ValidationErrorException(f"Validation error: {e.errors()}")
 
-    async def get_user_by_email(self, email: str) -> Optional[User]:
+    async def get_user_by_email(self, email: str) -> Optional[UserDB]:
         return await self.user_repository.get_by_email(email)
 
     async def authenticate_and_get_tokens(self, email: str, password: str, request: Request, auth_service: AuthService) -> Tuple[str, str]:

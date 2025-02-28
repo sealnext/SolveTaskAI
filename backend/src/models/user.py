@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship, declarative_base
 from .base import Base
 from .associations import user_project_association
 
-class User(Base):
+class UserDB(Base):
     __tablename__ = 'users'
 
     id = Column(Integer, primary_key=True, index=True)
@@ -17,10 +17,10 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationship to APIKeys (One-to-many)
-    api_keys = relationship("APIKey", back_populates="user")
+    api_keys = relationship("APIKeyDB", back_populates="user")
 
     # Relația many-to-many cu proiectele
-    projects = relationship("Project", secondary=user_project_association, back_populates="users")
+    projects = relationship("ProjectDB", secondary=user_project_association, back_populates="users")
 
     # Add to existing relationships
     chat_sessions = relationship("ChatSession", back_populates="user")
