@@ -24,11 +24,11 @@ async def login(
     user_service: UserService = Depends(get_user_service),
 ):
     user = await user_service.get_user_by_email(form_data.username)
-    
+
     access_token, refresh_token = await auth_service.authenticate(
         form_data.password, user, request
     )
-    
+
     response = JSONResponse(
         status_code=status.HTTP_200_OK,
         content={"message": "Login successful",
@@ -48,7 +48,7 @@ async def refresh_token(
     logger.debug(request.cookies)
     expired_refresh_token = request.cookies.get("refresh-token")
     new_access_token, new_refresh_token = auth_service.refresh_token_pair(expired_refresh_token, request)
-    
+
     response = JSONResponse(
         status_code=status.HTTP_200_OK,
         content={"message": "Tokens refreshed successfully"}
@@ -68,14 +68,14 @@ async def logout(
         raise SecurityException("No active session found")
 
     session_data = decode_next_auth_token(next_auth_token)
-    
+
     auth_service.revoke_session_tokens(session_data)
-    
+
     response = JSONResponse(
         status_code=status.HTTP_200_OK,
         content={"message": "Logged out successfully"}
     )
-    
+
     auth_service.clear_session(response)
     return response
 
@@ -90,4 +90,35 @@ async def signup(
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={"message": "User created successfully"}
+    )
+
+
+@router.post("/change-password")
+async def change_password(
+    request: Request,
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    next_auth_token = request.cookies.get("next-auth.session-token")
+    if not next_auth_token:
+        raise SecurityException("No active session found")
+
+    session_data = decode_next_auth_token(next_auth_token)
+
+    # Get the new password from request body
+    body = await request.json()
+    new_password = body.get("new_password")
+    old_password = body.get("old_password")
+
+    if not new_password or not old_password:
+        raise ValidationErrorException("Both old and new passwords are required")
+
+    await auth_service.change_password(
+        session_data["email"],
+        old_password,
+        new_password
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"message": "Password changed successfully"}
     )

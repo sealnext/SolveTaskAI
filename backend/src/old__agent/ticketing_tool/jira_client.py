@@ -21,20 +21,20 @@ class JiraClient:
             "Content-Type": "application/json"
         }
         logger.info(f"JiraClient initialized with base_url: {self.base_url} and email: {domain_email}")
-        
+
     async def get_issue_type_fields_by_name(self, issue_type_id: str) -> Dict[str, Any]:
         """
         Get the fields for a given issue type by its ID, organized by required and optional fields.
-        
+
         Args:
             issue_type_id: The ID of the issue type
-            
+
         Returns:
             Dictionary containing:
                 - required_fields: Fields that must be filled
                 - optional_fields: Fields that are optional
                 Each field contains: name, type, key, operations, allowed_values (if any)
-            
+
         Raises:
             Exception: If the API call fails
         """
@@ -44,9 +44,9 @@ class JiraClient:
             "issuetypeIds": issue_type_id,
             "expand": "projects.issuetypes.fields"
         }
-        
+
         logger.debug(f"Fetching fields for issue type ID: {issue_type_id}")
-        
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
@@ -59,18 +59,18 @@ class JiraClient:
                         error_data = await response.json()
                         logger.error(f"Failed to get issue type fields: {error_data}")
                         raise Exception(f"Jira API error: {error_data}")
-                    
+
                     data = await response.json()
-                    
+
                     # Extract fields from response
                     raw_fields = (data.get("projects", [])[0]
                                 .get("issuetypes", [])[0]
                                 .get("fields", {}))
-                    
+
                     # Organize fields by required/optional
                     required_fields = {}
                     optional_fields = {}
-                    
+
                     for field_key, field_data in raw_fields.items():
                         field_info = {
                             "name": field_data.get("name"),
@@ -78,31 +78,31 @@ class JiraClient:
                             "key": field_key,
                             "operations": field_data.get("operations", [])
                         }
-                        
+
                         # Add allowed values if they exist
                         if "allowedValues" in field_data:
                             field_info["allowed_values"] = field_data["allowedValues"]
-                            
+
                         # Add autoCompleteUrl if it exists
                         if "autoCompleteUrl" in field_data:
                             field_info["auto_complete_url"] = field_data["autoCompleteUrl"]
-                        
+
                         # Add custom field info if it's a custom field
                         if "custom" in field_data.get("schema", {}):
                             field_info["custom_type"] = field_data["schema"]["custom"]
                             field_info["custom_id"] = field_data["schema"].get("customId")
-                        
+
                         # Sort into required/optional
                         if field_data.get("required", False):
                             required_fields[field_key] = field_info
                         else:
                             optional_fields[field_key] = field_info
-                    
+
                     return {
                         "required_fields": required_fields,
                         "optional_fields": optional_fields
                     }
-                    
+
         except Exception as e:
             logger.error(f"Error getting issue type fields: {str(e)}")
             raise
@@ -291,7 +291,7 @@ class JiraClient:
             logger.error(f"Request URL: {response.url}")
             logger.error(f"Request method: {response.method}")
             raise Exception(f"Jira API error: {error_data}")
-    
+
     async def get_ticket_and_template_json(self, ticket_id: str) -> EditableTicketSchema:
         """Get the ticket and editmeta template for a ticket."""
         url = f"{self.base_url}/issue/{ticket_id}?expand=editmeta"
@@ -302,14 +302,14 @@ class JiraClient:
                     if response.status >= 400:
                         error_data = await response.json()
                         raise Exception(f"Jira API error: {error_data}")
-                    
+
                     result = await response.json()
                     return EditableTicketSchema(**result)
-                
+
         except aiohttp.ClientError as e:
             logger.error(f"Error connecting to Jira API: {str(e)}")
             raise Exception(f"Failed to connect to Jira API: {str(e)}")
-                    
+
     async def get_editmeta_template(self, ticket_id: str) -> Dict[str, Any]:
         """Get the editmeta template for a ticket."""
         url = f"{self.base_url}/issue/{ticket_id}/editmeta"
@@ -317,7 +317,7 @@ class JiraClient:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    url, 
+                    url,
                     headers=self.headers,
                     auth=self.auth
                 ) as response:
@@ -325,22 +325,22 @@ class JiraClient:
                         error_data = await response.json()
                         logger.error(f"Jira API error response: {error_data}")
                         raise Exception(f"Jira API error: {error_data}")
-                    
+
                     response_data = await response.json()
                     return response_data
-                    
+
         except aiohttp.ClientError as e:
             logger.error(f"Error connecting to Jira API: {str(e)}")
             raise Exception(f"Failed to connect to Jira API: {str(e)}")
 
     async def update_task(self, ticket_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
         """Update an existing Jira ticket.
-        
+
         Supports both direct field updates and operations (set/add/remove).
         Field names are case-sensitive and should match Jira's field names.
         """
         url = f"{self.base_url}/issue/{ticket_id}"
-        
+
         # Convert field names to proper Jira field names (first letter lowercase)
         formatted_updates = {}
         for key, value in updates.items():
@@ -349,9 +349,9 @@ class JiraClient:
             formatted_updates[jira_field_name] = value
 
         # Prepare the request payload
-        
+
         logger.debug(f"Updating Jira ticket {ticket_id} with payload: {formatted_updates}")
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.put(
                 url, 
@@ -363,20 +363,20 @@ class JiraClient:
                     error_data = await response.json()
                     logger.error(f"Jira API error response: {error_data}")
                     raise Exception(f"Jira API error: {error_data}")
-                
+
                 # Jira returns 204 No Content on successful update
                 return {"key": ticket_id}
 
     async def link_tickets(self, source_ticket: str, target_ticket: str, link_type: str) -> None:
         """Create a link between two Jira tickets."""
         url = f"{self.base_url}/issueLink"
-        
+
         link_data = {
             "type": {"name": link_type},
             "inwardIssue": {"key": source_ticket},
             "outwardIssue": {"key": target_ticket}
         }
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=link_data, headers=self.headers, auth=self.auth) as response:
                 if response.status >= 400:
@@ -386,43 +386,43 @@ class JiraClient:
     async def get_ticket(self, ticket_id: str) -> Dict[str, Any]:
         """Get detailed information about a Jira ticket."""
         url = f"{self.base_url}/issue/{ticket_id}"
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=self.headers, auth=self.auth) as response:
                 if response.status >= 400:
                     error_data = await response.json()
                     raise Exception(f"Jira API error: {error_data}")
-                
+
                 return await response.json()
 
     async def search_tickets(self, query: str) -> List[Dict[str, Any]]:
         """Search for Jira tickets matching the query."""
         url = f"{self.base_url}/search"
-        
+
         jql = f'project = "{self.project_key}" AND {query}'
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json={"jql": jql}, headers=self.headers, auth=self.auth) as response:
                 if response.status >= 400:
                     error_data = await response.json()
                     raise Exception(f"Jira API error: {error_data}")
-                
+
                 result = await response.json()
-                return result["issues"] 
+                return result["issues"]
 
     async def get_project_issue_types(self) -> List[Dict[str, Any]]:
         """Get available issue types for the project."""
         url = f"{self.base_url}/issue/createmeta/{self.project_key}/issuetypes"
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=self.headers, auth=self.auth) as response:
                 if response.status >= 400:
                     error_data = await response.json()
                     raise Exception(f"Jira API error: {error_data}")
-                
+
                 result = await response.json()
                 logger.debug(f"Issue types response: {result}")
-                
+
                 # Handle the response structure
                 if isinstance(result, dict):
                     # Check for 'issueTypes' (capital T) first
@@ -435,35 +435,35 @@ class JiraClient:
                         return result["issuetypes"]
                 elif isinstance(result, list):
                     return result
-                    
+
                 raise Exception("Unexpected response format from Jira API")
 
     async def get_issue_type_fields(self, issue_type_id: str) -> Dict[str, Any]:
         """Get available fields for a specific issue type."""
         url = f"{self.base_url}/issue/createmeta/{self.project_key}/issuetypes/{issue_type_id}"
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=self.headers, auth=self.auth) as response:
                 if response.status >= 400:
                     error_data = await response.json()
                     raise Exception(f"Jira API error: {error_data}")
-                
+
                 return await response.json()
 
     async def create_ticket(self, issue_type_id: str, field_values: Dict[str, Any]) -> Dict[str, str]:
         """
         Create a new ticket in Jira based on the issue type and its fields.
-        
+
         Args:
             issue_type_id: The ID of the issue type to create
             field_values: Dictionary containing field values based on the issue type's schema
-            
+
         Returns:
             Dictionary containing the created ticket ID and URL
         """
         logger.debug(f"jira client - Creating Jira ticket with issue type ID: {issue_type_id} and field values: {field_values}")
         url = f"{self.base_url}/issue"
-        
+
         # Prepare the issue data with project and issue type
         issue_data = {
             "fields": {
@@ -472,9 +472,9 @@ class JiraClient:
                 **field_values
             }
         }
-        
+
         logger.debug(f"Creating Jira ticket with payload: {issue_data}")
-        
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -487,18 +487,18 @@ class JiraClient:
                         error_data = await response.json()
                         logger.error(f"Jira API error response: {error_data}")
                         raise Exception(f"Failed to create Jira ticket: {error_data}")
-                    
+
                     result = await response.json()
                     ticket_id = result["key"]
                     ticket_url = f"https://{self.domain}/browse/{ticket_id}"
-                    
+
                     logger.info(f"Successfully created Jira ticket: {ticket_id}")
-                    
+
                     return {
                         "ticket_id": ticket_id,
                         "url": ticket_url
                     }
-                    
+
         except Exception as e:
             error_msg = f"Error creating Jira ticket: {str(e)}"
             logger.error(error_msg)
@@ -507,16 +507,16 @@ class JiraClient:
     async def get_project_statuses(self) -> List[StatusSchema]:
         """
         Fetches available statuses for a specific issue type.
-        
+
         Args:
             issue_type_id: The ID of the issue type
-            
+
         Returns:
             List of StatusSchema objects
         """
         url = f"{self.base_url}/project/{self.project_key}/statuses"
         logger.debug(f"Fetching statuses for issue types")
-        
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
@@ -528,17 +528,17 @@ class JiraClient:
                         error_data = await response.json()
                         logger.error(f"Failed to get issue type statuses: {error_data}")
                         raise Exception(f"Jira API error: {error_data}")
-                    
+
                     data = await response.json()
-                    
+
                     # Find statuses for the specific issue type
                     for issue_type in data:
                         statuses = issue_type.get("statuses", [])
                         # Use Pydantic to parse the list of statuses
                         return parse_obj_as(List[StatusSchema], statuses)
-                    
+
                     return []
-                    
+
         except Exception as e:
             logger.error(f"Error getting issue type statuses: {str(e)}")
             raise

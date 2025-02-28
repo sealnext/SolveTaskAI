@@ -9,10 +9,6 @@ from exceptions import (
     UserAlreadyExistsException,
     ValidationErrorException,
     InvalidCredentialsException,
-    InvalidTokenException,
-    UserNotFoundException,
-    SecurityException,
-    UnexpectedErrorException,
     APIKeyNotFoundException,
     APIKeyExpiredException
 )
@@ -33,13 +29,13 @@ class UserService:
         api_keys = await self.api_key_repository.get_api_keys_by_user(user.id)
         # decrypt api keys, for the moment we dont store them encrypted
         # TODO: encrypt them
-        
+
         # TODO: add caching
-        
+
         # show only the first 5 characters of the api key
         for api_key in api_keys:
             api_key.api_key = api_key.api_key[:5] + '*****'
-        
+
         if not api_keys:
             raise APIKeyNotFoundException
         return api_keys
@@ -59,7 +55,7 @@ class UserService:
 
         try:
             return await self.user_repository.create(user_create)
-        
+
         except ValidationError as e:
             logger.error(f"Validation error during user creation: {e.errors()}")
             raise ValidationErrorException(f"Validation error: {e.errors()}")
@@ -79,8 +75,8 @@ class UserService:
         api_key = await self.user_repository.get_api_key_for_project(self.user.id, project_id)
         if not api_key:
             raise APIKeyNotFoundException
-        
+
         if api_key.expires_at and api_key.expires_at <= datetime.now(UTC):
             raise APIKeyExpiredException
-        
+
         return api_key.key

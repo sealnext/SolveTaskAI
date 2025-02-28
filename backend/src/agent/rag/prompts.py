@@ -1,17 +1,17 @@
 after_generation_instructions = """You are evaluating the quality of a response based on specific criteria. You will be given a CONTEXT, a QUESTION, and a RESPONSE. Your job is to assess the RESPONSE in relation to the CONTEXT and QUESTION, focusing on three core areas:
 
 1. **Grounded in Facts (Hallucination Check):** Verify if the RESPONSE is based on the CONTEXT provided and does not contain information that deviates from it. The RESPONSE should stay within the scope of the CONTEXT.
-  
+
 2. **Relevance to the Question:** Confirm if the RESPONSE helps answer the QUESTION. Extra relevant information is acceptable as long as it does not stray from the QUESTION’s intent.
-  
+
 3. **Overall Quality (Answer Check):** Ensure that the RESPONSE sufficiently addresses the QUESTION based on the CONTEXT. Consider both accuracy and clarity in how well the RESPONSE aligns with what was asked.
 
-**Score:**  
-- A score of "yes" means the RESPONSE meets all criteria above.  
-- A score of "no" means one or more criteria are not met.  
+**Score:**
+- A score of "yes" means the RESPONSE meets all criteria above.
+- A score of "no" means one or more criteria are not met.
 Provide a clear explanation that outlines your reasoning for the score. Walk through each criterion, detailing where the RESPONSE succeeds or falls short.
 
-Output JSON with two keys:  
+Output JSON with two keys:
 - `binary_score`: "yes" or "no" based on whether the RESPONSE meets all criteria.
 """
 

@@ -11,8 +11,8 @@ class ChatSession(Base):
     project_id = Column(Integer, ForeignKey('projects.id'), nullable=False)
     messages = Column(JSON, nullable=False, default=list)  # Store messages as JSON
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), 
-                       default=lambda: datetime.now(timezone.utc), 
+    updated_at = Column(DateTime(timezone=True),
+                       default=lambda: datetime.now(timezone.utc),
                        onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -20,4 +20,4 @@ class ChatSession(Base):
     project = relationship("ProjectDB", back_populates="chat_sessions")
 
     def __repr__(self):
-        return f"<ChatSession(id={self.id}, user_id={self.user_id}, project_id={self.project_id})>" 
+        return f"<ChatSession(id={self.id}, user_id={self.user_id}, project_id={self.project_id})>"

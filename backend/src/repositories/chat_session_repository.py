@@ -36,28 +36,28 @@ class ChatSessionRepository:
             query = select(ChatSession).where(ChatSession.id == chat_id)
             result = await self.session.execute(query)
             chat_session = result.scalar_one_or_none()
-                
+
             return chat_session
-            
+
         except Exception as e:
             logger.error(f"Error in get_by_id for chat {chat_id}: {str(e)}")
             raise
-        
+
     async def add_messages(self, chat_id: str, new_messages: List[dict]) -> ChatSession:
         chat_session = await self.get_by_id(chat_id)
         if chat_session:
             # Initialize messages if None
             if chat_session.messages is None:
                 chat_session.messages = []
-            
+
             # Add new messages directly
             chat_session.messages = chat_session.messages + new_messages
-            
+
             # Explicitly mark as modified
             self.session.add(chat_session)
             await self.session.commit()
             await self.session.refresh(chat_session)
-            
+
             logger.debug(f"Added {len(new_messages)} messages to chat {chat_id}. Total messages: {len(chat_session.messages)}")
         return chat_session
 
@@ -65,7 +65,7 @@ class ChatSessionRepository:
         chat_session = await self.get_by_id(chat_id)
         if chat_session and chat_session.messages:
             filtered_messages = [
-                msg for msg in chat_session.messages 
+                msg for msg in chat_session.messages
                 if isinstance(msg, dict) and msg.get('role') in ['human', 'ai', 'system']
             ]
             logger.debug(f"Retrieved {len(filtered_messages)} filtered messages from chat {chat_id}")
