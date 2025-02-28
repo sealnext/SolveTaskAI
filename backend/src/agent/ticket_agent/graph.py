@@ -17,7 +17,7 @@ from langgraph.prebuilt import ToolNode, InjectedState
 from langgraph.types import Command
 
 from .models import TicketAgentState, ReviewAction, ReviewConfig
-from .utils import handle_review_process, prepare_ticket_fields, generate_field_updates, create_review_config, handle_edit_error, handle_account_search, handle_issue_search, handle_sprint_search
+from .utils import handle_review_process, prepare_ticket_fields, generate_field_updates, create_review_config, handle_edit_error, handle_account_search, handle_issue_search, handle_sprint_search, prepare_creation_fields, generate_creation_fields
 from .prompts import (
     TICKET_AGENT_PROMPT
 )
@@ -31,32 +31,76 @@ def create_ticket_agent(
 ) -> StateGraph:
     """Create a new ticket agent graph instance."""
 
-    @tool
     @auto_log("ticket_agent.create_ticket")
     async def create_ticket(
         detailed_query: str,
-        ticket_id: str,
-        action: str,
+        issue_type: str,
+        tool_call_id: Annotated[str, InjectedToolCallId],
         config: RunnableConfig,
-    ) -> ToolMessage:
-        """Tool for creating tickets."""
-        dispatch_custom_event(
-            "agent_progress",
-            {
-                "message": f"Creating new ticket {ticket_id}...",
-                "ticket_id": ticket_id
-            },
-            config=config
-        )
-        tool_call_id = config.get("tool_call_id")
-        return ToolMessage(content="Ticket created successfully", tool_call_id=tool_call_id)
+    ) -> Command | Coroutine[Any, Any, Command]:
+        """Tool for creating tickets with Jira metadata validation."""
+        try:
+            is_resuming = config.get("configurable", {}).get('__pregel_resuming', False)
+            
+            if is_resuming:
+                message = await handle_review_process(
+                    ReviewConfig(operation_type="create"), 
+                    client
+                )
+                return Command(
+                    goto="agent",
+                    update={
+                        "internal_messages": [ToolMessage(content=message, tool_call_id=tool_call_id)],
+                        "done": True
+                    }
+                )
+
+            dispatch_custom_event(
+                "agent_progress",
+                {"message": "Trying to create a new ticket..."},
+                config=config
+            )
+
+            # Get project_key from the client's project object
+            project_key = client.project.key
+            
+            # Get createmeta fields and allowed values
+            creation_fields = await prepare_creation_fields(project_key, issue_type, client)
+            
+            # Generate field values using LLM with createmeta constraints
+            field_values = await generate_creation_fields(
+                detailed_query, 
+                creation_fields
+            )
+
+            # Prepare review configuration with createmeta data
+            review_config = create_review_config(
+                operation_type="create",
+                project_key=project_key,
+                issue_type=issue_type,
+                field_values=field_values
+            )
+            
+            message = await handle_review_process(review_config, client)
+
+            return Command(
+                goto="agent",
+                update={
+                    "internal_messages": [ToolMessage(content=message, tool_call_id=tool_call_id)],
+                    "done": True
+                }
+            )
+
+        except GraphInterrupt as i:
+            raise i
+        except Exception as e:
+            return handle_edit_error(e, tool_call_id, field_values)
 
     @auto_log("ticket_agent.edit_ticket")
     async def edit_ticket(
         detailed_query: str,
         ticket_id: str,
         tool_call_id: Annotated[str, InjectedToolCallId],
-        state: Annotated[TicketAgentState, InjectedState],
         config: RunnableConfig,
     ) -> Command | Coroutine[Any, Any, Command]:
         """Tool for editing JIRA tickets."""
@@ -107,7 +151,6 @@ def create_ticket_agent(
     async def delete_ticket(
         ticket_id: str,
         tool_call_id: Annotated[str, InjectedToolCallId],
-        state: Annotated[TicketAgentState, InjectedState],
         config: RunnableConfig,
     ) -> Command | Coroutine[Any, Any, Command]:
         """Tool for deleting tickets with confirmation flow."""

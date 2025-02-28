@@ -13,14 +13,14 @@ from .chat_memory import ChatMemory
 from .nodes import call_model, should_continue
 from agent.rag.agent import create_retrieve_tool
 from agent.ticketing_tool.agent import create_ticketing_agent
-from models import Project
-from models.apikey import APIKey
+from models import ProjectDB
+from models.api_key import APIKeyDB
 from repositories.chat_session_repository import ChatSessionRepository
 
 logger = logging.getLogger(__name__)
 
 class Agent:
-    def __init__(self, project: Project, api_key: APIKey, chat_session_repository: ChatSessionRepository):
+    def __init__(self, project: ProjectDB, api_key: APIKeyDB, chat_session_repository: ChatSessionRepository):
         self.project = project
         self.api_key = api_key
         self.chat_session_repository = chat_session_repository

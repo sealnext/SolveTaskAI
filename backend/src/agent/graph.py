@@ -3,7 +3,7 @@ import logging
 from typing import Any, Literal, Optional, Union
 
 # Third-party imports
-from langchain_core.messages import AnyMessage, FunctionMessage
+from langchain_core.messages import AnyMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
@@ -17,7 +17,6 @@ from pydantic import BaseModel
 from agent.configuration import AgentConfiguration
 from agent.state import AgentState
 from agent.ticket_agent.graph import create_ticket_agent
-from agent.ticket_tool.graph import TicketState
 from config.logger import auto_log
 from services.ticketing.client import BaseTicketingClient
 

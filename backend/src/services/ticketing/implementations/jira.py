@@ -1,14 +1,13 @@
 from typing import AsyncGenerator, List, Dict, Any, Optional
 import httpx
 from schemas import (
-    APIKeySchema, 
-    ExternalProjectSchema, 
-    JiraIssueSchema, 
+    APIKey,
+    ExternalProject,
+    JiraIssueSchema,
     JiraIssueContentSchema,
-    JiraSearchResponse
+    JiraSearchResponse, Project
 )
 
-from models import Project
 from ..client import BaseTicketingClient
 from fastapi import HTTPException, status
 import asyncio
@@ -28,7 +27,7 @@ class JiraClient(BaseTicketingClient):
     BATCH_SIZE = JIRA_MAX_RESULTS_PER_PAGE
     API_VERSION = JIRA_API_VERSION
     
-    def __init__(self, http_client: httpx.AsyncClient, api_key: APIKeySchema, project: Project):
+    def __init__(self, http_client: httpx.AsyncClient, api_key: APIKey, project: Project):
         super().__init__(http_client, api_key, project)
         self._base_urls: Dict[str, httpx.URL] = {}
         
@@ -63,7 +62,7 @@ class JiraClient(BaseTicketingClient):
             "Accept": "application/json"
         }
     
-    async def get_projects(self) -> List[ExternalProjectSchema]:
+    async def get_projects(self) -> List[ExternalProject]:
         """Get all projects with efficient pagination."""
         url = self._build_url("project")
         all_projects = []
@@ -86,11 +85,11 @@ class JiraClient(BaseTicketingClient):
                 
                 # Jira Cloud returns a list directly
                 if isinstance(data, list):
-                    projects = [ExternalProjectSchema.model_validate(project) for project in data]
+                    projects = [ExternalProject.model_validate(project) for project in data]
                     logger.info("Processing response as Jira Cloud list format")
                 else:
                     # Fallback for older Jira versions that return an object
-                    projects = [ExternalProjectSchema.model_validate(project) for project in data.get('values', [])]
+                    projects = [ExternalProject.model_validate(project) for project in data.get('values', [])]
                     logger.info("Processing response as Jira Server object format")
                 
                 all_projects.extend(projects)
@@ -784,3 +783,92 @@ class JiraClient(BaseTicketingClient):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to revert ticket: {str(e)}"
             )
+
+    async def get_issue_createmeta(self, project_key: str, issue_type: str) -> dict:
+        """Get metadata for creating issues according to Jira documentation."""
+        params = {
+            "projectKeys": project_key,
+            "issuetypeNames": issue_type,
+            "expand": "projects.issuetypes.fields"
+        }
+        
+        try:
+            response = await self._make_request(
+                "GET",
+                self._build_url("issue", "createmeta"),
+                headers=self._get_auth_headers(),
+                params=params
+            )
+            
+            if not response.get("projects") or not response["projects"][0].get("issuetypes"):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"No metadata found for project {project_key} and issue type {issue_type}"
+                )
+
+            issue_type_meta = response["projects"][0]["issuetypes"][0]
+            return {"fields": issue_type_meta.get("fields", {})}
+            
+        except httpx.HTTPStatusError as e:
+            error_msg = {
+                400: "Invalid parameters for metadata (check project key and issue type)",
+                404: "Project or issue type does not exist",
+                403: "Insufficient permissions to view metadata"
+            }.get(e.response.status_code, f"Error getting metadata: {e.response.text}")
+            raise HTTPException(status_code=e.response.status_code, detail=error_msg)
+
+    async def create_ticket(self, payload: dict) -> str:
+        """Create a new issue in Jira with automatic validation."""
+        required_fields = ["project", "issuetype"]
+        for field in required_fields:
+            if field not in payload.get("fields", {}):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Required field missing: {field}"
+                )
+
+        try:
+            response = await self.http_client.post(
+                self._build_url("issue"),
+                headers={
+                    **self._get_auth_headers(),
+                    "Content-Type": "application/json"
+                },
+                json={"fields": payload["fields"]},
+                timeout=30.0
+            )
+            
+            if response.status_code == 201:
+                ticket_key = response.json().get("key")
+                return f"Ticket created successfully: {ticket_key}"
+            
+            response.raise_for_status()
+            
+        except httpx.HTTPStatusError as e:
+            error_msg = self._parse_create_errors(e)
+            logger.error(f"Error creating ticket: {error_msg}")
+            raise HTTPException(
+                status_code=e.response.status_code,
+                detail=error_msg
+            )
+
+    def _parse_create_errors(self, e: httpx.HTTPStatusError) -> str:
+        """Parse specific Jira errors for ticket creation."""
+        error_map = {
+            400: self._handle_400_error(e),
+            403: "Insufficient permissions to create tickets",
+            404: "Project or issue type does not exist",
+            401: "Authentication failed - check API credentials"
+        }
+        return error_map.get(e.response.status_code, f"Unknown error: {e.response.text}")
+
+    def _handle_400_error(self, e: httpx.HTTPStatusError) -> str:
+        """Handle 400 errors with custom messages."""
+        error_msg = e.response.text.lower()
+        if "issuetype is required" in error_msg:
+            return "Issue type is required"
+        if "project" in error_msg:
+            return "Invalid or non-existent project"
+        if "customfield" in error_msg:
+            return "Invalid custom field - check ID and data type"
+        return f"Invalid request: {e.response.text}"

@@ -1,8 +1,8 @@
-from models import APIKey
+from models import APIKeyDB
 from pydantic import BaseModel, Field, EmailStr, AnyHttpUrl
 from config.enums import TicketingSystemType
 
-class APIKeySchema(BaseModel):
+class APIKey(BaseModel):
     service_type: TicketingSystemType = Field(..., description="Type of the ticketing system")
     api_key: str = Field(..., min_length=1, description="API key for the ticketing system")
     domain: str = Field(..., description="Domain URL for the ticketing system")
@@ -43,7 +43,7 @@ class APIKeySchema(BaseModel):
         self.domain = self.validate_domain(self.domain)
         
     @classmethod
-    def from_orm(cls, obj: APIKey):
+    def from_orm(cls, obj: APIKeyDB):
         """Convert APIKey model to APIKeySchema."""
         return cls(
             service_type=obj.service_type,
@@ -61,5 +61,5 @@ class APIKeyResponse(BaseModel):
     class Config:
         from_attributes = True
         
-class APIKeyCreate(APIKeySchema):
+class APIKeyCreate(APIKey):
     pass

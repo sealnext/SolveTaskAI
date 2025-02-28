@@ -5,7 +5,7 @@ from .base import Base
 from .associations import api_key_project_association
 from config.enums import TicketingSystemType
 
-class APIKey(Base):
+class APIKeyDB(Base):
     __tablename__ = 'api_keys'
 
     id = Column(Integer, primary_key=True, index=True)
@@ -19,8 +19,8 @@ class APIKey(Base):
     permissions = Column(Text, nullable=True)
 
     # Relationships
-    user = relationship("User", back_populates="api_keys")
-    projects = relationship("Project", secondary=api_key_project_association, back_populates="api_keys")
+    user = relationship("UserDB", back_populates="api_keys")
+    projects = relationship("ProjectDB", secondary=api_key_project_association, back_populates="api_keys")
 
     def __repr__(self):
         return f"<APIKey(id={self.id}, user_id={self.user_id}, api_key={self.api_key})>"

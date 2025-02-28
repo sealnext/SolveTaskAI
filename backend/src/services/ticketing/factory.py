@@ -1,11 +1,11 @@
 from typing import Dict, Type, Any
 import httpx
 from pydantic import BaseModel
-from schemas import APIKeySchema
+from schemas import APIKey
 from .client import BaseTicketingClient
 from .implementations.jira import JiraClient
 from .implementations.azure import AzureClient
-from models.apikey import TicketingSystemType
+from models.api_key import TicketingSystemType
 import asyncio
 from httpx import Limits, Timeout
 from config import JIRA_MAX_CONCURRENT_REQUESTS
@@ -58,7 +58,7 @@ class TicketingClientFactory:
             self._http_clients[service_type] = self._create_client(service_type)
         return self._http_clients[service_type]
         
-    def get_client(self, api_key: APIKeySchema, project: Any = None) -> BaseTicketingClient:
+    def get_client(self, api_key: APIKey, project: Any = None) -> BaseTicketingClient:
         """Get a client instance for the specified ticketing system.
         
         Args:

@@ -23,7 +23,7 @@ from exceptions import (
     UnexpectedErrorException,
     UserNotFoundException,
 )
-from models import User
+from models import UserDB
 from repositories import UserRepository
 from utils.security import decode_next_auth_token, verify_password
 
@@ -45,7 +45,7 @@ class AuthService:
             raise SecurityException("No active access token found")
         self.revoke_token(access_token)
     
-    async def authenticate(self, password: str, user: User, request: Request) -> Tuple[str, str]:
+    async def authenticate(self, password: str, user: UserDB, request: Request) -> Tuple[str, str]:
         if not user or not verify_password(password, user.hashed_password):
             raise InvalidCredentialsException("Invalid email or password")
         
@@ -92,7 +92,7 @@ class AuthService:
             logger.error(f"Refresh token creation failed: {str(e)}")
             raise InvalidTokenException("Failed to create refresh token")
         
-    async def get_current_user(self, request: Request) -> User:
+    async def get_current_user(self, request: Request) -> UserDB:
         next_auth_token = request.cookies.get("next-auth.session-token")
         if not next_auth_token:
             raise SecurityException("No active session found")

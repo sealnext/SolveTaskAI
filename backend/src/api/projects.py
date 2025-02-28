@@ -13,7 +13,7 @@ from dependencies import (
 from exceptions import InvalidCredentialsException
 from middleware.auth_middleware import auth_middleware
 from repositories import APIKeyRepository
-from schemas import APIKeySchema, ExternalProjectSchema, InternalProjectCreate, InternalProjectSchema
+from schemas import APIKey, ExternalProject, ProjectCreate, Project
 from services import ProjectService, UserService, DocumentEmbeddingsService, TicketingClientFactory
 
 logger = logging.getLogger(__name__)
@@ -26,9 +26,9 @@ router = APIRouter(
 
 @router.post("/external")
 async def get_all_external_projects(
-    api_key: APIKeySchema,
+    api_key: APIKey,
     ticketing_client: Callable = Depends(get_ticketing_client)
-) -> List[ExternalProjectSchema]:
+) -> List[ExternalProject]:
     """Get all external projects for an API key."""
     client = ticketing_client(api_key)
     projects = await client.get_projects()
@@ -43,14 +43,14 @@ async def get_external_project_by_id(
     request: Request,
     user_service: UserService = Depends(get_user_service),
     factory: TicketingClientFactory = Depends(get_ticketing_factory)
-) -> List[ExternalProjectSchema]:
+) -> List[ExternalProject]:
     """Get external projects for a specific project ID."""
     user = request.state.user
     api_key = await user_service.get_api_key_by_id(project_id, user.id)
     if not api_key:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    api_key_schema = APIKeySchema.from_orm(api_key)
+    api_key_schema = APIKeyDB.from_orm(api_key)
     client = factory.get_client(api_key_schema)
     projects = await client.get_projects()
     if not projects:
@@ -59,7 +59,7 @@ async def get_external_project_by_id(
 
 @router.post("/internal/add")
 async def add_internal_project(
-    project: InternalProjectCreate,
+    project: ProjectCreate,
     request: Request,
     project_service: ProjectService = Depends(get_project_service),
     api_key_repository: APIKeyRepository = Depends(get_api_key_repository),
@@ -114,7 +114,7 @@ async def add_internal_project(
         logger.error(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.get("/internal", response_model=List[InternalProjectSchema])
+@router.get("/internal", response_model=List[Project])
 async def get_all_internal_projects(
     request: Request,
     project_service: ProjectService = Depends(get_project_service)

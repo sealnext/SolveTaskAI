@@ -1,9 +1,9 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 from config.enums import TicketingSystemType
 from pydantic import model_validator
 
-class ExternalProjectSchema(BaseModel):
+class ExternalProject(BaseModel):
     """Schema for external project data."""
     name: str
     key: str
@@ -28,30 +28,21 @@ class ExternalProjectSchema(BaseModel):
             data['avatarUrl'] = avatar_urls.get('16x16', '')
         return data
 
-class InternalProjectSchema(BaseModel):
+class Project(BaseModel):
     id: int
     name: str
     domain: str
     service_type: TicketingSystemType
     key: str
     internal_id: str
-
-    class Config:
-        from_attributes = True
     
-class ProjectBase(BaseModel):
-    name: str
-    domain: str
+    model_config = ConfigDict(from_attributes=True)
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     domain: Optional[str] = None
 
-class ProjectInDB(ExternalProjectSchema):
-    api_keys: List[str] = []
-    embeddings: List[int] = []
-
-class InternalProjectCreate(BaseModel):
+class ProjectCreate(BaseModel):
     name: str
     domain: str
     service_type: TicketingSystemType

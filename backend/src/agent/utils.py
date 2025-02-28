@@ -2,7 +2,7 @@
 Utility functions for agent operations.
 """
 from datetime import datetime, timezone
-from typing import Dict, Tuple, Optional, Any
+from typing import Tuple, Optional
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, Request, status
@@ -14,11 +14,7 @@ from langchain_core.messages import (
     SystemMessage,
     FunctionMessage,
 )
-from langchain_core.messages import (
-    ChatMessage as LangchainChatMessage,
-)
 from langchain_core.runnables import RunnableConfig
-from langgraph.checkpoint.base import Checkpoint, CheckpointMetadata
 from langgraph.types import Command
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from agent.graph import create_agent_graph
@@ -27,10 +23,10 @@ import json
 import logging
 from agent.state import AgentState
 
-from schemas.agent_schema import ChatMessage
+from schemas.agent import ChatMessage
 from services.ticketing.client import BaseTicketingClient
 from repositories.thread_repository import ThreadRepository
-from models import Project, APIKey
+from schemas import Project, APIKey
 
 logger = logging.getLogger(__name__)
 

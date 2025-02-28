@@ -1,6 +1,7 @@
 from repositories import ProjectRepository
-from schemas import InternalProjectCreate, ProjectUpdate
+from schemas import ProjectCreate, ProjectUpdate, Project
 from exceptions import ProjectNotFoundError
+from fastapi import HTTPException
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,14 +12,18 @@ class ProjectService:
     async def get_all_for_user(self, user_id: int):
         return await self.project_repository.get_all_for_user(user_id)
     
-    async def save_project(self, project: InternalProjectCreate, user_id: int):
+    async def save_project(self, project: ProjectCreate, user_id: int):
         return await self.project_repository.create(user_id, project)
 
     async def update_project(self, user_id: int, project_id: int, project_update: ProjectUpdate):
         return await self.project_repository.update(user_id, project_id, project_update)
     
     async def get_project_by_id(self, user_id: int, project_id: int):
-        return await self.project_repository.get_by_id(user_id, project_id)
+        project = await self.project_repository.get_by_id(user_id, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        return Project.model_validate(project)
     
     # TOOD: check if user_id is needed or not
     async def get_project_by_external_id(self, external_project_id: int):

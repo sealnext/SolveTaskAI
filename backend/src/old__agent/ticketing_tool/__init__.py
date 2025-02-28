@@ -1,11 +1,9 @@
-from typing import Optional
-from models.project import Project
 from config.enums import TicketingSystemType
 from .jira_client import JiraClient
 # from .azure_client import AzureClient  # To be implemented
-from schemas.api_key_schema import APIKeySchema
+from schemas import APIKey, Project
 
-async def create_ticketing_client(api_key: APIKeySchema, project: Project):
+async def create_ticketing_client(api_key: APIKey, project: Project):
     """
     Factory function to create the appropriate ticketing client based on project type.
     

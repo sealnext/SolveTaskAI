@@ -1,7 +1,8 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Optional, Literal
+from typing import Any, Dict, Optional, Literal, Tuple
+import asyncio
 
 from agent.configuration import AgentConfiguration
 from services.ticketing.client import BaseTicketingClient
@@ -17,6 +18,9 @@ from .prompts import (
     EDIT_TICKET_SYSTEM_PROMPT,
     EDIT_TICKET_USER_PROMPT_TEMPLATE,
     JSON_EXAMPLE,
+    CREATE_TICKET_SYSTEM_PROMPT,
+    CREATE_TICKET_USER_PROMPT_TEMPLATE,
+    CREATE_JSON_EXAMPLE,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,6 +29,7 @@ def clean_json_response(raw_response: str) -> dict:
     """
     Extract and clean JSON content from LLM response which may contain:
     - Optional <json_output> tags or ```json code blocks
+    - Field analysis sections
     - Potential code comments
     - Extra text surrounding JSON
 
@@ -53,7 +58,16 @@ def clean_json_response(raw_response: str) -> dict:
     }
     ```
 
-    3. Without markers:
+    3. With field analysis:
+    <field_analysis>
+    Analysis content here...
+    </field_analysis>
+    {
+        "fields": {...},
+        "validation": {...}
+    }
+
+    4. Without markers:
     {
         "update": { 
             "priority": "High"
@@ -70,8 +84,15 @@ def clean_json_response(raw_response: str) -> dict:
         # Use last JSON block if multiple present
         json_content = json_matches[-1].strip()
     else:
-        # If no tags found, try processing entire input
-        json_content = raw_response.strip()
+        # If no tags found, try to find JSON after field analysis or in raw input
+        # Remove field analysis section if present
+        cleaned_response = re.sub(r'<field_analysis>.*?</field_analysis>', '', raw_response, flags=re.DOTALL)
+        # Find the first occurrence of a JSON object
+        json_match = re.search(r'({[\s\S]*})', cleaned_response.strip())
+        if json_match:
+            json_content = json_match.group(1).strip()
+        else:
+            json_content = raw_response.strip()
 
     # Remove line comments and inline comments
     cleaned = '\n'.join([
@@ -100,7 +121,8 @@ async def handle_review_process(
 
         action_map = {
             "edit": _handle_edit_confirmation,
-            "delete": _handle_delete_confirmation
+            "delete": _handle_delete_confirmation,
+            "create": _handle_create_confirmation
         }
 
         handler = action_map.get(review_config.get("operation_type"))
@@ -169,6 +191,49 @@ async def _handle_delete_confirmation(review_config: ReviewConfig, client: BaseT
         return await client.delete_ticket(ticket_id, delete_subtasks=False)
 
     return "Deletion cancelled by user"
+
+async def _handle_create_confirmation(
+    review_config: ReviewConfig,
+    client: BaseTicketingClient
+) -> str:
+    """Handle create confirmation."""
+    preview_data = review_config.get("preview_data", {})
+    metadata = review_config.get("metadata", {})
+
+    # Get final payload from review response
+    review_response = interrupt({
+        "question": review_config.get("question", ""),
+        "project": metadata.get("project_key"),
+        "issue_type": metadata.get("issue_type"),
+        "validation": preview_data.get("validation", {}),
+        "payload": {
+            "fields": preview_data.get("fields", {})
+        },
+        "available_actions": review_config.get("available_actions", [])
+    })
+
+    match review_response.get("action", "none"):
+        case ReviewAction.CONFIRM:
+            payload = review_response.get("payload")
+            project_key = metadata.get("project_key")
+            issue_type = metadata.get("issue_type")
+            
+            if not all([payload, project_key, issue_type]):
+                raise ValueError("Missing required fields in review response: payload, project_key, and issue_type are required")
+                
+            # Create the ticket
+            result = await client.create_ticket(
+                project_key=project_key,
+                issue_type=issue_type,
+                fields=payload.get("fields", {})
+            )
+            return f"Successfully created ticket {result.get('key', '')}"
+
+        case ReviewAction.CANCEL:
+            return "Operation cancelled by user"
+
+        case _:
+            raise ValueError(f"Unsupported action: {review_response.get('action', 'none')}")
 
 async def _handle_direct_confirmation(
     jira_payload: Dict[str, Any],
@@ -267,8 +332,7 @@ async def generate_field_updates(
     config: RunnableConfig
 ) -> Dict:
     """Generate field updates using LLM."""
-    agent_config = AgentConfiguration()
-    llm = ChatOpenAI(model=agent_config.model, temperature=agent_config.temperature)
+    llm = ChatOpenAI(model=AgentConfiguration.model, temperature=AgentConfiguration.temperature)
     
     response = await llm.ainvoke([{
         "role": "system",
@@ -289,28 +353,75 @@ async def generate_field_updates(
     return field_updates
 
 def create_review_config(
-    ticket_id: str,
-    operation_type: Literal["edit", "delete"],
-    question: str,
-    available_actions: list[ReviewAction],
-    field_updates: Optional[Dict] = None
+    operation_type: Literal["edit", "delete", "create"],
+    question: Optional[str] = None,
+    available_actions: Optional[list[ReviewAction]] = None,
+    ticket_id: Optional[str] = None,
+    field_updates: Optional[Dict] = None,
+    project_key: Optional[str] = None,
+    issue_type: Optional[str] = None,
+    field_values: Optional[Dict] = None
 ) -> ReviewConfig:
-    """Create review configuration for ticket operations."""
+    """Create review configuration for ticket operations.
+    
+    Args:
+        operation_type: Type of operation (edit/delete/create)
+        question: Question to ask during review
+        available_actions: List of available actions for review
+        ticket_id: ID of ticket for edit/delete operations
+        field_updates: Field updates for edit operations
+        project_key: Project key for create operations
+        issue_type: Issue type for create operations
+        field_values: Field values for create operations
+    """
+    # Set default actions based on operation type (todo if want to extend)
+    available_actions = [ReviewAction.CONFIRM, ReviewAction.CANCEL]
+
+    # Set default question based on operation type
+    if question is None:
+        if operation_type == "edit":
+            question = f"Review the proposed changes to ticket {ticket_id}. Would you like to proceed?"
+        elif operation_type == "create":
+            question = f"Review the new ticket details for project {project_key}. Would you like to proceed?"
+        elif operation_type == "delete":
+            question = f"Are you sure you want to delete ticket {ticket_id}?"
+
     base_config = {
         "operation_type": operation_type,
         "question": question,
         "available_actions": available_actions,
-        "expected_payload_schema": JiraTicketUpdate.schema() if operation_type == "edit" else None,
-        "metadata": {"ticket_id": ticket_id}
+        "expected_payload_schema": JiraTicketUpdate.schema() if operation_type in ["edit", "create"] else None,
+        "metadata": {}
     }
-    
-    if operation_type == "edit" and field_updates:
-        base_config["preview_data"] = {
-            "validation": field_updates.get("validation", {}),
-            "fields": field_updates.get("fields", {}),
-            "update": field_updates.get("update", {})
-        }
-    
+
+    # Add operation-specific metadata and preview data
+    if operation_type == "edit":
+        if not ticket_id:
+            raise ValueError("ticket_id is required for edit operations")
+        base_config["metadata"]["ticket_id"] = ticket_id
+        if field_updates:
+            base_config["preview_data"] = {
+                "validation": field_updates.get("validation", {}),
+                "fields": field_updates.get("fields", {}),
+                "update": field_updates.get("update", {})
+            }
+    elif operation_type == "create":
+        if not project_key or not issue_type:
+            raise ValueError("project_key and issue_type are required for create operations")
+        base_config["metadata"].update({
+            "project_key": project_key,
+            "issue_type": issue_type
+        })
+        if field_values:
+            base_config["preview_data"] = {
+                "fields": field_values.get("fields", {}),
+                "validation": field_values.get("validation", {})
+            }
+    elif operation_type == "delete":
+        if not ticket_id:
+            raise ValueError("ticket_id is required for delete operations")
+        base_config["metadata"]["ticket_id"] = ticket_id
+
     return ReviewConfig(**base_config)
 
 async def handle_edit_error(e: Exception, state: TicketAgentState, field_updates: Dict) -> Command:
@@ -391,3 +502,168 @@ async def handle_sprint_search(client: BaseTicketingClient, value: str) -> str:
     """Handle Jira sprint search logic."""
     result = await client.find_sprint_by_name(sprint_name=value)
     return f"Successfully found entity, please use the id from the response instead of the raw names: {result}"
+
+async def prepare_creation_fields(
+    project_key: str, 
+    issue_type: str,
+    client: BaseTicketingClient
+) -> Dict:
+    """Fetch and prepare available fields for ticket creation using createmeta."""
+    metadata = await client.get_issue_createmeta(project_key, issue_type)
+    
+    # Procesăm și filtrăm câmpurile într-un singur loc
+    processed_fields = {}
+    for field_id, field_data in metadata["fields"].items():
+        # Skip empty fields
+        if not field_data or (isinstance(field_data, dict) and not field_data):
+            continue
+            
+        # Skip fields with empty allowed values or empty schema
+        if (field_data.get("allowedValues", None) == [] and 
+            field_data.get("schema", {}) == {}):
+            continue
+
+        field_info = {
+            "name": field_data["name"],
+            "required": field_data.get("required", False)
+        }
+
+        # Adăugăm allowed values doar dacă există și nu sunt goale
+        if field_data.get("allowedValues"):
+            if field_id in ["priority", "issuetype"]:
+                field_info["allowedValues"] = [
+                    {"id": v.get("id"), "name": v.get("name")}
+                    for v in field_data["allowedValues"]
+                ]
+            else:
+                field_info["allowedValues"] = field_data["allowedValues"]
+
+        # Adăugăm schema doar dacă există și nu e goală
+        if field_data.get("schema") and field_data["schema"] != {}:
+            field_info["schema"] = field_data["schema"]
+
+        # Adăugăm autoCompleteUrl doar dacă există
+        if field_data.get("autoCompleteUrl"):
+            field_info["autoCompleteUrl"] = field_data["autoCompleteUrl"]
+
+        processed_fields[field_id] = field_info
+
+    return processed_fields
+
+async def retry_llm_creation(
+    llm: ChatOpenAI,
+    detailed_query: str,
+    available_fields: Dict,
+    required_fields: Dict,
+    previous_attempt: Optional[Dict] = None,
+    max_retries: int = 3,
+    retry_count: int = 0
+) -> Dict:
+    """Retry LLM ticket creation with structured feedback and validation."""
+    # Build error feedback from previous attempt
+    error_feedback = ""
+    if previous_attempt:
+        if "fields" not in previous_attempt:
+            error_feedback = "The previous response was invalid. Please provide a response with a 'fields' object."
+        else:
+            missing_fields = [
+                f"{field_id} ({field['name']})" 
+                for field_id, field in required_fields.items() 
+                if field_id not in previous_attempt["fields"]
+            ]
+            if missing_fields:
+                error_feedback = f"Missing required fields: {', '.join(missing_fields)}"
+
+    # Construct retry prompt with error context only if there was a previous attempt
+    retry_prompt = ""
+    if error_feedback:
+        retry_prompt = f"""Previous attempt failed. {error_feedback}
+Please try again with the original query: {detailed_query}
+Ensure ALL required fields are included in your response."""
+
+    # Build message chain with error feedback if available
+    messages = [
+        {"role": "system", "content": CREATE_TICKET_SYSTEM_PROMPT},
+        {"role": "user", "content": CREATE_TICKET_USER_PROMPT_TEMPLATE.format(
+            detailed_query=detailed_query,
+            available_fields=available_fields,
+            required_fields=required_fields,
+            json_example=CREATE_JSON_EXAMPLE
+        )}
+    ]
+    if retry_prompt:
+        messages.extend([
+            {"role": "assistant", "content": json.dumps(previous_attempt, indent=2) if previous_attempt else ""},
+            {"role": "user", "content": f"""Your last response is missing:
+{error_feedback}
+
+Required fields reference:
+{json.dumps(required_fields, indent=2)}
+
+Please try again with the original query: {detailed_query}"""}
+        ])
+
+    # Get and validate LLM response
+    response = await llm.ainvoke(messages)
+    creation_fields = clean_json_response(response.content)
+
+    # Validate response structure
+    if not isinstance(creation_fields, dict) or "fields" not in creation_fields:
+        if retry_count >= max_retries:
+            raise ValueError("Max retries exceeded: Failed to get valid LLM response structure")
+        await asyncio.sleep(1)
+        return await retry_llm_creation(
+            llm=llm,
+            detailed_query=detailed_query,
+            available_fields=available_fields,
+            required_fields=required_fields,
+            previous_attempt=creation_fields,
+            max_retries=max_retries,
+            retry_count=retry_count + 1
+        )
+
+    # Validate required fields
+    missing_required = [
+        field_id for field_id in required_fields
+        if field_id not in creation_fields["fields"]
+    ]
+    if missing_required:
+        if retry_count >= max_retries:
+            raise ValueError(
+                f"Max retries exceeded: Missing required fields - {', '.join(missing_required)}"
+            )
+        await asyncio.sleep(1)
+        return await retry_llm_creation(
+            llm=llm,
+            detailed_query=detailed_query,
+            available_fields=available_fields,
+            required_fields=required_fields,
+            previous_attempt=creation_fields,
+            max_retries=max_retries,
+            retry_count=retry_count + 1
+        )
+
+    return creation_fields
+
+async def generate_creation_fields(
+    detailed_query: str,
+    available_fields: Dict,
+) -> Dict:
+    """Generate validated ticket fields using LLM with retry logic."""
+    llm = ChatOpenAI(
+        model=AgentConfiguration.model,
+        temperature=AgentConfiguration.temperature
+    )
+    
+    required_fields = {
+        field_id: field 
+        for field_id, field in available_fields.items() 
+        if field["required"]
+    }
+    
+    return await retry_llm_creation(
+        llm=llm,
+        detailed_query=detailed_query,
+        available_fields=available_fields,
+        required_fields=required_fields
+    )

@@ -22,7 +22,7 @@ class Embedding(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationship to Projects (Many-to-one)
-    project = relationship("Project", back_populates="embeddings")
+    project = relationship("ProjectDB", back_populates="embeddings")
 
     def __repr__(self):
         return f"<Embedding(id={self.id}, ticket_url={self.ticket_url})>"
