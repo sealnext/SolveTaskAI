@@ -48,8 +48,6 @@ class AuthService:
         if not access_token:
             raise SecurityException("No active access token found")
         self.revoke_token(access_token)
-    
-    async def authenticate(self, password: str, user: UserDB, request: Request) -> Tuple[str, str]:
 
 
     async def authenticate(self, password: str, user: UserDB, request: Request) -> Tuple[str, str]:
