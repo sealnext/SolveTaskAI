@@ -2,8 +2,8 @@ from typing import Dict, Any, List, Tuple, Optional
 import aiohttp
 import logging
 from aiohttp import BasicAuth
-from schemas.ticket_schema import EditableTicketSchema
-from schemas.status_schema import StatusSchema
+from schemas.ticket import EditableTicketSchema
+from schemas.status import StatusSchema
 from pydantic import parse_obj_as
 
 logger = logging.getLogger(__name__)

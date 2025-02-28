@@ -5,6 +5,7 @@ import logging
 from fastapi import APIRouter, Request, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from schemas import Project, APIKey
 
 from agent.utils import (
     get_user_id,
@@ -55,8 +56,8 @@ async def stream(
     if not (user_input.get("message") or user_input.get("action")):
         raise HTTPException(status_code=400, detail="Message or action is required")
     
-    project = await project_service.get_project_by_id(user_id, user_input.get("project_id"))
-    api_key = await api_key_repository.get_by_project_id(project.id)
+    project: Project = await project_service.get_project_by_id(user_id, user_input.get("project_id"))
+    api_key: APIKey = await api_key_repository.get_by_project_id(project.id)
     client = factory.get_client(api_key, project)
     
     return StreamingResponse(

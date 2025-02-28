@@ -1,15 +1,10 @@
 import logging
-from typing import AsyncIterator, Optional, List, Callable
-from dataclasses import asdict
-from collections import deque
-from itertools import islice
+from typing import AsyncIterator
 
 from models.document_embeddings import DocumentEmbedding
 from repositories.document_embeddings_repository import DocumentEmbeddingsRepository
 from services.ticketing.factory import TicketingClientFactory
-from models import APIKey
-from schemas.ticket_schema import JiraIssueSchema
-from fastapi import Depends
+from schemas import APIKey, JiraIssueSchema
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +39,10 @@ class DocumentEmbeddingsService:
         logger.debug("Initialized DocumentEmbeddingsService")
         
     async def add_documents(self,
-                          domain: str,
-                          project_key: str,
-                          internal_id: str,
-                          api_key: APIKey) -> None:
+                            domain: str,
+                            project_key: str,
+                            internal_id: str,
+                            api_key: APIKey) -> None:
         """
         Add documents from a ticketing system to the embeddings repository.
         Uses async generators and batching for optimal memory usage.

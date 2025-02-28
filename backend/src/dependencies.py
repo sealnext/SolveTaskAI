@@ -17,7 +17,7 @@ from repositories import (
 from repositories.document_embeddings_repository import DocumentEmbeddingsRepository
 from repositories.thread_repository import ThreadRepository
 from repositories.user_repository import UserRepository
-from schemas import APIKeySchema
+from schemas import APIKey
 from services import (
     APIKeyService,
     AuthService,
@@ -77,7 +77,7 @@ def get_ticketing_factory() -> TicketingClientFactory:
     return TicketingClientFactory(config=TicketingConfig())
 
 def get_ticketing_client(
-    api_key: APIKeySchema,
+    api_key: APIKey,
     factory: TicketingClientFactory = Depends(get_ticketing_factory)
 ) -> BaseTicketingClient:
     """Get a ticketing client with connection pooling."""

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 from config import OPENAI_MODEL
-from models import Project, APIKey
+from models import ProjectDB, APIKeyDB
 from .prompts import TICKET_CREATION_SYSTEM_MESSAGE
 
 class TicketCreationState(TypedDict):
@@ -22,7 +22,7 @@ class TicketCreationState(TypedDict):
     required_fields: Optional[Dict[str, Any]]
     field_values: Optional[Dict[str, Any]]
 
-def create_create_ticketing_tool(project: Project, api_key: APIKey):
+def create_create_ticketing_tool(project: ProjectDB, api_key: APIKeyDB):
     """Creates a ticket creation sub-agent with its own workflow."""
     
     # Initialize tools

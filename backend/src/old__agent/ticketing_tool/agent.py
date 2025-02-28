@@ -7,8 +7,8 @@ from langgraph.graph import StateGraph, START, END, MessagesState
 from langgraph.prebuilt import ToolNode
 
 from config import OPENAI_MODEL
-from models import Project
-from models.apikey import APIKey
+from models import ProjectDB
+from models.api_key import APIKeyDB
 from .tools import create_ticketing_tools
 from .prompts import FIELD_COLLECTION_PROMPT
 from .conversation_logger import ConversationLogger
@@ -51,7 +51,7 @@ def should_continue(state: MessagesState):
     logger.debug("No more tools needed")
     return END
 
-def create_ticketing_agent(project: Project, api_key: APIKey):
+def create_ticketing_agent(project: ProjectDB, api_key: APIKeyDB):
     """Creates a ticketing tool with project and api_key context."""
     
     # Initialize tools

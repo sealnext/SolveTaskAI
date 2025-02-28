@@ -1,22 +1,22 @@
 from typing import AsyncGenerator, List, Dict
 import httpx
-from schemas import APIKeySchema, ExternalProjectSchema, JiraIssueSchema
+from schemas import APIKey, ExternalProject, JiraIssueSchema
 from ..client import BaseTicketingClient
 
 class AzureClient(BaseTicketingClient):
     """Azure DevOps-specific implementation of the ticketing client."""
     
-    async def get_projects(self) -> List[ExternalProjectSchema]:
+    async def get_projects(self) -> List[ExternalProject]:
         headers = self._get_auth_headers(self.api_key)
         url = f"https://dev.azure.com/{self.api_key.organization}/_apis/projects"
         data = await self._make_request("GET", url, headers=headers)
-        return [ExternalProjectSchema(**project) for project in data['value']]
+        return [ExternalProject(**project) for project in data['value']]
         
     async def get_tickets(self) -> AsyncGenerator[JiraIssueSchema, None]:
         # TODO: Implement Azure-specific ticket fetching
         raise NotImplementedError("Azure ticket fetching not implemented yet")
 
-    def _get_auth_headers(self, api_key: APIKeySchema) -> dict:
+    def _get_auth_headers(self, api_key: APIKey) -> dict:
         return {
             "Authorization": f"Bearer {api_key.api_key}",
             "Accept": "application/json"

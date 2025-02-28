@@ -1,6 +1,6 @@
 from typing import AsyncGenerator, List, Dict, Any, Optional
 import httpx
-from schemas import APIKeySchema, ExternalProjectSchema, JiraIssueSchema
+from schemas import APIKey, ExternalProject, JiraIssueSchema, Project
 from fastapi import HTTPException, status
 from pydantic import BaseModel, ValidationError
 from config import DEFAULT_REQUEST_TIMEOUT
@@ -11,7 +11,7 @@ class BaseTicketingClient(ABC):
     
     DEFAULT_TIMEOUT = DEFAULT_REQUEST_TIMEOUT
     
-    def __init__(self, http_client: httpx.AsyncClient, api_key: APIKeySchema, project: Any):
+    def __init__(self, http_client: httpx.AsyncClient, api_key: APIKey, project: Project):
         """Initialize the client with an HTTP client and API key.
         
         Args:
@@ -83,7 +83,7 @@ class BaseTicketingClient(ABC):
             )
 
     @abstractmethod
-    async def get_projects(self) -> List[ExternalProjectSchema]:
+    async def get_projects(self) -> List[ExternalProject]:
         """Get all projects."""
         raise NotImplementedError
         
@@ -160,4 +160,14 @@ class BaseTicketingClient(ABC):
         version_number: Optional[int] = None
     ) -> None:
         """Revert ticket changes to a previous version."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_issue_createmeta(self, project_key: str, issue_type: str) -> dict:
+        """Get metadata for creating issues."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def create_ticket(self, payload: dict) -> str:
+        """Create a new issue in the ticketing system."""
         raise NotImplementedError

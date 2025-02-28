@@ -43,10 +43,6 @@ class ReviewAction(str, Enum):
     UPDATE_FIELDS = "update_fields"     # Update specific fields
     MODIFY_CHANGES = "modify_changes"   # Modify the proposed changes
 
-    # Create specific
-    ADJUST_TEMPLATE = "adjust_template" # Adjust the ticket template
-    MODIFY_DETAILS = "modify_details"   # Modify ticket details
-
     # Delete specific
     ARCHIVE_INSTEAD = "archive_instead" # Archive instead of delete
     SOFT_DELETE = "soft_delete"        # Soft delete option

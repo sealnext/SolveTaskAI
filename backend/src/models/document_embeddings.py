@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
-from schemas import APIKeySchema
+from schemas import APIKey
 
 class DocumentEmbedding(BaseModel):
     ticket_url: str
@@ -25,5 +25,5 @@ class DocumentEmbeddingCreate(BaseModel):
     project_key: str
     domain: str
     internal_id: str
-    api_key: Optional[APIKeySchema] = None
+    api_key: Optional[APIKey] = None
     action: str = "add"  # "add" or "delete"

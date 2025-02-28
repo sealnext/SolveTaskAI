@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, SerializeAsAny
 
-from .llm_model_schema import OpenAIModelName, AnthropicModelName
+from .llm_model import OpenAIModelName, AnthropicModelName
 
 from typing import Literal, Any, NotRequired
 

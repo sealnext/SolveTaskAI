@@ -1,18 +1,13 @@
-import json
 import re
-from textwrap import indent
-from typing import List, Optional, Dict, Any, Union
-from pydantic import BaseModel, Field
+from typing import List
 from langchain_core.tools import tool
-from langchain_core.documents import Document
 from langgraph.graph import StateGraph, END
 import logging
 from .state import AgentState
 from .nodes import retrieve_documents, retry_retrieve_documents, grade_documents
 from .edges import decide_after_grading
-from models import Project
-from models.apikey import APIKey
-from schemas.ticket_schema import DocumentWrapper
+from schemas.ticket import DocumentWrapper
+from schemas import APIKey, Project
 from config.logger import auto_log
 
 logger = logging.getLogger(__name__)

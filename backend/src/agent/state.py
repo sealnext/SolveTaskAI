@@ -11,8 +11,8 @@ from langgraph.graph import add_messages
 from pydantic import BaseModel
 from langchain_core.messages import BaseMessage
 
-from models import Project
-from schemas import APIKeySchema
+from models import ProjectDB
+from schemas import APIKey
 
 def add_unique_documents(
     current_documents: Sequence[Document],
@@ -26,7 +26,7 @@ class AgentState(BaseModel):
     messages: Annotated[Sequence[AnyMessage], add_messages] = []
     documents: Annotated[Sequence[Document], add_unique_documents] = []
     project_data: Optional[Dict[str, Any]] = None
-    api_key: Optional[APIKeySchema] = None
+    api_key: Optional[APIKey] = None
     
     model_config = {
         "arbitrary_types_allowed": True,

@@ -1,7 +1,7 @@
 import logging
 from langchain_core.tools import tool
 from typing import Dict, Any, List
-from models import Project, APIKey
+from schemas import Project, APIKey
 from .jira_client import JiraClient
 from .edit_tool.tool import create_edit_ticketing_tool
 

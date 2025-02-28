@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional
 
 from config import OPENAI_MODEL
 from config.enums import TicketingSystemType
-from models import Project, APIKey
+from models import ProjectDB, APIKeyDB
 
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
@@ -20,7 +20,7 @@ class OutputSchema(BaseModel):
     id: Optional[str] = Field(description="The ID of the element to update")
     fields: Dict[str, Any] = Field(description="The fields to update on the ticket")
 
-def create_edit_ticketing_tool(project: Project, api_key: APIKey):
+def create_edit_ticketing_tool(project: ProjectDB, api_key: APIKeyDB):
     """Creates a ticketing tool with project and api_key context."""
     
     # Initialize the client
@@ -83,7 +83,7 @@ def create_edit_ticketing_tool(project: Project, api_key: APIKey):
 
     return manage_tickets
 
-def _initialize_client(project: Project, api_key: APIKey):
+def _initialize_client(project: ProjectDB, api_key: APIKeyDB):
     """Initialize the appropriate client based on project service type."""
     if project.service_type == TicketingSystemType.JIRA:
         return JiraClient(

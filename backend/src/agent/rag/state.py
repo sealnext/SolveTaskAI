@@ -1,12 +1,12 @@
 from typing import List, TypedDict, Literal
-from models.apikey import APIKey
+from models.api_key import APIKeyDB
 from schemas import Ticket
-from models import Project
+from models import ProjectDB
 
 class AgentState(TypedDict):
     question: str
     user_id: int
-    project: Project
+    project: ProjectDB
     api_key: APIKey
     generation: str
     max_retries: int

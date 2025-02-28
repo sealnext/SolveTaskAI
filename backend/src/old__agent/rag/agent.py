@@ -10,9 +10,9 @@ import logging
 from .state import AgentState
 from .nodes import retrieve_documents, retry_retrieve_documents, grade_documents
 from .edges import decide_after_grading
-from models import Project
-from models.apikey import APIKey
-from schemas.ticket_schema import DocumentWrapper
+from models import ProjectDB
+from models.api_key import APIKeyDB
+from schemas.ticket import DocumentWrapper
 from config.logger import auto_log
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ def create_retrieve_workflow():
     logger.debug(f"Compiled graph nodes: {graph.nodes}")
     return graph
 
-async def execute_retrieve_workflow(query: str, project: Project, api_key: APIKey) -> List[DocumentWrapper]:
+async def execute_retrieve_workflow(query: str, project: ProjectDB, api_key: APIKeyDB) -> List[DocumentWrapper]:
     """Execute the retrieve workflow with given parameters."""
     try:
         ticket_id_pattern = r'^([A-Z][A-Z0-9_]{1,}-\d+|\d+)$'
@@ -85,7 +85,7 @@ async def execute_retrieve_workflow(query: str, project: Project, api_key: APIKe
         logger.error(f"Error in execute_retrieve_workflow: {e}", exc_info=True)
         raise
 
-def create_retrieve_tool(project: Project, api_key: APIKey):
+def create_retrieve_tool(project: ProjectDB, api_key: APIKeyDB):
     """Creates a retrieve tool with project and api_key context."""
     
     @tool
