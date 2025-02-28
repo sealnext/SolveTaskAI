@@ -80,6 +80,7 @@ def remove_tool_calls(content: str | list[str | dict]) -> str | list[str | dict]
 
 def get_user_id(request: Request) -> str:
     """Temporary function to get user ID from request. Just for testing purposes."""
+    # TODO: Remove this once we have a proper authentication system
     return request.state.user.id if hasattr(request.state, 'user') and hasattr(request.state.user, 'id') else 1
 
 
