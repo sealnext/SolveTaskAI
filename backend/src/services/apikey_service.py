@@ -1,6 +1,6 @@
 from repositories.apikey_repository import APIKeyRepository
-from schemas.api_key_schema import APIKeyCreate, APIKeyResponse
-from models.apikey import APIKey
+from schemas.api_key import APIKeyCreate, APIKeyResponse
+from models.api_key import APIKeyDB
 from exceptions import APIKeyAlreadyExistsError
 
 class APIKeyService:
@@ -12,7 +12,7 @@ class APIKeyService:
         if existing_key:
             raise APIKeyAlreadyExistsError("An API key with this value already exists")
 
-        new_api_key = APIKey(
+        new_api_key = APIKeyDB(
             user_id=user_id,
             service_type=api_key_data.service_type,
             api_key=api_key_data.api_key,

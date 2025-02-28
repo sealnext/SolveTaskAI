@@ -4,8 +4,8 @@ from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from sqlalchemy import exists
 from sqlalchemy.exc import IntegrityError
-from models import Project, User, APIKey, user_project_association, api_key_project_association, ChatSession
-from schemas import ProjectUpdate, InternalProjectCreate
+from models import ProjectDB, UserDB, APIKeyDB, user_project_association, api_key_project_association, ChatSession
+from schemas import ProjectUpdate, ProjectCreate
 from exceptions import ProjectAlreadyExistsError
 
 async def get_project_repository(db_session: AsyncSession):
@@ -14,13 +14,13 @@ async def get_project_repository(db_session: AsyncSession):
 class ProjectRepository:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
-
-    async def get_by_external_id(self, user_id: int, external_project_id: int) -> Optional[Project]:
-        query = select(Project).join(user_project_association).where(and_(Project.internal_id == cast(str(external_project_id), String), user_project_association.c.user_id == user_id))
+        
+    async def get_by_external_id(self, user_id: int, external_project_id: int) -> Optional[ProjectDB]:
+        query = select(ProjectDB).join(user_project_association).where(and_(ProjectDB.internal_id == cast(str(external_project_id), String), user_project_association.c.user_id == user_id))
         result = await self.db_session.execute(query)
         return result.scalar_one_or_none()
 
-    async def create(self, user_id: int, project: InternalProjectCreate) -> Project:
+    async def create(self, user_id: int, project: ProjectCreate) -> ProjectDB:
         try:
             # Check if project already exists
             existing_project = await self.get_by_internal_id(project.internal_id)
@@ -29,8 +29,8 @@ class ProjectRepository:
 
             api_key_id = project.api_key_id
             project_data = project.model_dump(exclude={'api_key_id'})
-
-            db_project = Project(**project_data)
+            
+            db_project = ProjectDB(**project_data)
             self.db_session.add(db_project)
             await self.db_session.flush()
 
@@ -49,12 +49,12 @@ class ProjectRepository:
             )
 
             await self.db_session.flush()
-
+            
             # Reload the project with all its relations
-            stmt = select(Project).options(
-                selectinload(Project.api_keys),
-                selectinload(Project.users)
-            ).where(Project.id == db_project.id)
+            stmt = select(ProjectDB).options(
+                selectinload(ProjectDB.api_keys),
+                selectinload(ProjectDB.users)
+            ).where(ProjectDB.id == db_project.id)
             result = await self.db_session.execute(stmt)
             db_project = result.scalar_one()
 
@@ -67,7 +67,7 @@ class ProjectRepository:
                 raise ProjectAlreadyExistsError(f"Project with these details already exists: {str(e)}")
             raise
 
-    async def create_with_retry(self, user_id: int, project: InternalProjectCreate) -> Project:
+    async def create_with_retry(self, user_id: int, project: ProjectCreate) -> ProjectDB:
         try:
             return await self.create(user_id, project)
         except IntegrityError as e:
@@ -76,25 +76,25 @@ class ProjectRepository:
                 return await self.create_with_retry(user_id, project)
             raise
 
-    async def get_by_id(self, user_id: int, project_id: int) -> Optional[Project]:
+    async def get_by_id(self, user_id: int, project_id: int) -> Optional[ProjectDB]:
         query = (
-            select(Project)
+            select(ProjectDB)
             .join(user_project_association)
-            .where(and_(Project.id == project_id, user_project_association.c.user_id == user_id))
+            .where(and_(ProjectDB.id == project_id, user_project_association.c.user_id == user_id))
         )
         result = await self.db_session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_all_for_user(self, user_id: int) -> List[Project]:
+    async def get_all_for_user(self, user_id: int) -> List[ProjectDB]:
         query = (
-            select(Project)
+            select(ProjectDB)
             .join(user_project_association)
             .where(user_project_association.c.user_id == user_id)
         )
         result = await self.db_session.execute(query)
         return result.scalars().all()
 
-    async def update(self, user_id: int, project_id: int, project_update: ProjectUpdate) -> Optional[Project]:
+    async def update(self, user_id: int, project_id: int, project_update: ProjectUpdate) -> Optional[ProjectDB]:
         project = await self.get_by_id(user_id, project_id)
         if project:
             for key, value in project_update.model_dump(exclude_unset=True).items():
@@ -111,7 +111,7 @@ class ProjectRepository:
                 await self.db_session.execute(
                     delete(ChatSession).where(ChatSession.project_id == project_id)
                 )
-
+                
                 # Delete user-project associations
                 await self.db_session.execute(
                     delete(user_project_association).where(
@@ -121,51 +121,51 @@ class ProjectRepository:
                         )
                     )
                 )
-
+                
                 # Delete api-key-project associations
                 await self.db_session.execute(
                     delete(api_key_project_association).where(
                         api_key_project_association.c.project_id == project_id
                     )
                 )
-
+                
                 # Finally delete the project
                 await self.db_session.execute(
-                    delete(Project).where(Project.id == project_id)
+                    delete(ProjectDB).where(ProjectDB.id == project_id)
                 )
-
+                
                 await self.db_session.commit()
                 return True
         except Exception as e:
             await self.db_session.rollback()
             raise e
 
-    async def get_with_related(self, user_id: int, project_id: int) -> Optional[Project]:
+    async def get_with_related(self, user_id: int, project_id: int) -> Optional[ProjectDB]:
         query = (
-            select(Project)
+            select(ProjectDB)
             .options(
-                selectinload(Project.api_keys),
-                selectinload(Project.embeddings),
-                selectinload(Project.users)
+                selectinload(ProjectDB.api_keys),
+                selectinload(ProjectDB.embeddings),
+                selectinload(ProjectDB.users)
             )
             .join(user_project_association)
-            .where(and_(Project.id == project_id, user_project_association.c.user_id == user_id))
+            .where(and_(ProjectDB.id == project_id, user_project_association.c.user_id == user_id))
         )
         result = await self.db_session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_by_domain(self, user_id: int, domain: str) -> Optional[Project]:
+    async def get_by_domain(self, user_id: int, domain: str) -> Optional[ProjectDB]:
         query = (
-            select(Project)
+            select(ProjectDB)
             .join(user_project_association)
-            .where(and_(Project.domain == domain, user_project_association.c.user_id == user_id))
+            .where(and_(ProjectDB.domain == domain, user_project_association.c.user_id == user_id))
         )
         result = await self.db_session.execute(query)
         return result.scalar_one_or_none()
 
     async def add_user_to_project(self, project_id: int, user_id: int) -> bool:
-        project = await self.db_session.get(Project, project_id)
-        user = await self.db_session.get(User, user_id)
+        project = await self.db_session.get(ProjectDB, project_id)
+        user = await self.db_session.get(UserDB, user_id)
         if project and user:
             project.users.append(user)
             await self.db_session.commit()
@@ -173,8 +173,8 @@ class ProjectRepository:
         return False
 
     async def remove_user_from_project(self, project_id: int, user_id: int) -> bool:
-        project = await self.db_session.get(Project, project_id)
-        user = await self.db_session.get(User, user_id)
+        project = await self.db_session.get(ProjectDB, project_id)
+        user = await self.db_session.get(UserDB, user_id)
         if project and user and user in project.users:
             project.users.remove(user)
             await self.db_session.commit()
@@ -183,21 +183,21 @@ class ProjectRepository:
 
     async def get_project_id_by_external_id(self, external_project_id: int) -> Optional[int]:
         # should be renamed external_id instead of internal_id, and be an integer not a string
-        query = select(Project.id).where(Project.internal_id == cast(str(external_project_id), String))
+        query = select(ProjectDB.id).where(ProjectDB.internal_id == cast(str(external_project_id), String))
         result = await self.db_session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_user_projects(self, user_id: int) -> List[Project]:
-        query = select(Project).join(user_project_association).where(user_project_association.c.user_id == user_id)
+    async def get_user_projects(self, user_id: int) -> List[ProjectDB]:
+        query = select(ProjectDB).join(user_project_association).where(user_project_association.c.user_id == user_id)
         result = await self.db_session.execute(query)
         return result.scalars().all()
 
-    async def get_by_internal_id(self, internal_id: int) -> Project:
+    async def get_by_internal_id(self, internal_id: int) -> ProjectDB:
         # TODO: why tf is the internal_id an string in database? change it to int
-        stmt = select(Project).where(Project.internal_id == str(internal_id))
+        stmt = select(ProjectDB).where(ProjectDB.internal_id == str(internal_id))
         result = await self.db_session.execute(stmt)
         return result.scalar_one_or_none()
-
+    
     async def is_project_associated(self, project_id: int) -> bool:
         query = select(user_project_association).where(user_project_association.c.project_id == project_id)
         result = await self.db_session.execute(query)

@@ -1,23 +1,24 @@
-from .user_schema import UserCreate, UserRead, UserPassword
-from .cookie_schema import CookieSettings
-from .project_schema import ExternalProjectSchema, ProjectUpdate, InternalProjectSchema, InternalProjectCreate
-from .api_key_schema import APIKeySchema, APIKeyCreate, APIKeyResponse
-from .ticket_schema import JiraIssueSchema, Ticket, JiraIssueContentSchema, EditableTicketSchema
-from .chat_schema import QuestionRequest, QuestionResponse
+from .user import UserCreate, UserRead, UserPassword
+from .cookie import CookieSettings
+from .project import ProjectCreate, ProjectUpdate, Project, ExternalProject
+from .api_key import APIKey, APIKeyCreate, APIKeyResponse
+from .ticket import JiraIssueSchema, Ticket, JiraIssueContentSchema, EditableTicketSchema, JiraSearchResponse
+from .chat import QuestionRequest, QuestionResponse
 
 __all__ = [
     "UserCreate",
-    "UserRead",
-    "UserPassword",
+    "UserRead", 
     "CookieSettings",
-    "ExternalProjectSchema",
+    "UserPassword",
     "ProjectUpdate",
-    "APIKeySchema",
-    "InternalProjectSchema",
-    "InternalProjectCreate",
+    "APIKey",
+    "ExternalProject",
+    "ProjectCreate",
+    "Project",
     "JiraIssueSchema",
     "Ticket",
     "JiraIssueContentSchema",
+    "JiraSearchResponse",
     "EditableTicketSchema",
     "QuestionRequest",
     "QuestionResponse"
