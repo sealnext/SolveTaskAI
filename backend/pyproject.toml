@@ -1,0 +1,21 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "bcrypt>=4.3.0",
+    "colorlog>=6.9.0",
+    "fastapi-csrf-protect>=1.0.2",
+    "fastapi[standard]>=0.115.10",
+    "langchain-openai>=0.3.7",
+    "langchain-postgres>=0.0.13",
+    "langgraph>=0.3.2",
+    "langgraph-checkpoint-postgres>=2.0.15",
+    "pgvector>=0.3.6",
+    "psycopg[binary]>=3.2.5",
+    "pycryptodome>=3.21.0",
+    "python-jose[cryptography]>=3.4.0",
+    "sqlalchemy>=2.0.38",
+]

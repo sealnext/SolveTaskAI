@@ -1,16 +1,43 @@
-FROM python:3.12.6-alpine3.20
+# A multi-stage image build to create a final image without uv.
+ARG NODE_ENV=development
+# First, build the application in the `/app` directory.
+# See `Dockerfile` for details.
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+# Disable Python downloads, because we want to use the system interpreter
+# across both images. If using a managed Python version, it needs to be
+# copied from the build image into the final image; see `standalone.Dockerfile`
+# for an example.
+ENV UV_PYTHON_DOWNLOADS=0
 
 WORKDIR /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+ADD . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
-RUN apk add --no-cache gcc musl-dev libffi-dev openssl-dev postgresql-dev curl cargo && \
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
-    source $HOME/.cargo/env && \
-    export PATH="$HOME/.cargo/bin:$PATH"
+# Then, use a final image without uv
+FROM python:3.13-slim-bookworm AS base
+# It is important to use the image that matches the builder, as the path to the
+# Python executable must be the same, e.g., using `python:3.11-slim-bookworm`
+# will fail.
 
+RUN groupadd -r app_group && useradd -r -g app_group app_user
+USER app_user
+COPY --from=builder --chown=app_user:app_group /app/.venv /app/.venv
+COPY --from=builder --chown=app_user:app_group /app/app /app/uv.lock /app/
 
-COPY ./requirements.txt .
+FROM base AS base-development
+CMD ["fastapi", "dev", "--host", "0.0.0.0", "--port", "8000"]
 
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+FROM base AS base-production
+CMD ["fastapi", "run", "--host", "0.0.0.0", "--port", "8000"]
 
-COPY . .
+FROM base-${NODE_ENV} AS final
+# Place executables in the environment at the front of the path
+ENV PATH="/app/.venv/bin:$PATH"
+WORKDIR /app
+EXPOSE 8000
