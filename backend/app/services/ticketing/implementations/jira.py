@@ -783,14 +783,17 @@ class JiraClient(BaseTicketingClient):
             }.get(e.response.status_code, f"Error getting metadata: {e.response.text}")
             raise HTTPException(status_code=e.response.status_code, detail=error_msg)
 
-    async def create_ticket(self, payload: dict) -> str:
-        """Create a new issue in Jira with automatic validation."""
+    async def create_ticket(self, payload: dict) -> dict:
+        """Create a new issue in Jira with automatic validation.
+
+        Returns:
+            dict: On success (201), returns a dictionary with 'key' and 'url' from the Jira response.
+                 On failure, returns a dictionary with 'error' containing the error message.
+        """
         required_fields = ["project", "issuetype"]
         for field in required_fields:
             if field not in payload.get("fields", {}):
-                raise HTTPException(
-                    status_code=400, detail=f"Required field missing: {field}"
-                )
+                return {"error": f"Required field missing: {field}"}
 
         try:
             response = await self.http_client.post(
@@ -804,15 +807,28 @@ class JiraClient(BaseTicketingClient):
             )
 
             if response.status_code == 201:
-                ticket_key = response.json().get("key")
-                return f"Ticket created successfully: {ticket_key}"
+                response_data = response.json()
+                ticket_key = response_data.get("key")
+                # Construct the browse URL using the domain from the API key
+                browse_url = f"https://{self.api_key.domain}/browse/{ticket_key}"
+                return {"key": ticket_key, "url": browse_url}
 
-            response.raise_for_status()
+            # If not 201, try to get error message from response
+            try:
+                error_data = response.json()
+                error_msg = error_data.get("errorMessages", ["Unknown error"])[0]
+            except Exception:
+                error_msg = response.text or "Unknown error"
+
+            return {"error": f"Failed to create ticket: {error_msg}"}
 
         except httpx.HTTPStatusError as e:
             error_msg = self._parse_create_errors(e)
             logger.error(f"Error creating ticket: {error_msg}")
-            raise HTTPException(status_code=e.response.status_code, detail=error_msg)
+            return {"error": error_msg}
+        except Exception as e:
+            logger.error(f"Unexpected error creating ticket: {str(e)}")
+            return {"error": f"Unexpected error: {str(e)}"}
 
     def _parse_create_errors(self, e: httpx.HTTPStatusError) -> str:
         """Parse specific Jira errors for ticket creation."""

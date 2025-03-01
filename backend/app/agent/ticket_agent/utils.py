@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from typing import Any, Dict, Optional, Literal
@@ -12,13 +13,14 @@ from langgraph.errors import GraphInterrupt
 from langgraph.types import Command, interrupt
 
 from langchain_core.messages import ToolMessage
-from app.agent.ticket_agent.models import (
+
+from .models import (
     JiraTicketUpdate,
     ReviewAction,
     ReviewConfig,
     TicketAgentState,
 )
-from app.agent.ticket_agent.prompts import (
+from .prompts import (
     EDIT_TICKET_SYSTEM_PROMPT,
     EDIT_TICKET_USER_PROMPT_TEMPLATE,
     JSON_EXAMPLE,
@@ -169,32 +171,29 @@ async def _handle_edit_confirmation(
         }
     )
 
-    match review_response.get("action", "none"):
-        case ReviewAction.CONFIRM:
+    action = review_response.get("action", "none")
+    if action == ReviewAction.CONFIRM:
+        try:
             payload = review_response.get("payload")
             ticket = review_response.get("ticket")
 
             if not payload or not ticket:
-                raise ValueError(
-                    "Missing required fields in review response: payload and ticket are required"
-                )
+                return "Missing required fields in review response: payload and ticket are required"
 
             return await _handle_direct_confirmation(payload, ticket, client)
-
-        case ReviewAction.CANCEL:
-            return "Operation cancelled by user"
-
-        case _:
-            raise ValueError(
-                f"Unsupported action: {review_response.get('action', 'none')}"
-            )
+        except Exception as e:
+            return f"Failed to apply changes: {str(e)}"
+    elif action == ReviewAction.CANCEL:
+        return "Operation cancelled by user"
+    else:
+        return f"Unsupported action: {action}"
 
 
 async def _handle_delete_confirmation(
     review_config: ReviewConfig, client: BaseTicketingClient
 ) -> str:
     """Execute the actual ticket deletion after confirmation."""
-    # Get user confirmation through interrupt
+    # Get user confirmation through interrupt - don't catch GraphInterrupt
     review_response = interrupt(
         {
             "question": review_config.get("question", ""),
@@ -204,12 +203,13 @@ async def _handle_delete_confirmation(
     )
 
     if review_response["action"] == ReviewAction.CONFIRM:
-        ticket_id = review_response.get("ticket", "")
-        if not ticket_id:
-            raise ValueError(
-                "Ticket ID is required for deletion, but was not provided in the resume process"
-            )
-        return await client.delete_ticket(ticket_id, delete_subtasks=False)
+        try:
+            ticket_id = review_response.get("ticket", "")
+            if not ticket_id:
+                return "Ticket ID is required for deletion, but was not provided in the resume process"
+            return await client.delete_ticket(ticket_id, delete_subtasks=False)
+        except Exception as e:
+            return f"Failed to delete ticket: {str(e)}"
 
     return "Deletion cancelled by user"
 
@@ -221,7 +221,6 @@ async def _handle_create_confirmation(
     preview_data = review_config.get("preview_data", {})
     metadata = review_config.get("metadata", {})
 
-    # Get final payload from review response
     review_response = interrupt(
         {
             "question": review_config.get("question", ""),
@@ -233,32 +232,61 @@ async def _handle_create_confirmation(
         }
     )
 
-    match review_response.get("action", "none"):
-        case ReviewAction.CONFIRM:
-            payload = review_response.get("payload")
-            project_key = metadata.get("project_key")
-            issue_type = metadata.get("issue_type")
+    action = review_response.get("action", "none")
+    if action == ReviewAction.CONFIRM:
+        try:
+            payload = review_response.get("payload", {})
 
-            if not all([payload, project_key, issue_type]):
-                raise ValueError(
-                    "Missing required fields in review response: payload, project_key, and issue_type are required"
-                )
+            # Ensure payload is a dictionary
+            if not isinstance(payload, dict):
+                payload = {}
+
+            # Ensure fields exists in payload
+            if "fields" not in payload:
+                payload["fields"] = {}
+
+            # Ensure issuetype exists in fields with proper structure, defaulting to Task if not provided
+            if "issuetype" not in payload["fields"]:
+                payload["fields"]["issuetype"] = {"name": "Task"}
+            elif (
+                isinstance(payload["fields"]["issuetype"], dict)
+                and "name" not in payload["fields"]["issuetype"]
+            ):
+                payload["fields"]["issuetype"]["name"] = "Task"
+            elif not isinstance(payload["fields"]["issuetype"], dict):
+                payload["fields"]["issuetype"] = {"name": "Task"}
+
+            # Ensure project exists in fields, defaulting to the project key from the client
+            if "project" not in payload["fields"]:
+                payload["fields"]["project"] = {"key": client.project.key}
+
+            # Store the final payload for reporting
+            final_payload = {"fields": {k: v for k, v in payload["fields"].items()}}
 
             # Create the ticket
-            result = await client.create_ticket(
-                project_key=project_key,
-                issue_type=issue_type,
-                fields=payload.get("fields", {}),
-            )
-            return f"Successfully created ticket {result.get('key', '')}"
+            result = await client.create_ticket(payload)
 
-        case ReviewAction.CANCEL:
-            return "Operation cancelled by user"
+            # Check if there was an error
+            if "error" in result:
+                return f"Failed to create ticket: {result['error']}"
 
-        case _:
-            raise ValueError(
-                f"Unsupported action: {review_response.get('action', 'none')}"
+            # Format the payload for better readability
+            formatted_payload = json.dumps(final_payload, indent=2)
+
+            # Success case with payload information
+            return (
+                f"Successfully created ticket {result.get('key', '')} - Ticket URL: {result.get('url', '')}\n\n"
+                f"The following fields were submitted:\n```json\n{formatted_payload}\n```\n"
+                f"Note: Some fields may differ from what was requested. Please inform the user about these differences and what was actually submitted."
             )
+        except Exception as e:
+            return f"Failed to create ticket: {str(e)}"
+
+    elif action == ReviewAction.CANCEL:
+        return "Operation cancelled by user"
+
+    else:
+        return f"Unsupported action: {action}"
 
 
 async def _handle_direct_confirmation(
@@ -298,6 +326,9 @@ async def _handle_direct_confirmation(
                 attempt=attempt,
             )
 
+    # This should never be reached, but added for completeness
+    return f"Failed to update ticket {ticket_id} after {MAX_RETRIES} attempts"
+
 
 async def self_correct_payload(
     error: str, payload: dict, jira_response: Optional[str], attempt: int
@@ -306,10 +337,11 @@ async def self_correct_payload(
     llm = ChatOpenAI(model=AgentConfiguration.model, temperature=0.3)
 
     try:
-        response = await llm.ainvoke(f"""
+        response = await llm.ainvoke(
+            f"""
 ### JIRA Error Analysis (Attempt {attempt + 1}) ###
 Error: {error}
-API Response: {jira_response or "N/A"}
+API Response: {jira_response or 'N/A'}
 Current Payload: {json.dumps(payload, indent=2)}
 
 ### Correction Rules ###
@@ -328,7 +360,8 @@ Current Payload: {json.dumps(payload, indent=2)}
 - Never add new fields
 - Prefer removing fields over guessing fixes, but if you can resolve the error, DO IT!!!
 - If error is field-related, default to removal
-""")
+"""
+        )
         return clean_json_response(response.content)
 
     except json.JSONDecodeError:
@@ -425,9 +458,9 @@ def create_review_config(
         "operation_type": operation_type,
         "question": question,
         "available_actions": available_actions,
-        "expected_payload_schema": JiraTicketUpdate.schema()
-        if operation_type in ["edit", "create"]
-        else None,
+        "expected_payload_schema": (
+            JiraTicketUpdate.schema() if operation_type in ["edit", "create"] else None
+        ),
         "metadata": {},
     }
 
@@ -464,35 +497,57 @@ def create_review_config(
 
 
 async def handle_edit_error(
-    e: Exception, state: TicketAgentState, field_updates: Dict
+    e: Exception, tool_call_id: str, field_values: Dict
 ) -> Command:
     """Handle errors during ticket editing."""
-    if state.retry_count >= 2:
+    # Initialize retry_count to 0 since we don't have state
+    retry_count = 0
+
+    # Ensure field_values is a dictionary
+    if field_values is None:
+        field_values = {}
+
+    if retry_count >= 2:
         return Command(
             goto="agent",
             update={
                 "internal_messages": [
                     ToolMessage(
                         content=f"Failed to apply changes after 3 attempts. Error: {str(e)}. Please try a different approach.",
-                        tool_call_id=state.messages[-1].tool_calls[0]["id"],
+                        tool_call_id=tool_call_id,
                     )
                 ],
                 "done": True,
             },
         )
 
-    corrected_payload = await self_correct_payload(
-        error=str(e),
-        payload=field_updates,
-        jira_response=getattr(e, "response", None),
-        attempt=state.retry_count,
-    )
+    try:
+        corrected_payload = await self_correct_payload(
+            error=str(e),
+            payload=field_values,
+            jira_response=getattr(e, "response", None),
+            attempt=retry_count,
+        )
+    except Exception as correction_error:
+        # If payload correction fails, return a simple error message
+        return Command(
+            goto="agent",
+            update={
+                "internal_messages": [
+                    ToolMessage(
+                        content=f"Failed to process the request: {str(e)}. Please try a different approach.",
+                        tool_call_id=tool_call_id,
+                    )
+                ],
+                "done": True,
+            },
+        )
 
     return Command(
-        goto="edit_ticket",
+        goto="create_ticket",
         update={
-            "field_updates": corrected_payload,
-            "retry_count": state.retry_count + 1,
+            "field_values": corrected_payload,
+            "retry_count": retry_count + 1,
         },
     )
 
@@ -643,9 +698,11 @@ Ensure ALL required fields are included in your response."""
             [
                 {
                     "role": "assistant",
-                    "content": json.dumps(previous_attempt, indent=2)
-                    if previous_attempt
-                    else "",
+                    "content": (
+                        json.dumps(previous_attempt, indent=2)
+                        if previous_attempt
+                        else ""
+                    ),
                 },
                 {
                     "role": "user",

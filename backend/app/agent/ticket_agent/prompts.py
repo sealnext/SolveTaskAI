@@ -34,7 +34,7 @@ Now, analyze the following user request:
    - Use the 'update' section for incremental modifications (e.g., labels, assignee, issuelinks).
 
 4. Create 'validation' section for each field in both 'fields' and 'update' sections:
-   - Every field must have a corresponding entry in the validation section.
+   - Every field must have a corresponding entry in the validation section. Don't add fields that are not in the fields section and don't forget to add the fields from the fields section to the validation section.
    - Use "Needs Validation" status whenever there's uncertainty about IDs, references, or exact values.
    - Set appropriate confidence levels (High, Medium, Low).
 
@@ -134,13 +134,11 @@ TICKET_AGENT_PROMPT = """You are a ticket management assistant specialized in Ji
 </ticket_id_section>
 
 Available Tools:
-1. search_jira_entity(entity_type="type", value="name")
-   - Use for: users/accounts, sprints
-   - MUST use for converting user names to accountIds
-   - MUST use for converting sprint names to sprint IDs
+1. search_jira_entity(entity_type=["account", "sprint", "issue"], value="name")
+   - Use for: accounts, sprints, issues
+   - MUST use to convert user names to accountIds and sprint names to IDs
    - After getting an ID from this tool, you MUST use that ID in subsequent operations
-   - DO NOT use for: issue types, priorities (these come from field metadata already)
-   - DO NOT use for searching tickets when creating a new ticket
+   - Do not use this tool to search for tickets when creating a new ticket.
 
 Instructions:
 1. Analyze the request and identify the operation type (create/edit/link).

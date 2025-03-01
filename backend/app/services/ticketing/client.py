@@ -170,6 +170,6 @@ class BaseTicketingClient(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def create_ticket(self, payload: dict) -> str:
+    async def create_ticket(self, payload: dict) -> dict:
         """Create a new issue in the ticketing system."""
         raise NotImplementedError

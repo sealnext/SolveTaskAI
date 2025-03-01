@@ -192,8 +192,6 @@ async def message_generator(
         async for event in graph.astream_events(
             initial_state, thread, version="v2", subgraphs=True
         ):
-            logger.info(f"Received event: {event}")
-
             if not event:
                 continue
 
