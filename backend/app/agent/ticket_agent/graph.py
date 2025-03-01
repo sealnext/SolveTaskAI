@@ -49,6 +49,8 @@ def create_ticket_agent(
         config: RunnableConfig,
     ) -> Command | Coroutine[Any, Any, Command]:
         """Tool for creating tickets with Jira metadata validation."""
+        field_values = {}
+
         try:
             is_resuming = config.get("configurable", {}).get("__pregel_resuming", False)
 
@@ -108,6 +110,7 @@ def create_ticket_agent(
         except GraphInterrupt as i:
             raise i
         except Exception as e:
+            logger.error(f"Error in create_ticket: {str(e)}", exc_info=True)
             return handle_edit_error(e, tool_call_id, field_values)
 
     @auto_log("ticket_agent.edit_ticket")

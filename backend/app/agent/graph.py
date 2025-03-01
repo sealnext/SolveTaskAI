@@ -15,10 +15,12 @@ from pydantic import BaseModel
 
 # Local application imports
 from app.agent.configuration import AgentConfiguration
-from app.agent.state import AgentState
-from app.agent.ticket_agent.graph import create_ticket_agent
 from app.config.logger import auto_log
 from app.services.ticketing.client import BaseTicketingClient
+
+from .prompts import AGENT_SYSTEM_PROMPT
+from .state import AgentState
+from .ticket_agent.graph import create_ticket_agent
 
 # Logger setup
 logger = logging.getLogger(__name__)
