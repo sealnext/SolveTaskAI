@@ -1,13 +1,13 @@
 from typing import List, Dict, Any, Optional, AsyncGenerator
 import httpx
+from urllib.parse import urljoin
 from app.schemas.api_key import APIKey
-from app.schemas.project import ExternalProject
+from app.schemas.project import ExternalProject, Project
 from app.schemas.ticket import (
     JiraIssueSchema,
     JiraIssueContentSchema,
-    JiraSearchResponse,
+    JiraSearchResponse
 )
-from app.schemas.project import Project
 
 from app.services.ticketing.client import BaseTicketingClient
 from fastapi import HTTPException, status
@@ -810,7 +810,8 @@ class JiraClient(BaseTicketingClient):
                 response_data = response.json()
                 ticket_key = response_data.get("key")
                 # Construct the browse URL using the domain from the API key
-                browse_url = f"https://{self.api_key.domain}/browse/{ticket_key}"
+                base_url = self.api_key.domain.rstrip('/')
+                browse_url = urljoin(base_url, f"/browse/{ticket_key}")
                 return {"key": ticket_key, "url": browse_url}
 
             # If not 201, try to get error message from response

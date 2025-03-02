@@ -1,13 +1,15 @@
 # Standard library imports
 import logging
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Optional, Union, Dict, Type, Callable
 
 # Third-party imports
 from langchain_core.messages import AnyMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.callbacks import dispatch_custom_event
+from langchain_core.language_models import BaseChatModel
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
@@ -58,7 +60,8 @@ async def call_model(state: AgentState, config: RunnableConfig):
     """Node that calls the LLM with the current state."""
     messages = state.messages
     agent_config = AgentConfiguration()
-    llm = ChatOpenAI(model=agent_config.model, temperature=agent_config.temperature)
+    llm = agent_config.get_llm()
+
     llm_with_tools = llm.bind_tools([ticket_tool])
     response = await llm_with_tools.ainvoke(messages)
 

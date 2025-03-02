@@ -5,11 +5,12 @@ from app.config.logger import auto_log
 from app.services.ticketing.client import BaseTicketingClient
 
 from langchain_core.callbacks import dispatch_custom_event
-from langchain_core.messages import ToolMessage, SystemMessage
+from langchain_core.messages import ToolMessage, SystemMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_core.tools.base import InjectedToolCallId
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.errors import GraphInterrupt
 from langgraph.graph import StateGraph, START
@@ -41,14 +42,19 @@ def create_ticket_agent(
 ) -> StateGraph:
     """Create a new ticket agent graph instance."""
 
-    @auto_log("ticket_agent.create_ticket")
+    @tool(parse_docstring=True)
     async def create_ticket(
         detailed_query: str,
         issue_type: str,
-        tool_call_id: Annotated[str, InjectedToolCallId],
         config: RunnableConfig,
+        tool_call_id: Annotated[str, InjectedToolCallId],
     ) -> Command | Coroutine[Any, Any, Command]:
-        """Tool for creating tickets with Jira metadata validation."""
+        """Tool for creating tickets with Jira metadata validation.
+
+        Args:
+            detailed_query (str): Each field and its value of the ticket to create.
+            issue_type (str): The type of issue to create.
+        """
         field_values = {}
 
         try:
@@ -83,6 +89,7 @@ def create_ticket_agent(
             )
 
             # Generate field values using LLM with createmeta constraints
+            detailed_query = detailed_query + f"\nProject key: {project_key}"
             field_values = await generate_creation_fields(
                 detailed_query, creation_fields
             )
@@ -111,7 +118,9 @@ def create_ticket_agent(
             raise i
         except Exception as e:
             logger.error(f"Error in create_ticket: {str(e)}", exc_info=True)
-            return handle_edit_error(e, tool_call_id, field_values)
+            # return what issue types are available for the project
+            # ex : Error in create_ticket: 404: No metadata found for project PZ and issue type issue
+            return str(e)
 
     @auto_log("ticket_agent.edit_ticket")
     async def edit_ticket(
@@ -243,7 +252,10 @@ def create_ticket_agent(
 
     async def call_model_with_tools(state: TicketAgentState):
         """Node that calls the LLM with internal message history."""
-        llm = ChatOpenAI(model=AgentConfiguration.model, temperature=0)
+        agent_config = AgentConfiguration()
+
+        llm = agent_config.get_llm()
+
         llm_with_tools = llm.bind_tools(
             [create_ticket, edit_ticket, delete_ticket, search_jira_entity]
         )
@@ -273,11 +285,16 @@ def create_ticket_agent(
                 ticket_id_section=ticket_id_section,
             )
 
-            if not state.internal_messages:
-                state.internal_messages = [SystemMessage(content=structured_prompt)]
-            else:
-                # Append the new message while keeping the history
-                state.internal_messages.append(SystemMessage(content=structured_prompt))
+            # Always ensure we have at least one valid message with content
+            state.internal_messages = [HumanMessage(content=structured_prompt)]
+
+        # Make sure we have at least one message with content for Gemini
+        if not state.internal_messages:
+            state.internal_messages = [
+                HumanMessage(
+                    content="Please provide information about the ticket operation."
+                )
+            ]
 
         response = await llm_with_tools.ainvoke(state.internal_messages)
         state.internal_messages.append(response)

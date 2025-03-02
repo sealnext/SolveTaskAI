@@ -13,8 +13,10 @@ from sqlalchemy.orm import sessionmaker
 import re
 import json
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import SystemMessage, HumanMessage
 import logging
+from agent.configuration import AgentConfiguration
 
 from app.agent.rag.prompts import doc_grader_instructions, doc_grader_prompt
 import asyncio
@@ -23,7 +25,10 @@ from typing import Dict, Any
 logger = logging.getLogger(__name__)
 
 embeddings_model = OpenAIEmbeddings(model=OPENAI_EMBEDDING_MODEL)
-llm = ChatOpenAI(model=OPENAI_MODEL, temperature=0)
+
+agent_config = AgentConfiguration()
+llm = agent_config.get_llm()
+    
 llm_json_mode = llm.bind(response_format={"type": "json_object"})
 
 # Create a SQLAlchemy engine
