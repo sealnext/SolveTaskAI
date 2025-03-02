@@ -6,7 +6,7 @@ from app.schemas.project import ExternalProject, Project
 from app.schemas.ticket import (
     JiraIssueSchema,
     JiraIssueContentSchema,
-    JiraSearchResponse
+    JiraSearchResponse,
 )
 
 from app.services.ticketing.client import BaseTicketingClient
@@ -810,7 +810,7 @@ class JiraClient(BaseTicketingClient):
                 response_data = response.json()
                 ticket_key = response_data.get("key")
                 # Construct the browse URL using the domain from the API key
-                base_url = self.api_key.domain.rstrip('/')
+                base_url = self.api_key.domain.rstrip("/")
                 browse_url = urljoin(base_url, f"/browse/{ticket_key}")
                 return {"key": ticket_key, "url": browse_url}
 
@@ -830,6 +830,140 @@ class JiraClient(BaseTicketingClient):
         except Exception as e:
             logger.error(f"Unexpected error creating ticket: {str(e)}")
             return {"error": f"Unexpected error: {str(e)}"}
+
+    async def get_issue_types(
+        self, names_only: bool = False
+    ) -> List[Dict[str, Any]] | List[str]:
+        """Get all available issue types from Jira.
+
+        This retrieves issue types according to the user's permissions.
+        If project is specified in the client, returns only issue types available for that project.
+
+        Args:
+            names_only (bool, optional): If True, returns just a list of issue type names.
+                                        If False, returns the full issue type objects.
+                                        Defaults to False.
+
+        Returns:
+            Union[List[Dict[str, Any]], List[str]]: Either a list of issue type objects containing
+                                                   id, name, description, etc., or a list of
+                                                   issue type names if names_only=True.
+
+        Raises:
+            HTTPException: If there is an error fetching issue types
+        """
+        try:
+            logger.info(
+                f"Fetching issue types for project {self.project.key if hasattr(self.project, 'key') else 'unknown'}"
+            )
+
+            # First approach: Try to get issue types specifically for the current project using createmeta
+            if hasattr(self.project, "key"):
+                try:
+                    # Correct way to use createmeta with query parameters
+                    createmeta_url = self._build_url("issue", "createmeta")
+                    params = {"projectKeys": self.project.key}
+
+                    project_meta = await self._make_request(
+                        "GET",
+                        createmeta_url,
+                        headers=self._get_auth_headers(),
+                        params=params,
+                    )
+
+                    if (
+                        isinstance(project_meta, dict)
+                        and "projects" in project_meta
+                        and project_meta["projects"]
+                        and "issuetypes" in project_meta["projects"][0]
+                    ):
+                        issue_types = project_meta["projects"][0].get("issuetypes", [])
+                        logger.info(
+                            f"Successfully retrieved {len(issue_types)} issue types for project {self.project.key} using createmeta"
+                        )
+
+                        # Return results based on names_only flag
+                        if names_only:
+                            return [
+                                issue_type.get("name", "Unknown")
+                                for issue_type in issue_types
+                            ]
+                        return issue_types
+                except Exception as e:
+                    logger.warning(
+                        f"Could not get project-specific issue types via createmeta: {str(e)}"
+                    )
+
+            # Second approach: Get all issue types and use less restrictive filtering
+            url = self._build_url("issuetype")
+            response = await self._make_request(
+                "GET", url, headers=self._get_auth_headers()
+            )
+
+            # Check if response is a list
+            if not isinstance(response, list):
+                logger.warning(
+                    f"Unexpected response format for issue types: {response}"
+                )
+                return []
+
+            logger.info(f"Retrieved {len(response)} total issue types")
+
+            # Use a less restrictive filter - include all standard issue types and
+            # any project-specific ones if available
+            project_specific_types = []
+            global_types = []
+
+            # Group issue types by project-specific vs. global
+            for issue_type in response:
+                scope = issue_type.get("scope", {})
+                if (
+                    scope
+                    and scope.get("type") == "PROJECT"
+                    and hasattr(self.project, "id")
+                ):
+                    # If it's project-specific, check if it matches our project
+                    if str(scope.get("project", {}).get("id")) == str(self.project.id):
+                        project_specific_types.append(issue_type)
+                else:
+                    # Consider it a global type
+                    global_types.append(issue_type)
+
+            logger.info(
+                f"Found {len(project_specific_types)} project-specific types and {len(global_types)} global types"
+            )
+
+            # If we have project-specific types, return those
+            if project_specific_types:
+                filtered_types = project_specific_types
+            else:
+                # Otherwise return all global types
+                filtered_types = global_types
+
+            # Return just the names if requested
+            if names_only:
+                return [
+                    issue_type.get("name", "Unknown") for issue_type in filtered_types
+                ]
+
+            return filtered_types
+
+        except httpx.HTTPStatusError as e:
+            error_msg = {
+                401: "Authentication failed. Please check your API credentials.",
+                403: "Permission denied. User does not have required permissions to view issue types.",
+            }.get(e.response.status_code, f"Failed to fetch issue types: {str(e)}")
+
+            logger.error(f"Error fetching issue types: {error_msg}")
+            raise HTTPException(status_code=e.response.status_code, detail=error_msg)
+        except Exception as e:
+            logger.error(
+                f"Unexpected error fetching issue types: {str(e)}", exc_info=True
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to fetch issue types: {str(e)}",
+            )
 
     def _parse_create_errors(self, e: httpx.HTTPStatusError) -> str:
         """Parse specific Jira errors for ticket creation."""

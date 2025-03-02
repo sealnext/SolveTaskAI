@@ -28,7 +28,7 @@ embeddings_model = OpenAIEmbeddings(model=OPENAI_EMBEDDING_MODEL)
 
 agent_config = AgentConfiguration()
 llm = agent_config.get_llm()
-    
+
 llm_json_mode = llm.bind(response_format={"type": "json_object"})
 
 # Create a SQLAlchemy engine

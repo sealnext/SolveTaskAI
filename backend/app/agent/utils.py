@@ -198,7 +198,8 @@ async def message_generator(
             # Handle final stream completed message from agent node
             elif (
                 event.get("event") == "on_chat_model_end"
-                and event["metadata"]["langgraph_node"] == "agent" and event['metadata']['checkpoint_ns'].startswith('agent')
+                and event["metadata"]["langgraph_node"] == "agent"
+                and event["metadata"]["checkpoint_ns"].startswith("agent")
             ):
                 final_content = event["data"]["output"].content
                 if final_content:
@@ -263,7 +264,9 @@ async def message_generator(
 
             # Handle stream events from agent node
             elif event.get("event") == "on_chat_model_stream":
-                if event["metadata"]["langgraph_node"] == "agent" and event['metadata']['checkpoint_ns'].startswith('agent'):
+                if event["metadata"]["langgraph_node"] == "agent" and event["metadata"][
+                    "checkpoint_ns"
+                ].startswith("agent"):
                     chunk = event["data"]["chunk"]
                     if chunk.content:
                         yield f"data: {

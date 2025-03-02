@@ -346,7 +346,7 @@ async def self_correct_payload(
             f"""
 ### JIRA Error Analysis (Attempt {attempt + 1}) ###
 Error: {error}
-API Response: {jira_response or 'N/A'}
+API Response: {jira_response or "N/A"}
 Current Payload: {json.dumps(payload, indent=2)}
 
 ### Correction Rules ###
