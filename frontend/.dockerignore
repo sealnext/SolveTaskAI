@@ -1,4 +1,6 @@
-.react-router/
+# Ignore all hidden directories (starting with .)
+.*/
+
 build/
 node_modules/
 *.md

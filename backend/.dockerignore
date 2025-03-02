@@ -1,8 +1,9 @@
+# Ignore all hidden directories (starting with .)
+.*/
+
 __pycache__/
 *.pyc
-.venv/
 
-.git/
 .gitignore
 *.md
 
