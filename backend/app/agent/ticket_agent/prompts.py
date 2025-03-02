@@ -198,37 +198,51 @@ First, review the following information:
 {json_example}
 </json_example>
 
+## CRITICAL REQUIREMENTS
+
+• REPORTER IS MANDATORY: Always provide a valid reporter value with proper accountId, NEVER just a name
+• ASSIGNEE FORMAT: If an accountId is available for assignee, use the SAME accountId for reporter unless explicitly specified otherwise
+• USER REFERENCES: Always use {{"accountId": "XXX"}} format for users, NEVER {{"name": "XXX"}} which will cause validation failures
+• REQUIRED FIELDS: Always validate that ALL required fields have proper values before submission
+
 ## CORE GUIDELINES
 
 • ALWAYS ensure all required fields have values - use defaults or related values if necessary
 • ONLY use allowed values for fields with restrictions
 • PRIORITIZE explicit user information over assumptions
 • MAINTAIN consistency between fields and validation sections
+• REUSE available IDs across related fields (e.g., if you have an accountId for assignee, use it for reporter too if not otherwise specified)
 
 ## ID HANDLING RULES
 
 • TRUST IDs provided in the input - they are pre-validated and should be used as-is
+• USE PROPER OBJECT FORMAT for fields requiring IDs: always use {{"id": "XXX"}} or {{"accountId": "XXX"}}, never plain strings
 • DO NOT mark fields with proper IDs as "Needs Validation" - they are already validated
-• ONLY mark for validation when:
-  - A name is provided where an ID is required (e.g., account names instead of accountIds)
-  - A reference needs resolution (e.g., sprint names, issue keys)
-  - There is uncertainty about the format or validity of a value
+• ALWAYS format user references as {{"accountId": "XXX"}}, NEVER as {{"name": "XXX"}}
+• For any user field (assignee, reporter, etc.), having one valid user ID means you should use that ID for all user fields unless explicitly told otherwise
 • If a field already contains a properly formatted ID (UUID, numeric ID, etc.), assume it is valid
 • For API operations, IDs are preferred over names - prioritize using IDs when available
 
+## USER FIELD HANDLING
+
+• When given a valid accountId for ANY user field (assignee, reporter, etc.), use that accountId for ALL user fields unless explicitly specified otherwise
+• NEVER use {{"name": "reporter"}} or similar placeholders - this will ALWAYS cause a validation error
+• Reporter is MANDATORY - if not explicitly specified, use the same accountId as assignee
+• Always provide {{"accountId": "XXX"}} format for reporter, NEVER just {{"name": "XXX"}}
+
 ## FIELD HANDLING STRATEGIES
 
-• Missing required fields: Use related information or sensible defaults
+• Missing required fields: Use related information or sensible defaults, especially for user fields
 • Ambiguous information: Choose most likely value and mark for validation
 • Conflicting information: Prioritize most specific/recent mention
 • Empty fields: Include in JSON with empty value if required, omit if optional
 
 ## SPECIAL FIELD HANDLING
 
-• Assignee/Reporter: Use accountIds directly if provided; only mark for validation if names are used
+• Assignee/Reporter: Use accountIds directly if provided; NEVER use name values for these fields
 • Sprint: Use sprint IDs directly if provided; only mark for validation if names are used
 • Epic Link: Use issue keys directly if provided; only mark for validation if names are used
-• Priority: Default to "2" if not specified
+• Priority: Default to "3" (Medium) if not specified
 • Description: Generate from available context if missing
 • Summary: Create concise summary from request if not explicit
 
@@ -242,7 +256,7 @@ Before creating the final JSON output, provide a very brief <field_analysis> tha
 
 After your analysis, provide the JSON output for the Jira ticket creation. The output should be a valid JSON object with each field represented as a key-value pair. Include "needsValidation" flags where appropriate.
 
-Remember that your primary goal is accuracy in field mapping while ensuring all required fields are present."""
+Remember that your primary goal is accuracy in field mapping while ensuring all required fields are present with PROPER ID FORMATS."""
 
 CREATE_JSON_EXAMPLE = """{{
   "fields": {{
@@ -251,6 +265,8 @@ CREATE_JSON_EXAMPLE = """{{
     "summary": "New Issue Summary",
     "description": "Issue description",
     "priority": {{"id": "2"}},
+    "assignee": {{"accountId": "123"}},
+    "reporter": {{"accountId": "123"}},
     "customfield_10020": 1
   }},
   "validation": {{
@@ -259,6 +275,8 @@ CREATE_JSON_EXAMPLE = """{{
     "summary": {{"confidence": "High", "validation": "Valid"}},
     "description": {{"confidence": "High", "validation": "Valid"}},
     "priority": {{"confidence": "Medium", "validation": "Needs Validation"}},
+    "assignee": {{"confidence": "High", "validation": "Valid"}},
+    "reporter": {{"confidence": "High", "validation": "Valid"}},
     "customfield_10020": {{"confidence": "High", "validation": "Valid"}}
   }}
 }}"""

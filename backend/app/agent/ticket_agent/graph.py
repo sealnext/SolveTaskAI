@@ -48,7 +48,7 @@ def create_ticket_agent(
         issue_type: str,
         config: RunnableConfig,
         tool_call_id: Annotated[str, InjectedToolCallId],
-    ) -> Command | Coroutine[Any, Any, Command]:
+    ) -> Command | str:
         """Tool for creating tickets with Jira metadata validation.
 
         Args:
@@ -118,9 +118,23 @@ def create_ticket_agent(
             raise i
         except Exception as e:
             logger.error(f"Error in create_ticket: {str(e)}", exc_info=True)
-            # TODO: return what issue types are available for the project
-            # ex : Error in create_ticket: 404: No metadata found for project PZ and issue type issue
-            return str(e)
+
+            error_message = str(e)
+            if "404: No metadata found for project" in error_message:
+                issue_types_data = await client.get_issue_types()
+                # Extract unique issue type names with IDs from the response
+                available_types = sorted(
+                    set(
+                        f"{issue_type.get('name', 'Unknown')} ({issue_type.get('id', 'Unknown')})"
+                        for issue_type in issue_types_data
+                    )
+                )
+                return (
+                    f"{error_message} - Please check issue type and try again.\n\n"
+                    f"Available issue types: {', '.join(available_types)}"
+                )
+
+            return f"Failed to create ticket: {error_message}"
 
     @auto_log("ticket_agent.edit_ticket")
     async def edit_ticket(
@@ -229,16 +243,15 @@ def create_ticket_agent(
         - value: the value to search for
         """
         try:
-            match entity_type:
-                case "account":
-                    return await handle_account_search(client, value)
-                case "sprint":
-                    # TODO: to be optimized
-                    return await handle_sprint_search(client, value)
-                case "issue":
-                    return await handle_issue_search(client, value)
-                case _:
-                    raise ValueError(f"Unsupported entity type: {entity_type}")
+            if entity_type == "account":
+                return await handle_account_search(client, value)
+            elif entity_type == "sprint":
+                # TODO: to be optimized
+                return await handle_sprint_search(client, value)
+            elif entity_type == "issue":
+                return await handle_issue_search(client, value)
+            else:
+                raise ValueError(f"Unsupported entity type: {entity_type}")
 
         except Exception as e:
             return f"Search failed: {e}"

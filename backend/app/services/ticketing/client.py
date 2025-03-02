@@ -173,3 +173,12 @@ class BaseTicketingClient(ABC):
     async def create_ticket(self, payload: dict) -> dict:
         """Create a new issue in the ticketing system."""
         raise NotImplementedError
+
+    @abstractmethod
+    async def get_issue_types(self) -> List[Dict[str, Any]]:
+        """Get all available issue types.
+
+        Returns:
+            List[Dict[str, Any]]: List of issue type objects containing id, name, description, etc.
+        """
+        raise NotImplementedError
