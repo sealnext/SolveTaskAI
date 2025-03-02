@@ -1,18 +1,4 @@
 services:
-  # backend:
-  #   build: ./backend
-  #   ports:
-  #     - "8000:8000"
-  #   env_file: "./backend/.env"
-  #   environment:
-  #     - PYTHONPATH=/app/src
-  #   volumes:
-  #     - ./backend:/app
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-
   postgres:
     image: pgvector/pgvector:pg17
     environment:
@@ -23,10 +9,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: on-failure
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d dbname"]
-      interval: 10s
-      timeout: 3s
+      interval: 15s
+      timeout: 2s
       retries: 2
 
   backend:
@@ -37,35 +24,43 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
-      interval: 10s
-      timeout: 3s
+      interval: 20s
+      timeout: 2s
       retries: 2
     develop:
-      # Create a `watch` configuration to update the appl
-      # https://docs.docker.com/compose/file-watch/#compose-watch-versus-bind-mounts
       watch:
-        # Sync the backend app directory with the `/app` directory in the container
         - action: sync
           path: ./backend/app
           target: /app
-          # Exclude the project virtual environment — it could be for a
-          # different platform in the container
           ignore:
             - .venv/
             - __pycache__/
-        # Rebuild the image if dependencies change by checking uv.lock
         - action: rebuild
           path: ./backend/uv.lock
 
-  # frontend:
-  #   build: ./frontend
-  #   ports:
-  #     - "5173:5173"
-  #   depends_on:
-  #     backend:
-  #       condition: service_healthy
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173/"]
+      interval: 30s
+      timeout: 2s
+      retries: 2
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend/app
+          target: /app/app
+        - action: rebuild
+          path: ./frontend/pnpm-lock.yaml
 
 volumes:
   postgres_data:

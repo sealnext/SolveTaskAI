@@ -52,7 +52,7 @@ app.add_middleware(
 
 
 @app.get("/")
-async def root():
+async def health():
     return {"status": "ok"}
 
 

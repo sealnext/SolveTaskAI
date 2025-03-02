@@ -1,6 +1,8 @@
 # IDEs
 .idea/
 .vscode/
+.venv/
+.ruff_cache/
 
 # macOS
 .DS_Store
