@@ -3,7 +3,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 
-from config import VECTOR_DIMENSION
+from app.config.config import VECTOR_DIMENSION
 from .base import Base
 
 
@@ -29,7 +29,7 @@ class Embedding(Base):
     )
 
     # Relationship to Projects (Many-to-one)
-    project = relationship("ProjectDB", back_populates="embeddings")
+    project = relationship("ProjectDB", back_populates="embeddings", lazy="selectin")
 
     def __repr__(self):
         return f"<Embedding(id={self.id}, ticket_url={self.ticket_url})>"
