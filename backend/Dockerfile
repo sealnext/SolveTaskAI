@@ -25,18 +25,21 @@ FROM python:3.13-slim-bookworm AS base
 # Python executable must be the same, e.g., using `python:3.11-slim-bookworm`
 # will fail.
 
+# Install curl to check health in docker compose
+RUN apt-get update && apt-get install -y curl
+
 RUN groupadd -r app_group && useradd -r -g app_group app_user
 USER app_user
 COPY --from=builder --chown=app_user:app_group /app/.venv /app/.venv
 COPY --from=builder --chown=app_user:app_group /app/app /app/uv.lock /app/
 
-FROM base AS base-development
+FROM base AS final-development
 CMD ["fastapi", "dev", "--host", "0.0.0.0", "--port", "8000"]
 
-FROM base AS base-production
+FROM base AS final-production
 CMD ["fastapi", "run", "--host", "0.0.0.0", "--port", "8000"]
 
-FROM base-${NODE_ENV} AS final
+FROM final-${NODE_ENV} AS final
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
 WORKDIR /app
