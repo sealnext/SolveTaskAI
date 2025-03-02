@@ -1,8 +1,9 @@
-# IDEs
-.idea/
-.vscode/
-.venv/
-.ruff_cache/
+# Ignore all hidden directories (starting with .)
+.*/
 
 # macOS
 .DS_Store
+
+# Environment variables
+.env
+!.env.example
