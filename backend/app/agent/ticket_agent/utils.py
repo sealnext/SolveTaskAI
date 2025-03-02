@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Optional, Literal
+from typing import Any, Dict, Optional, Literal, Tuple, Union
 import asyncio
 
 from app.agent.configuration import AgentConfiguration
@@ -9,6 +9,7 @@ from app.services.ticketing.client import BaseTicketingClient
 
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.errors import GraphInterrupt
 from langgraph.types import Command, interrupt
 
@@ -275,9 +276,11 @@ async def _handle_create_confirmation(
 
             # Success case with payload information
             return (
-                f"Successfully created ticket {result.get('key', '')} - Ticket URL: {result.get('url', '')}\n\n"
+                f"Successfully created ticket: {result.get('url', '')}\n"
+                f"Give the user the url so he can see it\n"
                 f"The following fields were submitted:\n```json\n{formatted_payload}\n```\n"
-                f"Note: Some fields may differ from what was requested. Please inform the user about these differences and what was actually submitted."
+                f"Note: Some fields may differ from what was requested."
+                f"Please inform the user about these differences and what was actually submitted. Tell the user that only the submitted fields were created"
             )
         except Exception as e:
             return f"Failed to create ticket: {str(e)}"
@@ -334,7 +337,9 @@ async def self_correct_payload(
     error: str, payload: dict, jira_response: Optional[str], attempt: int
 ) -> dict:
     """Returns corrected payload based on error analysis."""
-    llm = ChatOpenAI(model=AgentConfiguration.model, temperature=0.3)
+    agent_config = AgentConfiguration()
+
+    llm = agent_config.get_llm(custom_temperature=0.3)
 
     try:
         response = await llm.ainvoke(
@@ -391,9 +396,9 @@ async def generate_field_updates(
     detailed_query: str, available_fields: Dict, config: RunnableConfig
 ) -> Dict:
     """Generate field updates using LLM."""
-    llm = ChatOpenAI(
-        model=AgentConfiguration.model, temperature=AgentConfiguration.temperature
-    )
+    agent_config = AgentConfiguration()
+
+    llm = agent_config.get_llm()
 
     response = await llm.ainvoke(
         [
@@ -650,7 +655,7 @@ async def prepare_creation_fields(
 
 
 async def retry_llm_creation(
-    llm: ChatOpenAI,
+    llm: Union[ChatOpenAI, ChatGoogleGenerativeAI],
     detailed_query: str,
     available_fields: Dict,
     required_fields: Dict,
@@ -768,9 +773,9 @@ async def generate_creation_fields(
     available_fields: Dict,
 ) -> Dict:
     """Generate validated ticket fields using LLM with retry logic."""
-    llm = ChatOpenAI(
-        model=AgentConfiguration.model, temperature=AgentConfiguration.temperature
-    )
+    agent_config = AgentConfiguration()
+
+    llm = agent_config.get_llm()
 
     required_fields = {
         field_id: field
