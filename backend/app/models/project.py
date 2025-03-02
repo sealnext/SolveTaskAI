@@ -6,6 +6,7 @@ from app.models.associations import (
     api_key_project_association,
     user_project_association,
 )
+from app.models.embedding import Embedding
 
 
 class ProjectDB(Base):
@@ -22,7 +23,7 @@ class ProjectDB(Base):
     api_keys = relationship(
         "APIKeyDB", secondary=api_key_project_association, back_populates="projects"
     )
-    embeddings = relationship("Embedding", back_populates="project")
+    embeddings = relationship("Embedding", back_populates="project", lazy="selectin")
     users = relationship(
         "UserDB", secondary=user_project_association, back_populates="projects"
     )

@@ -118,7 +118,7 @@ def create_ticket_agent(
             raise i
         except Exception as e:
             logger.error(f"Error in create_ticket: {str(e)}", exc_info=True)
-            # return what issue types are available for the project
+            # TODO: return what issue types are available for the project
             # ex : Error in create_ticket: 404: No metadata found for project PZ and issue type issue
             return str(e)
 
