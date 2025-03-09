@@ -1,289 +1,136 @@
 """
-Utility functions for agent operations.
+Message sequence handling and conversation flow management.
+
+This module provides utilities for repairing broken conversation sequences,
+handling errors in LLM responses, and formatting responses for the agent system.
+It ensures proper conversation flow when tools are interrupted by human input.
 """
 
-from datetime import datetime, timezone
-from typing import Tuple, Optional
-from uuid import UUID, uuid4
+import logging
+from typing import List, Dict, Any, Optional
 
-from fastapi import HTTPException, Request, status
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
     HumanMessage,
     ToolMessage,
-    SystemMessage,
-    FunctionMessage,
 )
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from app.agent.graph import create_agent_graph
-from typing import AsyncGenerator
-import json
-import logging
-from app.agent.state import AgentState
-
-from app.schemas.agent import ChatMessage
-from app.services.ticketing.client import BaseTicketingClient
-from app.repositories.thread_repository import ThreadRepository
-from app.schemas.api_key import APIKey
-from app.schemas.project import Project
-
+from langchain_core.callbacks import dispatch_custom_event
+from langchain_core.messages import RemoveMessage
 logger = logging.getLogger(__name__)
 
 
-def convert_message_content_to_string(content: str | list[str | dict]) -> str:
-    if isinstance(content, str):
-        return content
-    text: list[str] = []
-    for content_item in content:
-        if isinstance(content_item, str):
-            text.append(content_item)
-            continue
-        if content_item["type"] == "text":
-            text.append(content_item["text"])
-    return "".join(text)
-
-
-def langchain_to_chat_message(message: BaseMessage) -> Optional[ChatMessage]:
-    """Convert a LangChain message to a ChatMessage."""
-    if message is None:
-        return None
-
-    if isinstance(message, HumanMessage):
-        return ChatMessage(type="human", content=message.content)
-    elif isinstance(message, AIMessage):
-        return ChatMessage(type="ai", content=message.content)
-    elif isinstance(message, SystemMessage):
-        return ChatMessage(type="system", content=message.content)
-    elif isinstance(message, FunctionMessage):
-        return ChatMessage(type="function", content=message.content)
-    elif isinstance(message, ToolMessage):
-        return ChatMessage(type="tool", content=message.content)
-    elif isinstance(message, tuple):
-        # Handle tuple case by extracting the message
-        if len(message) > 0 and isinstance(message[0], BaseMessage):
-            return langchain_to_chat_message(message[0])
-    else:
-        raise ValueError(f"Unsupported message type: {message.__class__.__name__}")
-
-
-def remove_tool_calls(content: str | list[str | dict]) -> str | list[str | dict]:
-    """Remove tool calls from content."""
-    if isinstance(content, str):
-        return content
-    # Currently only Anthropic models stream tool calls, using content item type tool_use.
-    return [
-        content_item
-        for content_item in content
-        if isinstance(content_item, str) or content_item["type"] != "tool_use"
-    ]
-
-
-def get_user_id(request: Request) -> str:
-    """Temporary function to get user ID from request. Just for testing purposes."""
-    # TODO: Remove this once we have a proper authentication system
-    return (
-        request.state.user.id
-        if hasattr(request.state, "user") and hasattr(request.state.user, "id")
-        else 1
-    )
-
-
-async def parse_input(
-    user_input: dict,
-    user_id: str,
-    checkpointer: AsyncPostgresSaver,
-    thread_repo: ThreadRepository,
-) -> Tuple[list[BaseMessage], RunnableConfig, UUID]:
+def fix_tool_call_sequence(messages: List[BaseMessage]) -> Dict[str, Any]:
     """
-    Parse user input and prepare messages and configuration for the graph.
-
+    Detects and fixes a sequence where a tool_call is directly followed by a human message.
+    
+    This function ensures proper conversation flow by inserting a missing ToolMessage
+    when a human interrupts a tool call.
+    
     Args:
-        user_input: Input from the user
-        user_id: User ID
-        checkpointer: AsyncPostgresSaver instance
-        thread_repo: Thread repository instance
-
+        messages: List of conversation messages
+        
     Returns:
-        Tuple containing initial messages, configuration and run ID
+        A dictionary containing:
+            - prepared_messages: Messages ready for LLM invocation
+            - state_corrections: Commands to fix the state (None if no fix needed)
+            - sequence_broken: Boolean indicating if a fix was needed
     """
-    run_id = uuid4()
-    thread_id = user_input.get("thread_id", str(uuid4()))
-
-    thread = await thread_repo.get(thread_id)
-
-    if not thread and user_input.get("thread_id"):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Thread with id {thread_id} not found",
+    # Check if there's a problematic sequence
+    sequence_broken = False
+    if len(messages) >= 2:
+        ai_msg, human_msg = messages[-2], messages[-1]
+        # Check if we have a function call followed directly by a human message
+        sequence_broken = (hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls and 
+                     hasattr(human_msg, "type") and human_msg.type == "human")
+    
+    # Create fixed messages for invoke if needed
+    if sequence_broken:
+        ai_msg, human_msg = messages[-2], messages[-1]
+        tool_call = ai_msg.tool_calls[0]
+        tool_id = tool_call["id"]
+        
+        # Create the missing ToolMessage
+        tool_msg = ToolMessage(
+            content="The previous operation was interrupted by user input.",
+            tool_call_id=tool_id
         )
-    elif not thread:
-        # Create a new thread-user association
-        await thread_repo.create(thread_id, user_id)
+        
+        # Create fixed messages
+        prepared_messages = messages[:-1] + [tool_msg, human_msg]
+        
+        # Create state fix
+        human_id = human_msg.id
+        human_content = human_msg.content
+        
+        state_corrections = [
+            RemoveMessage(id=human_id),
+            tool_msg,
+            HumanMessage(content=human_content, id=human_id)
+        ]
     else:
-        # Update timestamp for existing thread
-        await thread_repo.update_timestamp(thread_id)
-
-    configurable = {
-        "thread_id": thread_id,
-        "checkpoint_ns": "",
+        prepared_messages = messages
+        state_corrections = None
+    
+    return {
+        "prepared_messages": prepared_messages,
+        "state_corrections": state_corrections,
+        "sequence_broken": sequence_broken
     }
 
-    config = RunnableConfig(
-        configurable=configurable,
-        metadata={
-            "user_id": user_id,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        },
-        run_id=run_id,
+
+def create_error_response(error: Exception, state_corrections: Optional[List] = None) -> Dict[str, List]:
+    """
+    Creates an appropriate error response when LLM calls fail.
+    
+    Args:
+        error: The exception that was raised
+        state_corrections: Optional state correction commands to apply
+        
+    Returns:
+        A dictionary containing the messages to return
+    """
+    logger.error(f"Error calling LLM: {str(error)}")
+    error_message = AIMessage(
+        content="I'm sorry, I encountered an error. Please try again."
     )
-
-    # Modified message handling
-    initial_messages = []
-    if "message" in user_input:
-        initial_messages.append(
-            HumanMessage(content=user_input["message"], type="human")
-        )
-
-    return initial_messages, config, run_id, thread_id
+    
+    if state_corrections:
+        return {"messages": state_corrections + [error_message]}
+    return {"messages": [error_message]}
 
 
-async def message_generator(
-    user_input: dict,
-    user_id: str,
-    project: Project,
-    api_key: APIKey,
-    checkpointer: AsyncPostgresSaver,
-    thread_repo: ThreadRepository,
-    ticketing_client: BaseTicketingClient,
-) -> AsyncGenerator[str, None]:
-    try:
-        logger.info("Starting message_generator")
-
-        logger.info("Parsing input...")
-        messages, config, run_id, thread_id = await parse_input(
-            user_input, user_id, checkpointer, thread_repo
-        )
-        logger.info(f"Input parsed successfully. Thread ID: {thread_id}")
-
-        graph = create_agent_graph(checkpointer, ticketing_client)
-
-        if user_input.get("action") == "confirm":
-            initial_state = Command(
-                resume={
-                    "action": "confirm",
-                    "payload": user_input.get("payload"),
-                    "ticket": user_input.get("ticket"),
-                }
+def format_llm_response(
+    response: BaseMessage,
+    state_corrections: Optional[List] = None, 
+    config: Optional[RunnableConfig] = None
+) -> Dict[str, List]:
+    """
+    Formats the final response from the LLM, handling tool calls and notifications.
+    
+    Args:
+        response: The response from the LLM
+        state_corrections: Optional state correction commands to apply
+        config: Optional runnable configuration for event dispatch
+        
+    Returns:
+        A dictionary containing the messages to return
+    """
+    # Check for tool calls and dispatch events if necessary
+    if hasattr(response, "tool_calls") and response.tool_calls:
+        tool_name = response.tool_calls[0]["name"]
+        if tool_name == "ticket_tool" and config:
+            dispatch_custom_event(
+                "agent_progress", 
+                {"message": "We are handling your ticket request..."},
+                config=config
             )
-        elif user_input.get("action") == "cancel":
-            initial_state = Command(resume={"action": "cancel"})
-        else:
-            initial_state = AgentState(
-                messages=messages,  # Now uses parsed messages list
-                project_data={"id": project.id, "name": project.name},
-                api_key=api_key,
-            )
-
-        thread = {"configurable": {"thread_id": thread_id}}
-
-        async for event in graph.astream_events(
-            initial_state, thread, version="v2", subgraphs=True
-        ):
-            if not event:
-                continue
-
-            # Handle final stream completed message from agent node
-            elif (
-                event.get("event") == "on_chat_model_end"
-                and event["metadata"]["langgraph_node"] == "agent"
-                and event["metadata"]["checkpoint_ns"].startswith("agent")
-            ):
-                final_content = event["data"]["output"].content
-                if final_content:
-                    yield f"data: {
-                        json.dumps(
-                            {
-                                'type': 'final',
-                                'content': final_content,
-                                'thread_id': str(thread_id),
-                            }
-                        )
-                    }\n\n"
-                continue
-
-            # Handle custom progress events
-            elif (
-                event.get("event") == "on_custom_event"
-                and event.get("name") == "agent_progress"
-            ):
-                data = event.get("data", {})
-                if data and "message" in data:
-                    yield f"data: {
-                        json.dumps(
-                            {
-                                'type': 'progress',
-                                'content': data['message'],
-                                'thread_id': str(thread_id),
-                            }
-                        )
-                    }\n\n"
-                    continue
-
-            # Handle interrupt events
-            elif event.get("event") == "on_chain_stream":
-                chunk = event.get("data", {}).get("chunk", {})
-                if (
-                    isinstance(chunk, tuple)
-                    and len(chunk) == 2
-                    and isinstance(chunk[1], dict)
-                ):
-                    interrupt_data = chunk[1].get("__interrupt__")
-                    if (
-                        interrupt_data
-                        and isinstance(interrupt_data, tuple)
-                        and len(interrupt_data) > 0
-                    ):
-                        interrupt = interrupt_data[0]
-                        if hasattr(interrupt, "value") and hasattr(
-                            interrupt, "resumable"
-                        ):
-                            yield f"data: {
-                                json.dumps(
-                                    {
-                                        'type': 'interrupt',
-                                        'resumable': interrupt.resumable,
-                                        'content': interrupt.value,
-                                        'thread_id': str(thread_id),
-                                    }
-                                )
-                            }\n\n"
-                            continue
-
-            # Handle stream events from agent node
-            elif event.get("event") == "on_chat_model_stream":
-                if event["metadata"]["langgraph_node"] == "agent" and event["metadata"][
-                    "checkpoint_ns"
-                ].startswith("agent"):
-                    chunk = event["data"]["chunk"]
-                    if chunk.content:
-                        yield f"data: {
-                            json.dumps(
-                                {
-                                    'type': 'stream',
-                                    'content': chunk.content,
-                                }
-                            )
-                        }\n\n"
-
-        yield f"data: {json.dumps({'type': 'done', 'thread_id': str(thread_id)})}\n\n"
-
-    except Exception as e:
-        logger.error(f"Error in message generator: {e}", exc_info=True)
-        yield f"data: {
-            json.dumps(
-                {'type': 'error', 'content': str(e), 'thread_id': str(thread_id)}
-            )
-        }\n\n"
+    
+    logger.debug(f"Model response: {response}")
+    
+    # Construct final result
+    if state_corrections:
+        return {"messages": state_corrections + [response]}
+    return {"messages": [response]} 

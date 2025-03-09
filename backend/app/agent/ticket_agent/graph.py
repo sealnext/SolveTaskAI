@@ -5,12 +5,10 @@ from app.config.logger import auto_log
 from app.services.ticketing.client import BaseTicketingClient
 
 from langchain_core.callbacks import dispatch_custom_event
-from langchain_core.messages import ToolMessage, SystemMessage, HumanMessage
+from langchain_core.messages import ToolMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_core.tools.base import InjectedToolCallId
-from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.errors import GraphInterrupt
 from langgraph.graph import StateGraph, START
@@ -23,7 +21,6 @@ from app.agent.ticket_agent.utils import (
     prepare_ticket_fields,
     generate_field_updates,
     create_review_config,
-    handle_edit_error,
     handle_account_search,
     handle_issue_search,
     handle_sprint_search,
@@ -55,8 +52,6 @@ def create_ticket_agent(
             detailed_query (str): Each field and its value of the ticket to create.
             issue_type (str): The type of issue to create.
         """
-        field_values = {}
-
         try:
             is_resuming = config.get("configurable", {}).get("__pregel_resuming", False)
 
@@ -134,16 +129,21 @@ def create_ticket_agent(
                     f"Available issue types: {', '.join(available_types)}"
                 )
 
-            return f"Failed to create ticket: {error_message}"
+            return f"Failure - {error_message}"
 
     @auto_log("ticket_agent.edit_ticket")
     async def edit_ticket(
         detailed_query: str,
         ticket_id: str,
-        tool_call_id: Annotated[str, InjectedToolCallId],
         config: RunnableConfig,
+        tool_call_id: Annotated[str, InjectedToolCallId],
     ) -> Command | Coroutine[Any, Any, Command]:
-        """Tool for editing JIRA tickets."""
+        """Tool for editing tickets
+
+        Args:
+            detailed_query (str): Each field and its value to edit
+            ticket_id (str): The issue id you want to edit
+        """
         try:
             is_resuming = config.get("configurable")["__pregel_resuming"]
 
@@ -180,7 +180,7 @@ def create_ticket_agent(
 
             # Prepare review configuration
             review_config = create_review_config(
-                ticket_id=ticket_id, field_updates=field_updates
+                ticket_id=ticket_id, field_updates=field_updates, operation_type="edit"
             )
 
             message = await handle_review_process(review_config, client)

@@ -9,7 +9,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from app.schemas.project import Project
 from app.schemas.api_key import APIKey
 
-from app.agent.utils import get_user_id, message_generator
+from app.agent.thread_manager import get_user_id, message_generator
 from app.dependencies import (
     get_db_checkpointer,
     get_ticketing_factory,
