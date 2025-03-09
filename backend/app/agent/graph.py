@@ -1,26 +1,23 @@
 # Standard library imports
 import logging
-from typing import Any, Literal, Optional, Union, Dict, Type, Callable
+from typing import Any, Literal, Optional, Union
 
 # Third-party imports
-from langchain_core.messages import AnyMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.callbacks import dispatch_custom_event
-from langchain_core.language_models import BaseChatModel
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import StateGraph
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel
+from langchain_core.messages import AnyMessage
 
 # Local application imports
 from app.agent.configuration import AgentConfiguration
 from app.config.logger import auto_log
 from app.services.ticketing.client import BaseTicketingClient
+from app.agent.utils import fix_tool_call_sequence, create_error_response, format_llm_response
 
-from .prompts import AGENT_SYSTEM_PROMPT
 from .state import AgentState
 from .ticket_agent.graph import create_ticket_agent
 
@@ -55,32 +52,9 @@ async def ticket_tool(
     return {}
 
 
-@auto_log("graph.call_model")
-async def call_model(state: AgentState, config: RunnableConfig):
-    """Node that calls the LLM with the current state."""
-    messages = state.messages
-    agent_config = AgentConfiguration()
-    llm = agent_config.get_llm()
-
-    llm_with_tools = llm.bind_tools([ticket_tool])
-    response = await llm_with_tools.ainvoke(messages)
-
-    if hasattr(response, "tool_calls") and len(response.tool_calls) > 0:
-        tool_name = response.tool_calls[0]["name"]
-        if tool_name == "ticket_tool":
-            dispatch_custom_event(
-                "agent_progress",
-                {"message": "We are handling your ticket request..."},
-                config=config,
-            )
-
-    logger.error(f"after llm_with_tools: {response}")
-    return {"messages": [response]}
-
-
 def tools_condition(
     state: Union[list[AnyMessage], dict[str, Any], BaseModel],
-) -> Literal["tools", "ticket_tool", "__end__"]:
+) -> Literal["tools", "ticket_agent", "__end__"]:
     if isinstance(state, list):
         ai_message = state[-1]
     elif isinstance(state, dict) and (messages := state.get("messages", [])):
@@ -101,7 +75,7 @@ def tools_condition(
 def create_agent_graph(
     checkpointer: Optional[AsyncPostgresSaver] = None,
     ticketing_client: Optional[BaseTicketingClient] = None,
-) -> StateGraph:
+) -> CompiledStateGraph:
     """Create a new agent graph instance."""
 
     # Create ticket subgraph with client
@@ -129,3 +103,26 @@ def create_agent_graph(
     graph = builder.compile(checkpointer=checkpointer)
     logger.info(f"Graph created successfully: {graph}")
     return graph
+
+
+@auto_log("graph.call_model")
+async def call_model(state: AgentState, config: RunnableConfig):
+    """Node that calls the LLM with the current state."""
+    conversation_messages = list(state.messages)
+    agent_config = AgentConfiguration()
+    llm = agent_config.get_llm()
+    
+    # Fix message sequence if user breaks the tool call interrupt approval step by sending a new message instead of approving the tool call 
+    sequence_info = fix_tool_call_sequence(conversation_messages)
+    prepared_messages = sequence_info["prepared_messages"]
+    state_corrections = sequence_info["state_corrections"]
+    
+    # Prepare LLM with tools
+    llm_with_tools = llm.bind_tools([ticket_tool])
+    
+    try:
+        # Call LLM and format response
+        model_response = await llm_with_tools.ainvoke(prepared_messages)
+        return format_llm_response(model_response, state_corrections, config)
+    except Exception as e:
+        return create_error_response(e, state_corrections)
