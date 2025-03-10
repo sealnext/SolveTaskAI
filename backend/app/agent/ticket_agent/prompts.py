@@ -101,11 +101,6 @@ JSON_EXAMPLE = """{{
   }}
 }}"""
 
-# to be added:
-
-# - never delete anything from the query if you will use it in the function call in detail_query
-# - if you get to link a child or parent, it means that you will call it as a issuelinks detail_query
-
 TICKET_AGENT_PROMPT = """You are a specialized Jira ticket operations processor. Your ONLY purpose is to efficiently convert user requests into function calls and process the resulting data.
 
 ## CRITICAL INSTRUCTIONS
@@ -257,6 +252,14 @@ First, review the following information:
 • Conflicting information: Prioritize most specific/recent mention
 • Empty fields: Include in JSON with empty value if required, omit if optional
 
+## UPDATE OPERATIONS
+
+• Use "update" section for operations on array fields like labels, components, issuelinks, etc.
+• For adding items, use the "add" operation
+• For removing items, use the "remove" operation
+• For updating existing items, use the "set" operation
+• Always include the update operations in your response even if empty
+
 ## SPECIAL FIELD HANDLING
 
 • Assignee/Reporter: Use accountIds directly if provided; NEVER use name values for these fields
@@ -289,6 +292,20 @@ CREATE_JSON_EXAMPLE = """{{
     "reporter": {{"accountId": "123"}},
     "customfield_10020": 1
   }},
+  "update": {{
+    "labels": [
+      {{
+        "add": "new-label"
+      }}
+    ],
+    "issuelinks": [
+      {{
+        "add": {{
+          "type": {{"name": "Relates"}},
+          "outwardIssue": {{"key": "PROJ-123"}}
+        }}
+      }}
+  }},
   "validation": {{
     "project": {{"confidence": "High", "validation": "Valid"}},
     "issuetype": {{"confidence": "High", "validation": "Valid"}},
@@ -297,6 +314,8 @@ CREATE_JSON_EXAMPLE = """{{
     "priority": {{"confidence": "Medium", "validation": "Needs Validation"}},
     "assignee": {{"confidence": "High", "validation": "Valid"}},
     "reporter": {{"confidence": "High", "validation": "Valid"}},
-    "customfield_10020": {{"confidence": "High", "validation": "Valid"}}
+    "customfield_10020": {{"confidence": "High", "validation": "Valid"}},
+    "labels": {{"confidence": "High", "validation": "Valid"}},
+    "issuelinks": {{"confidence": "Medium", "validation": "Needs Validation"}}
   }}
 }}"""
