@@ -228,7 +228,10 @@ async def _handle_create_confirmation(
             "project": metadata.get("project_key"),
             "issue_type": metadata.get("issue_type"),
             "validation": preview_data.get("validation", {}),
-            "payload": {"fields": preview_data.get("fields", {})},
+            "payload": {
+                "fields": preview_data.get("fields", {}),
+                "update": preview_data.get("update", {}),
+            },
             "available_actions": review_config.get("available_actions", []),
         }
     )
@@ -245,6 +248,10 @@ async def _handle_create_confirmation(
             # Ensure fields exists in payload
             if "fields" not in payload:
                 payload["fields"] = {}
+                
+            # Ensure update exists in payload
+            if "update" not in payload:
+                payload["update"] = {}
 
             # Ensure issuetype exists in fields with proper structure, defaulting to Task if not provided
             if "issuetype" not in payload["fields"]:
@@ -262,7 +269,10 @@ async def _handle_create_confirmation(
                 payload["fields"]["project"] = {"key": client.project.key}
 
             # Store the final payload for reporting
-            final_payload = {"fields": {k: v for k, v in payload["fields"].items()}}
+            final_payload = {
+                "fields": {k: v for k, v in payload["fields"].items()},
+                "update": {k: v for k, v in payload["update"].items()},
+            }
 
             # Create the ticket
             result = await client.create_ticket(payload)
@@ -492,6 +502,7 @@ def create_review_config(
             base_config["preview_data"] = {
                 "fields": field_values.get("fields", {}),
                 "validation": field_values.get("validation", {}),
+                "update": field_values.get("update", {}),
             }
     elif operation_type == "delete":
         if not ticket_id:
@@ -742,6 +753,10 @@ Please try again with the original query: {detailed_query}""",
             max_retries=max_retries,
             retry_count=retry_count + 1,
         )
+
+    # Ensure update section exists
+    if "update" not in creation_fields:
+        creation_fields["update"] = {}
 
     # Validate required fields
     missing_required = [

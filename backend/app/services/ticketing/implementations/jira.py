@@ -802,7 +802,7 @@ class JiraClient(BaseTicketingClient):
                     **self._get_auth_headers(),
                     "Content-Type": "application/json",
                 },
-                json={"fields": payload["fields"]},
+                json=payload,
                 timeout=30.0,
             )
 
