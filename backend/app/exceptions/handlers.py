@@ -1,45 +1,21 @@
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from fastapi_csrf_protect.exceptions import CsrfProtectError
 from app.exceptions.custom_exceptions import BaseCustomException
-from app.exceptions.custom_exceptions import NotImplementedException
 
 
 def register_exception_handlers(app: FastAPI):
     @app.exception_handler(BaseCustomException)
     async def custom_exception_handler(request: Request, exc: BaseCustomException):
+        """Global handler for all custom exceptions. 
+        This handler avoid us catching exceptions in every route.
+        This handler will catch all the exceptions that inherit from BaseCustomException.
+
+        1. Using the status_code defined in the exception
+        2. Returning a JSON response with the exception's detail message
+        
+        This provides consistent error responses for all custom exceptions while
+        allowing each exception to define its own status code and message.
+        """
         return JSONResponse(
             status_code=exc.status_code, content={"message": exc.detail}
-        )
-
-    @app.exception_handler(NotImplementedError)
-    async def not_implemented_exception_handler(
-        request: Request, exc: NotImplementedError
-    ):
-        return NotImplementedException()
-
-    @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(
-        request: Request, exc: RequestValidationError
-    ):
-        return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content={
-                "detail": "Invalid request data. Please check your input and try again.",
-                "errors": exc.errors(),
-            },
-        )
-
-    @app.exception_handler(CsrfProtectError)
-    async def csrf_protect_exception_handler(request: Request, exc: CsrfProtectError):
-        return JSONResponse(
-            status_code=exc.status_code, content={"detail": exc.message}
-        )
-
-    @app.exception_handler(Exception)
-    async def global_exception_handler(request: Request, exc: Exception):
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"message": "Internal server error"},
         )
