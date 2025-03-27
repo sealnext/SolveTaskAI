@@ -9,6 +9,7 @@ from app.config.enums import TicketingSystemType
 import asyncio
 from httpx import Limits, Timeout
 from app.config.config import JIRA_MAX_CONCURRENT_REQUESTS
+from app.schemas.project import Project
 
 
 class TicketingConfig(BaseModel):
@@ -64,7 +65,7 @@ class TicketingClientFactory:
             self._http_clients[service_type] = self._create_client(service_type)
         return self._http_clients[service_type]
 
-    def get_client(self, api_key: APIKey, project: Any = None) -> BaseTicketingClient:
+    def get_client(self, api_key: APIKey, project: Project = None) -> BaseTicketingClient:
         """Get a client instance for the specified ticketing system.
 
         Args:

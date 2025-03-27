@@ -69,6 +69,21 @@ class ProjectAlreadyExistsError(BaseCustomException):
         super().__init__(detail, status.HTTP_400_BAD_REQUEST)
 
 
+class ExternalProjectsNotFoundException(BaseCustomException):
+    def __init__(self, detail: str = "No projects found in external service"):
+        super().__init__(detail, status.HTTP_404_NOT_FOUND)
+
+
+class DocumentProcessingException(BaseCustomException):
+    def __init__(self, detail: str = "Failed to process documents"):
+        super().__init__(detail, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ProjectCreationException(BaseCustomException):
+    def __init__(self, detail: str = "Failed to create project"):
+        super().__init__(detail, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class NotImplementedException(BaseCustomException):
     def __init__(self, detail: str = "Not implemented"):
         super().__init__(detail, status.HTTP_501_NOT_IMPLEMENTED)
