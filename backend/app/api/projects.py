@@ -9,7 +9,6 @@ from app.dependencies import (
     get_document_embeddings_service,
     get_ticketing_client,
     get_ticketing_factory,
-    get_current_user
 )
 from app.exceptions.custom_exceptions import (
     InvalidCredentialsException,
@@ -44,7 +43,8 @@ router = APIRouter(
 @router.get("/external/projects/{project_id}")
 async def get_external_project_by_id(
     project_id: int,
-    user: User = Depends(get_current_user), # TODO AFTER REFACTOR
+    # user: User = Depends(get_current_user), # TODO AFTER REFACTOR would be nice
+    request: Request,
     user_service: UserService = Depends(get_user_service),
     project_service: ProjectService = Depends(get_project_service),
     factory: TicketingClientFactory = Depends(get_ticketing_factory),
@@ -55,6 +55,8 @@ async def get_external_project_by_id(
     @throws ExternalProjectsNotFoundException - If no projects found in external service
     """
     # Parallelize the API calls
+    user = request.state.user
+
     api_key, project = await asyncio.gather(
         user_service.get_api_key_by_id(project_id, user.id),
         project_service.get_project_by_id(user.id, project_id)
