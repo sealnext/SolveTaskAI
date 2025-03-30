@@ -2,32 +2,50 @@ services:
   postgres:
     image: pgvector/pgvector:pg17
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: dbname
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: sealnext
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: on-failure
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d dbname"]
-      interval: 15s
+      test: ["CMD-SHELL", "pg_isready --username=$$POSTGRES_USER --dbname=$$POSTGRES_DB"]
+      interval: 5s
+      timeout: 2s
+      retries: 2
+
+  redis:
+    image: cgr.dev/chainguard/redis:latest
+    ports:
+      - "6379:6379"
+    environment:
+      REDIS_PASSWORD: "6X5z6?M9,A.=9Z&B<HH5"
+    command: ["--requirepass", "$$REDIS_PASSWORD"]
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
       timeout: 2s
       retries: 2
 
   backend:
     build: ./backend
     env_file: ./backend/.env
+    environment:
+      PYTHONUNBUFFERED: 1
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
-      interval: 20s
+      interval: 30s
       timeout: 2s
       retries: 2
     develop:

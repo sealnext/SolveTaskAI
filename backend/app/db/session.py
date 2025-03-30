@@ -6,6 +6,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+class DBState:
+    count = 0
+
+# Use it like this
+DBState.count += 1
+logger.info(f"count: {DBState.count}")
+
+logger.info(f"DATABASE_URL: {DATABASE_URL}")
 engine = create_async_engine(DATABASE_URL, echo=False)
 
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
