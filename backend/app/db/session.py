@@ -1,29 +1,24 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy import text
 from app.config.config import DATABASE_URL
 import logging
 
 logger = logging.getLogger(__name__)
 
-
-class DBState:
-    count = 0
-
-
-# Use it like this
-DBState.count += 1
-logger.info(f"count: {DBState.count}")
-
-logger.info(f"DATABASE_URL: {DATABASE_URL}")
 engine = create_async_engine(DATABASE_URL, echo=False)
 
-AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session_factory() as session:
+        try:
+            yield session
+            await session.commit()
+        except:
+            await session.rollback()
+            raise
 
 
 async def init_db():
