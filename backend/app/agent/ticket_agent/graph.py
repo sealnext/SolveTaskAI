@@ -1,7 +1,6 @@
 import logging
 from typing import Optional, Literal, Annotated, Any, Coroutine
 
-from app.config.logger import auto_log
 from app.services.ticketing.client import BaseTicketingClient
 
 from langchain_core.callbacks import dispatch_custom_event
@@ -131,7 +130,6 @@ def create_ticket_agent(
 
             return f"Failure - {error_message}"
 
-    @auto_log("ticket_agent.edit_ticket")
     async def edit_ticket(
         detailed_query: str,
         ticket_id: str,
@@ -191,7 +189,6 @@ def create_ticket_agent(
             return e
 
     @tool
-    @auto_log("ticket_agent.delete_ticket")
     async def delete_ticket(
         ticket_id: str,
         tool_call_id: Annotated[str, InjectedToolCallId],

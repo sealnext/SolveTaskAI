@@ -16,8 +16,6 @@ from app.exceptions.custom_exceptions import (
 from app.schemas.user import UserCreate
 from app.schemas.api_key import APIKey
 from app.models.user import UserDB
-from app.utils.security import hash_password
-from app.services.auth_service import AuthService
 
 
 logger = logging.getLogger(__name__)
@@ -57,7 +55,7 @@ class UserService:
             )
             raise UserAlreadyExistsException(f"User already exists")
 
-        hashed_password = hash_password(user_create.password)
+        hashed_password = user_create.password
         user_create.password = hashed_password
 
         try:
@@ -69,16 +67,6 @@ class UserService:
 
     async def get_user_by_email(self, email: str) -> Optional[UserDB]:
         return await self.user_repository.get_by_email(email)
-
-    async def authenticate_and_get_tokens(
-        self, email: str, password: str, request: Request, auth_service: AuthService
-    ) -> Tuple[str, str]:
-        try:
-            user = await self.authenticate_user(email, password)
-            return auth_service.create_token_pair(user.email, request)
-        except InvalidCredentialsException as e:
-            logger.warning(f"Authentication failed for email {email}: {str(e)}")
-            raise
 
     async def get_api_key_for_project(self, project_id: int) -> str:
         api_key = await self.user_repository.get_api_key_for_project(

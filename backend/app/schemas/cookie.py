@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field
-from app.config.config import ENVIRONMENT
 
 
 class CookieSettings(BaseModel):
@@ -7,5 +6,5 @@ class CookieSettings(BaseModel):
     value: str
     max_age: int
     httponly: bool = True
-    secure: bool = Field(default_factory=lambda: ENVIRONMENT == "production")
+    secure: bool = True
     samesite: str = "lax"

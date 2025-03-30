@@ -1,15 +1,12 @@
-"""
-Database connection pool management.
-"""
-
-import logging
 from typing import Optional, AsyncContextManager, Type
 from types import TracebackType
 from psycopg_pool import AsyncConnectionPool
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from app.config.config import DATABASE_URL
+from logging import getLogger
 
-logger = logging.getLogger(__name__)
+
+logger = getLogger(__name__)
 
 
 class DatabasePool(AsyncContextManager["DatabasePool"]):

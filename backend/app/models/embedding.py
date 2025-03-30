@@ -3,7 +3,6 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 
-from app.config.config import VECTOR_DIMENSION
 from .base import Base
 
 
@@ -13,7 +12,7 @@ class Embedding(Base):
     id = Column(Integer, primary_key=True, index=True)
     ticket_url = Column(String(512), unique=True, nullable=False)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
-    embedding_vector = Column(Vector(VECTOR_DIMENSION), nullable=False)
+    embedding_vector = Column(Vector(1536), nullable=False)
     issue_type = Column(String(128), nullable=False)
     status = Column(String(128), nullable=False)
     priority = Column(String(128), nullable=False)
