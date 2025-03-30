@@ -1,5 +1,5 @@
 # Standard library imports
-from functools import lru_cache
+from functools import cache
 
 # Third-party imports
 from fastapi import Depends
@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # Local imports
 from app.db.pool import db_pool
-from app.db.session import get_db
+from app.db.postgres import get_db
 from app.repositories.apikey_repository import APIKeyRepository
 from app.repositories.chat_session_repository import ChatSessionRepository
 from app.repositories.project_repository import ProjectRepository
@@ -17,7 +17,6 @@ from app.repositories.thread_repository import ThreadRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.api_key import APIKey
 from app.services.apikey_service import APIKeyService
-from app.services.auth_service import AuthService
 from app.services.document_embeddings_service import DocumentEmbeddingsService
 from app.services.project_service import ProjectService
 from app.services.ticketing.factory import TicketingClientFactory
@@ -40,10 +39,6 @@ async def get_user_service(
     api_key_repo: APIKeyRepository = Depends(get_api_key_repository),
 ):
     return UserService(repo, api_key_repo)
-
-
-async def get_auth_service(user_repo: UserRepository = Depends(get_user_repository)):
-    return AuthService(user_repo)
 
 
 # Project dependencies
@@ -80,7 +75,7 @@ async def get_thread_repository(db: AsyncSession = Depends(get_db)) -> ThreadRep
 
 
 # Ticketing System dependencies
-@lru_cache()
+@cache
 def get_ticketing_factory() -> TicketingClientFactory:
     """Get the ticketing factory singleton."""
     return TicketingClientFactory(config=TicketingConfig())

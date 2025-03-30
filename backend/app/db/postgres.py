@@ -1,20 +1,34 @@
-import asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.base import Base
-from app.db.session import engine
-from app.config.config import SYNC_DATABASE
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy import text
-import logging
+from app.config.config import DATABASE_URL
+from logging import getLogger
 
-logger = logging.getLogger(__name__)
+from app.models.base import Base
 
 
-async def create_langchain_tables():
-    """Create the tables needed by LangChain's PGVector if they don't exist."""
+logger = getLogger(__name__)
+
+engine = create_async_engine(DATABASE_URL, echo=False)
+async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session_factory() as session:
+        try:
+            yield session
+            await session.commit()
+        except:
+            await session.rollback()
+            raise
+
+
+async def init_db():
+    logger.info("Initializing pgvector database...")
     async with engine.begin() as conn:
-        # Create vector extension if not exists (needed for the vector type)
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-
+        await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         # Create langchain_pg_collection table if not exists
         await conn.execute(
             text("""
@@ -75,21 +89,3 @@ async def create_langchain_tables():
             END $$;
         """)
         )
-
-
-async def sync_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        await create_langchain_tables()
-
-
-async def sync_database():
-    if SYNC_DATABASE:
-        logger.info("Syncing database...")
-        await sync_db()
-    else:
-        logger.info("Database synchronization is disabled.")
-
-
-if __name__ == "__main__":
-    asyncio.run(sync_database())

@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
-from app.middleware.auth_middleware import auth_middleware
 from app.dependencies import (
     get_api_key_repository,
     get_project_service,
@@ -16,7 +15,7 @@ from app.repositories.chat_session_repository import ChatSessionRepository
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/chat", tags=["chat"], dependencies=[Depends(auth_middleware)]
+    prefix="/chat", tags=["chat"]
 )
 
 # TODO: extract the service logic to a separate file

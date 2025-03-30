@@ -1,5 +1,5 @@
 # Standard library imports
-import logging
+from logging import getLogger
 from typing import Optional
 
 # Third-party imports
@@ -11,7 +11,6 @@ from langgraph.prebuilt import ToolNode
 
 # Local application imports
 from app.agent.configuration import AgentConfiguration
-from app.config.logger import auto_log
 from app.services.ticketing.client import BaseTicketingClient
 from app.agent.utils import (
     fix_tool_call_sequence,
@@ -24,8 +23,7 @@ from .ticket_agent.graph import create_ticket_agent
 from .tools import ticket_tool, rag_tool, tools_condition
 from .rag.graph import create_rag_graph
 
-# Logger setup
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 
 def create_agent_graph(
@@ -70,7 +68,6 @@ def create_agent_graph(
     return graph
 
 
-@auto_log("graph.call_model")
 async def call_model(state: AgentState, config: RunnableConfig):
     """Node that calls the LLM with the current state."""
     conversation_messages = list(state.messages)

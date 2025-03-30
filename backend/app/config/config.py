@@ -9,19 +9,12 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES
 JWT_REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", 7))
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-SYNC_DATABASE = os.getenv("SYNC_DATABASE", "False").lower() == "true"
 DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
 DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "20"))
 DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "30"))
 DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "3600"))
 
 NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET")
-
-ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
-DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
-SQL_LOGGING = os.getenv("SQL_LOGGING", "false").lower() == "true"
-
-VECTOR_DIMENSION = os.getenv("VECTOR_DIMENSION", 1536)
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 

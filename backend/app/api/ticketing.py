@@ -1,15 +1,12 @@
 from typing import List
 from app.repositories.apikey_repository import APIKeyRepository
-from app.middleware.auth_middleware import auth_middleware
 from fastapi import APIRouter, Depends, Request, HTTPException
 from app.dependencies import get_project_service, get_api_key_repository
 from app.services.project_service import ProjectService
 from app.schemas.status import StatusSchema
 from app.agent.ticket_agent.graph import create_ticket_agent
 
-router = APIRouter(
-    prefix="/ticketing", tags=["ticketing"], dependencies=[Depends(auth_middleware)]
-)
+router = APIRouter(prefix="/ticketing", tags=["ticketing"])
 
 
 @router.get("/{project_id}/statuses", response_model=List[StatusSchema])

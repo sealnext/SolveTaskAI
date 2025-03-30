@@ -1,5 +1,4 @@
 from langchain_core.tools import tool
-from app.config.logger import auto_log
 from typing import Literal
 from langchain_core.messages import AnyMessage
 from typing import Any, Union
@@ -23,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 @tool
-@auto_log("graph.retrieve")
 async def rag_tool(query: str) -> str:
     """
     Use this tool for searching and retrieving information from tickets and documentation.

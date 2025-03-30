@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, Request
-from app.middleware.auth_middleware import auth_middleware
 from app.dependencies import get_user_service, get_apikey_service
 from app.services.user_service import UserService
 from app.services.apikey_service import APIKeyService
@@ -7,7 +6,7 @@ from app.schemas.api_key import APIKeyCreate
 
 
 router = APIRouter(
-    prefix="/api-keys", tags=["api-keys"], dependencies=[Depends(auth_middleware)]
+    prefix="/api-keys", tags=["api-keys"]
 )
 
 

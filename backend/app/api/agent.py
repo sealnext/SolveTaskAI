@@ -24,11 +24,7 @@ from app.services.project_service import ProjectService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
-    prefix="/agent",
-    tags=["agent"],
-    # dependencies=[Depends(auth_middleware)]
-)
+router = APIRouter(prefix="/agent", tags=["agent"])
 
 
 @router.get("/threads")

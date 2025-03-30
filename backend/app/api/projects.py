@@ -1,5 +1,5 @@
 import logging
-from typing import List, Callable
+from typing import List
 
 from fastapi import APIRouter, Depends, Request, Response
 from app.dependencies import (
@@ -7,19 +7,10 @@ from app.dependencies import (
     get_project_service,
     get_user_service,
     get_document_embeddings_service,
-    get_ticketing_client,
     get_ticketing_factory,
 )
-from app.exceptions.custom_exceptions import (
-    InvalidCredentialsException,
-    ValidationErrorException,
-    APIKeyNotFoundException,
-    DocumentProcessingException,
-    ProjectCreationException,
-)
-from app.middleware.auth_middleware import auth_middleware
+from app.exceptions.custom_exceptions import DocumentProcessingException
 from app.repositories.apikey_repository import APIKeyRepository
-from app.schemas.api_key import APIKey
 from app.schemas.project import ExternalProject, ProjectCreate, Project
 from app.services.project_service import ProjectService
 from app.services.user_service import UserService
@@ -30,7 +21,6 @@ from app.exceptions.custom_exceptions import (
     ExternalProjectsNotFoundException,
 )
 
-from fastapi import status
 import asyncio
 
 logger = logging.getLogger(__name__)

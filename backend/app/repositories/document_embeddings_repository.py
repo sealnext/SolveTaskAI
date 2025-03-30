@@ -8,29 +8,16 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from app.db.postgres import engine
+
 from app.config.config import (
     OPENAI_EMBEDDING_MODEL,
-    DATABASE_URL,
     OPENAI_TIMEOUT_SECONDS,
-    DB_POOL_SIZE,
-    DB_MAX_OVERFLOW,
-    DB_POOL_TIMEOUT,
-    DB_POOL_RECYCLE,
 )
 from app.models.document_embeddings import DocumentEmbedding
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-# Global engine instance
-vector_engine = create_async_engine(
-    DATABASE_URL,
-    pool_size=DB_POOL_SIZE,
-    max_overflow=DB_MAX_OVERFLOW,
-    pool_timeout=DB_POOL_TIMEOUT,
-    pool_recycle=DB_POOL_RECYCLE,
-    echo=False,  # Set to True for SQL query logging
-)
 
 
 class DocumentEmbeddingsRepository:
@@ -59,7 +46,7 @@ class DocumentEmbeddingsRepository:
             vector_store = PGVector(
                 embeddings=self.embeddings_model,
                 collection_name=unique_identifier,
-                connection=vector_engine,
+                connection=engine,
                 pre_delete_collection=True,
                 async_mode=True,
             )
