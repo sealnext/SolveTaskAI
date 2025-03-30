@@ -248,7 +248,7 @@ async def _handle_create_confirmation(
             # Ensure fields exists in payload
             if "fields" not in payload:
                 payload["fields"] = {}
-                
+
             # Ensure update exists in payload
             if "update" not in payload:
                 payload["update"] = {}

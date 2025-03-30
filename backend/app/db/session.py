@@ -6,8 +6,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class DBState:
     count = 0
+
 
 # Use it like this
 DBState.count += 1
