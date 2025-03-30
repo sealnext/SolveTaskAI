@@ -65,7 +65,9 @@ class TicketingClientFactory:
             self._http_clients[service_type] = self._create_client(service_type)
         return self._http_clients[service_type]
 
-    def get_client(self, api_key: APIKey, project: Project = None) -> BaseTicketingClient:
+    def get_client(
+        self, api_key: APIKey, project: Project = None
+    ) -> BaseTicketingClient:
         """Get a client instance for the specified ticketing system.
 
         Args:

@@ -13,7 +13,11 @@ from langgraph.prebuilt import ToolNode
 from app.agent.configuration import AgentConfiguration
 from app.config.logger import auto_log
 from app.services.ticketing.client import BaseTicketingClient
-from app.agent.utils import fix_tool_call_sequence, create_error_response, format_llm_response
+from app.agent.utils import (
+    fix_tool_call_sequence,
+    create_error_response,
+    format_llm_response,
+)
 
 from .state import AgentState
 from .ticket_agent.graph import create_ticket_agent
@@ -32,14 +36,10 @@ def create_agent_graph(
 
     # Create ticket subgraph with client
     ticket_graph = create_ticket_agent(
-        checkpointer=checkpointer,
-        client=ticketing_client
+        checkpointer=checkpointer, client=ticketing_client
     )
 
-    rag_graph = create_rag_graph(
-        checkpointer=checkpointer,
-        client=ticketing_client
-    )
+    rag_graph = create_rag_graph(checkpointer=checkpointer, client=ticketing_client)
 
     builder = StateGraph(AgentState)
 
@@ -58,7 +58,7 @@ def create_agent_graph(
             "tools": "tools",
             "ticket_agent": "ticket_agent",
             "rag_agent": "rag_agent",
-            "__end__": "__end__"
+            "__end__": "__end__",
         },
     )
     builder.add_edge("tools", "agent")
@@ -76,15 +76,15 @@ async def call_model(state: AgentState, config: RunnableConfig):
     conversation_messages = list(state.messages)
     agent_config = AgentConfiguration()
     llm = agent_config.get_llm()
-    
-    # Fix message sequence if user breaks the tool call interrupt approval step by sending a new message instead of approving the tool call 
+
+    # Fix message sequence if user breaks the tool call interrupt approval step by sending a new message instead of approving the tool call
     sequence_info = fix_tool_call_sequence(conversation_messages)
     prepared_messages = sequence_info["prepared_messages"]
     state_corrections = sequence_info["state_corrections"]
-    
+
     # Prepare LLM with tools
     llm_with_tools = llm.bind_tools([ticket_tool, rag_tool])
-    
+
     try:
         # Call LLM and format response
         model_response = await llm_with_tools.ainvoke(prepared_messages)

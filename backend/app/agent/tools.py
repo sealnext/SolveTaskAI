@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # has limitations when sub-graphs are manually invoked from tools, which is why we need
 # this specific architecture.
 
+
 @tool
 @auto_log("graph.retrieve")
 async def rag_tool(query: str) -> str:
@@ -32,16 +33,16 @@ async def rag_tool(query: str) -> str:
     - Getting context about specific topics
     - Answering questions about existing tickets
     - Finding how many tickets match certain criteria
-    
+
     Do NOT use this tool for:
     - Creating new tickets
     - Updating existing tickets
     - Any actions that modify tickets
     - Questions about ability to modify tickets
-    
+
     Args:
         query: The search query to use for document retrieval
-    
+
     Returns:
         String containing the retrieved documents or empty if none found
     """

@@ -15,7 +15,7 @@ from app.exceptions.custom_exceptions import (
     ValidationErrorException,
     APIKeyNotFoundException,
     DocumentProcessingException,
-    ProjectCreationException
+    ProjectCreationException,
 )
 from app.middleware.auth_middleware import auth_middleware
 from app.repositories.apikey_repository import APIKeyRepository
@@ -35,9 +35,7 @@ import asyncio
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
-    prefix="/projects", tags=["projects"]
-)
+router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 @router.get("/external/projects/{project_id}")
@@ -50,7 +48,7 @@ async def get_external_project_by_id(
     factory: TicketingClientFactory = Depends(get_ticketing_factory),
 ) -> List[ExternalProject]:
     """Get external projects for a specific project ID.
-    
+
     @throws ProjectNotFoundError - If project or API key not found
     @throws ExternalProjectsNotFoundException - If no projects found in external service
     """
@@ -59,18 +57,18 @@ async def get_external_project_by_id(
 
     api_key, project = await asyncio.gather(
         user_service.get_api_key_by_id(project_id, user.id),
-        project_service.get_project_by_id(user.id, project_id)
+        project_service.get_project_by_id(user.id, project_id),
     )
-    
+
     if not api_key or not project:
         raise ProjectNotFoundError()
 
     client = factory.get_client(api_key, project)
     projects = await client.get_projects()
-    
+
     if not projects:
         raise ExternalProjectsNotFoundException()
-        
+
     return projects
 
 
@@ -85,12 +83,12 @@ async def add_internal_project(
     ),
 ) -> dict[str, str | int]:
     """Add a new internal project and process its documents for embeddings.
-    
+
     Returns:
         dict: Success message and project ID on success
     """
     user_id = request.state.user.id
-    
+
     new_project = await project_service.save_project(project, user_id)
     api_key = await api_key_repository.get_by_project_id(new_project.id)
     await embeddings_service.add_documents(
@@ -99,7 +97,7 @@ async def add_internal_project(
         internal_id=str(new_project.internal_id),
         api_key=api_key,
     )
-    
+
     return {
         "message": "Project added successfully",
         "project_id": new_project.id,
@@ -118,7 +116,7 @@ async def get_all_internal_projects(
 async def _cleanup_project_embeddings(
     embeddings_service: DocumentEmbeddingsService,
     project: Project,
-    external_project_id: int
+    external_project_id: int,
 ) -> None:
     """Clean up project embeddings from vector store."""
     try:
@@ -127,10 +125,13 @@ async def _cleanup_project_embeddings(
             project_key=project.key,
             internal_id=str(project.internal_id),
         )
-        logger.info(f"Successfully deleted embeddings for project {external_project_id}")
+        logger.info(
+            f"Successfully deleted embeddings for project {external_project_id}"
+        )
     except Exception as e:
         logger.error(f"Failed to delete embeddings: {str(e)}", exc_info=True)
         raise DocumentProcessingException("Failed to delete embeddings")
+
 
 # TODO change this to use internal id
 @router.delete("/internal/{external_project_id}")
@@ -154,7 +155,7 @@ async def delete_internal_project(
         DocumentProcessingException: If embeddings deletion fails (500)
     """
     user_id = request.state.user.id
-    
+
     # Step 1: Validate project
     logger.info(f"Validating project {external_project_id}")
     project = await project_service.get_project_by_external_id(external_project_id)
@@ -165,7 +166,9 @@ async def delete_internal_project(
     try:
         # Step 2: Delete project
         logger.info(f"Deleting project {external_project_id}")
-        await project_service.delete_project_by_external_id(user_id, external_project_id)
+        await project_service.delete_project_by_external_id(
+            user_id, external_project_id
+        )
 
         # Step 3: Clean up embeddings
         has_embeddings = await project_service.delete_embeddings_by_external_id(
@@ -177,7 +180,7 @@ async def delete_internal_project(
             )
 
         return Response(status_code=204)
-        
+
     except Exception as e:
         logger.error(f"Failed to delete project {external_project_id}: {str(e)}")
         raise DocumentProcessingException("Failed to delete project resources")
