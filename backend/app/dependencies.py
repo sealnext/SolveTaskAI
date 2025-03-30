@@ -7,22 +7,22 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Local imports
-from app.db.pool import db_pool
-from app.db.postgres import get_db
-from app.repositories.apikey_repository import APIKeyRepository
-from app.repositories.chat_session_repository import ChatSessionRepository
-from app.repositories.project_repository import ProjectRepository
-from app.repositories.document_embeddings_repository import DocumentEmbeddingsRepository
-from app.repositories.thread_repository import ThreadRepository
-from app.repositories.user_repository import UserRepository
-from app.schemas.api_key import APIKey
-from app.services.apikey_service import APIKeyService
-from app.services.document_embeddings_service import DocumentEmbeddingsService
-from app.services.project_service import ProjectService
-from app.services.ticketing.factory import TicketingClientFactory
-from app.services.user_service import UserService
-from app.services.ticketing.client import BaseTicketingClient
-from app.services.ticketing.factory import TicketingConfig
+from app.misc.database.pool import db_pool
+from app.misc.database.postgres import get_db
+from app.repository.apikey_repository import APIKeyRepository
+from app.repository.chat_session_repository import ChatSessionRepository
+from app.repository.project_repository import ProjectRepository
+from app.repository.document_embeddings_repository import DocumentEmbeddingsRepository
+from app.repository.thread_repository import ThreadRepository
+from app.repository.user_repository import UserRepository
+from app.schema.api_key import APIKey
+from app.service.apikey_service import APIKeyService
+from app.service.document_embeddings_service import DocumentEmbeddingsService
+from app.service.project_service import ProjectService
+from app.service.ticketing.factory import TicketingClientFactory
+from app.service.user_service import UserService
+from app.service.ticketing.client import BaseTicketingClient
+from app.service.ticketing.factory import TicketingConfig
 
 
 # User dependencies

@@ -6,15 +6,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from logging import getLogger
 
-from app.api.projects import router as projects_router
-from app.api.apikey import router as api_keys_router
-from app.api.chat import router as chat_router
-from app.api.ticketing import router as ticketing_router
-from app.api.agent import router as agent_router
+from app.route.projects import router as projects_router
+from app.route.apikey import router as api_keys_router
+from app.route.chat import router as chat_router
+from app.route.ticketing import router as ticketing_router
+from app.route.agent import router as agent_router
 
-from app.db.postgres import init_db
-from app.db.postgres import engine
-from app.exceptions.handlers import register_exception_handlers
+from app.misc.database.postgres import init_db
+from app.misc.database.postgres import engine
 
 logger = getLogger(__name__)
 
@@ -48,6 +47,3 @@ app.include_router(ticketing_router)
 app.include_router(projects_router)
 app.include_router(api_keys_router)
 app.include_router(chat_router)
-
-# Exception Handlers
-register_exception_handlers(app)

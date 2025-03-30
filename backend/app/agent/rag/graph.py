@@ -3,13 +3,12 @@ from functools import partial
 from typing import List, Optional
 from langgraph.graph import StateGraph, END
 import logging
-from app.schemas.project import Project
+from app.schema.project import Project
 from pydantic import BaseModel, Field
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from app.schemas.project import Project
 from langchain_core.documents import Document
-from app.services.ticketing.client import BaseTicketingClient
-from app.config.config import (
+from app.service.ticketing.client import BaseTicketingClient
+from app.misc.config import (
     OPENAI_EMBEDDING_MODEL,
     DATABASE_URL,
     NUMBER_OF_DOCS_TO_RETRIEVE,
@@ -357,7 +356,6 @@ async def fetch_documents(
 
     async def fetch_with_retry(ticket_id: str) -> Optional[str]:
         """Helper function to fetch ticket content with retries"""
-        last_error = None
         for attempt in range(max_retries + 1):
             try:
                 async with asyncio.timeout(timeout):
@@ -366,7 +364,6 @@ async def fetch_documents(
                         raise ValueError("Invalid ticket content")
                     return ticket.content
             except Exception as e:
-                last_error = e
                 if attempt < max_retries:
                     await asyncio.sleep(1 * (attempt + 1))  # Exponential backoff
                 logger.warning(

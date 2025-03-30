@@ -11,7 +11,7 @@ from langgraph.prebuilt import ToolNode
 
 # Local application imports
 from app.agent.configuration import AgentConfiguration
-from app.services.ticketing.client import BaseTicketingClient
+from app.service.ticketing.client import BaseTicketingClient
 from app.agent.utils import (
     fix_tool_call_sequence,
     create_error_response,

@@ -27,11 +27,11 @@ import json
 import logging
 from app.agent.state import AgentState
 
-from app.schemas.agent import ChatMessage
-from app.services.ticketing.client import BaseTicketingClient
-from app.repositories.thread_repository import ThreadRepository
-from app.schemas.api_key import APIKey
-from app.schemas.project import Project
+from app.schema.agent import ChatMessage
+from app.service.ticketing.client import BaseTicketingClient
+from app.repository.thread_repository import ThreadRepository
+from app.schema.api_key import APIKey
+from app.schema.project import Project
 
 logger = logging.getLogger(__name__)
 

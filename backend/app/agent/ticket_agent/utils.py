@@ -1,11 +1,11 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Optional, Literal, Tuple, Union
+from typing import Any, Dict, Optional, Literal, Union
 import asyncio
 
 from app.agent.configuration import AgentConfiguration
-from app.services.ticketing.client import BaseTicketingClient
+from app.service.ticketing.client import BaseTicketingClient
 
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
@@ -16,10 +16,8 @@ from langgraph.types import Command, interrupt
 from langchain_core.messages import ToolMessage
 
 from .models import (
-    JiraTicketUpdate,
     ReviewAction,
     ReviewConfig,
-    TicketAgentState,
 )
 from .prompts import (
     EDIT_TICKET_SYSTEM_PROMPT,
@@ -544,7 +542,7 @@ async def handle_edit_error(
             jira_response=getattr(e, "response", None),
             attempt=retry_count,
         )
-    except Exception as correction_error:
+    except Exception as e:
         # If payload correction fails, return a simple error message
         return Command(
             goto="agent",
