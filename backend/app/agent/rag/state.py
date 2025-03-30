@@ -1,7 +1,7 @@
 from typing import List, TypedDict, Literal
-from app.schemas.ticket import Ticket
-from app.models.project import ProjectDB
-from app.schemas.api_key import APIKey
+from app.schema.ticket import Ticket
+from app.model.project import ProjectDB
+from app.schema.api_key import APIKey
 
 
 class AgentState(TypedDict):

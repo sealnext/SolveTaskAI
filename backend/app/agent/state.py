@@ -11,7 +11,7 @@ from langgraph.graph import add_messages
 from pydantic import BaseModel
 from langchain_core.messages import BaseMessage
 
-from app.schemas.api_key import APIKey
+from app.schema.api_key import APIKey
 
 
 def add_unique_documents(

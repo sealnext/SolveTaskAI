@@ -16,7 +16,6 @@ from langchain_core.messages import (
     ToolMessage,
 )
 from langchain_core.runnables import RunnableConfig
-from langgraph.types import Command
 from langchain_core.callbacks import dispatch_custom_event
 from langchain_core.messages import RemoveMessage
 

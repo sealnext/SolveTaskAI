@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, Literal, Annotated, Any, Coroutine
 
-from app.services.ticketing.client import BaseTicketingClient
+from app.service.ticketing.client import BaseTicketingClient
 
 from langchain_core.callbacks import dispatch_custom_event
 from langchain_core.messages import ToolMessage, HumanMessage
