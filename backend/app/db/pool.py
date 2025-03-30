@@ -37,7 +37,7 @@ class DatabasePool(AsyncContextManager["DatabasePool"]):
         if self.pool is None:
             # In case the database url from env is with psycopg, we need to remove the psycopg prefix
             # there is a difference between SqlAlchemy and Sql normal connection
-            db_url = DATABASE_URL.replace("postgresql+psycopg://", "postgresql://")
+            db_url = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
             try:
                 self.pool = AsyncConnectionPool(
                     conninfo=db_url,
