@@ -64,7 +64,9 @@ async def get_chat_session_repository(db: AsyncSession = Depends(get_db)):
 async def get_db_checkpointer() -> AsyncPostgresSaver:
     """FastAPI dependency for getting the checkpointer."""
     if db_pool.checkpointer is None:
-        await db_pool.create_pool()
+        raise RuntimeError(
+            "Database pool or checkpointer not initialized. Check lifespan management."
+        )
     return db_pool.checkpointer
 
 

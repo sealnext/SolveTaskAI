@@ -16,6 +16,7 @@ class APIKey(BaseModel):
     )
 
     class Config:
+        from_attributes = True
         json_schema_extra = {
             "example": {
                 "service_type": "JIRA",
@@ -48,16 +49,6 @@ class APIKey(BaseModel):
 
     def model_post_init(self, __context):
         self.domain = self.validate_domain(self.domain)
-
-    @classmethod
-    def from_orm(cls, obj: APIKeyDB):
-        """Convert APIKey model to APIKeySchema."""
-        return cls(
-            service_type=obj.service_type,
-            api_key=obj.api_key,
-            domain=obj.domain,
-            domain_email=obj.domain_email,
-        )
 
 
 class APIKeyResponse(BaseModel):

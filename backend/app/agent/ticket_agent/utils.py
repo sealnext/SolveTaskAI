@@ -18,6 +18,7 @@ from langchain_core.messages import ToolMessage
 from .models import (
     ReviewAction,
     ReviewConfig,
+    JiraTicketUpdate,
 )
 from .prompts import (
     EDIT_TICKET_SYSTEM_PROMPT,
