@@ -14,6 +14,7 @@ from app.route.agent import router as agent_router
 
 from app.misc.database.postgres import init_db
 from app.misc.database.postgres import engine
+from app.misc.database.pool import db_pool
 
 logger = getLogger(__name__)
 
@@ -21,8 +22,10 @@ logger = getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await init_db()
+    await db_pool.initialize()
     yield
     await engine.dispose()
+    await db_pool.close()
 
 
 app = FastAPI(lifespan=lifespan)

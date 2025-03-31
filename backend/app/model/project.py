@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Enum
 from sqlalchemy.orm import relationship
 from app.model.base import Base
 from app.misc.enums import TicketingSystemType
+from app.model.embedding import Embedding
 from app.model.associations import (
     api_key_project_association,
     user_project_association,

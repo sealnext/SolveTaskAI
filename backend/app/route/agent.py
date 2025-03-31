@@ -59,7 +59,7 @@ async def stream(
     project: Project = await project_service.get_project_by_id(
         user_id, user_input.get("project_id")
     )
-    api_key: APIKey = await api_key_repository.get_by_project_id(project.id)
+    api_key: APIKey = await api_key_repository.get_api_key_by_user_and_project(user_id, project.id)
     client = factory.get_client(api_key, project)
 
     return StreamingResponse(

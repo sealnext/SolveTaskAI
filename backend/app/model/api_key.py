@@ -19,7 +19,6 @@ class APIKeyDB(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     expires_at = Column(DateTime(timezone=True), nullable=True)
-    permissions = Column(Text, nullable=True)
 
     # Relationships
     user = relationship("UserDB", back_populates="api_keys")
