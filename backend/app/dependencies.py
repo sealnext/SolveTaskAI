@@ -34,11 +34,8 @@ async def get_user_repository(db: AsyncSession = Depends(get_db)):
     return UserRepository(db_session=db)
 
 
-async def get_user_service(
-    repo: UserRepository = Depends(get_user_repository),
-    api_key_repo: APIKeyRepository = Depends(get_api_key_repository),
-):
-    return UserService(repo, api_key_repo)
+async def get_user_service(repo: UserRepository = Depends(get_user_repository)):
+    return UserService(repo)
 
 
 # Project dependencies
