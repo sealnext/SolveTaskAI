@@ -9,11 +9,14 @@ from app.dependencies import (
     get_user_service,
     get_document_embeddings_service,
     get_ticketing_factory,
+    get_apikey_service,
 )
 from app.repository.apikey_repository import APIKeyRepository
 from app.schema.project import ExternalProject, ProjectCreate, Project
+from app.schema.user import UserRead
 from app.service.project_service import ProjectService
 from app.service.user_service import UserService
+from app.service.apikey_service import APIKeyService
 from app.service.document_embeddings_service import DocumentEmbeddingsService
 from app.service.ticketing.factory import TicketingClientFactory
 
@@ -27,33 +30,26 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 @router.get("/external/projects/{project_id}")
 async def get_external_project_by_id(
     project_id: int,
-    # user: User = Depends(get_current_user), # TODO AFTER REFACTOR would be nice
+    # user: User = Depends(get_current_user), # TODO AFTER AUTH REFACTOR
     request: Request,
     user_service: UserService = Depends(get_user_service),
+    api_key_service: APIKeyService = Depends(get_apikey_service),
     project_service: ProjectService = Depends(get_project_service),
     factory: TicketingClientFactory = Depends(get_ticketing_factory),
 ) -> List[ExternalProject]:
-    """Get external projects for a specific project ID.
-
-    @throws ProjectNotFoundError - If project or API key not found
-    @throws ExternalProjectsNotFoundException - If no projects found in external service
     """
-    # Parallelize the API calls
-    user = request.state.user
+    Get external projects (JIRA, AZURE, etc) for a specific project ID.
+    """
+    # user = request.state.user
+    user: UserRead = await user_service.get_user_by_email("ovidiubachmatchi@gmail.com")
 
     api_key, project = await asyncio.gather(
-        user_service.get_api_key_by_id(project_id, user.id),
+        api_key_service.get_api_key_for_project(user.id, project_id),
         project_service.get_project_by_id(user.id, project_id),
     )
 
-    if not api_key or not project:
-        raise HTTPException(HTTP_404_NOT_FOUND, "Project not found")
-
     client = factory.get_client(api_key, project)
     projects = await client.get_projects()
-
-    if not projects:
-        raise HTTPException(HTTP_404_NOT_FOUND, "No projects found in external service")
 
     return projects
 

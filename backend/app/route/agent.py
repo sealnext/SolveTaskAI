@@ -29,7 +29,8 @@ router = APIRouter(prefix="/agent", tags=["agent"])
 
 @router.get("/threads")
 async def get_threads(
-    request: Request, thread_repo: ThreadRepository = Depends(get_thread_repository)
+    request: Request,
+    thread_repo: ThreadRepository = Depends(get_thread_repository)
 ) -> dict:
     """Get all threads for the current user."""
     user_id = get_user_id(request)

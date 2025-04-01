@@ -1,9 +1,11 @@
-from app.model.api_key import APIKeyDB
+from datetime import datetime
+
 from pydantic import BaseModel, Field, EmailStr, AnyHttpUrl
 from app.misc.enums import TicketingSystemType
 
 
 class APIKey(BaseModel):
+    id: int = Field(None, description="Unique identifier for the API key")
     service_type: TicketingSystemType = Field(
         ..., description="Type of the ticketing system"
     )
@@ -14,6 +16,7 @@ class APIKey(BaseModel):
     domain_email: EmailStr = Field(
         ..., description="Email address associated with the domain"
     )
+    expires_at: datetime | None = Field(None, description="Optional expiration timestamp for the API key")
 
     class Config:
         from_attributes = True

@@ -110,7 +110,6 @@ class JiraClient(BaseTicketingClient):
                 )
 
         if not all_projects:
-            logger.warning(f"No projects found for domain {self.api_key.domain}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No projects found in Jira. Please check your API key and permissions.",
