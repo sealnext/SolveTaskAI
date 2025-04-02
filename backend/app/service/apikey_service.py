@@ -31,9 +31,7 @@ class APIKeyService:
         Raises:
             HTTPException: 409 if key value exists, 500 on other creation errors.
         """
-        existing_key = await self.apikey_repository.get_by_value(
-            api_key_data.api_key
-        )
+        existing_key = await self.apikey_repository.get_by_value(api_key_data.api_key)
         if existing_key:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -52,7 +50,9 @@ class APIKeyService:
                 expires_at=getattr(api_key_data, "expires_at", None),
             )
         except Exception as e:
-            logger.error(f"Failed to create API key for user {user_id}: {e}", exc_info=True)
+            logger.error(
+                f"Failed to create API key for user {user_id}: {e}", exc_info=True
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create API key due to an internal error.",
@@ -138,25 +138,52 @@ class APIKeyService:
         Raises:
             HTTPException: 404 if key not found, 403 if user doesn't own the key.
         """
-        key_to_delete: APIKey | None = await self.apikey_repository.get_by_id(api_key_id)
+        key_to_delete: APIKey | None = await self.apikey_repository.get_by_id(
+            api_key_id
+        )
 
         if not key_to_delete:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="API Key not found."
             )
 
-        if not hasattr(key_to_delete, 'user_id') or key_to_delete.user_id != user_id:
-             raise HTTPException(
-                 status_code=status.HTTP_403_FORBIDDEN,
-                 detail="User does not have permission to delete this API Key.",
-             )
+        if not hasattr(key_to_delete, "user_id") or key_to_delete.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User does not have permission to delete this API Key.",
+            )
 
         deleted = await self.apikey_repository.delete_api_key(api_key_id)
 
         if not deleted:
-            logger.warning(f"Failed to delete API key {api_key_id} after ownership check for user {user_id}.")
+            logger.warning(
+                f"Failed to delete API key {api_key_id} after ownership check for user {user_id}."
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="API Key could not be deleted or was already removed.",
             )
         logger.info(f"API key {api_key_id} deleted successfully by user {user_id}.")
+
+    async def get_api_key_by_id_and_user(self, api_key_id: int, user_id: int) -> APIKey:
+        """
+        Fetches an API key by its ID and the user's ID.
+
+        Args:
+            api_key_id: The ID of the API key to fetch.
+            user_id: The ID of the user who owns the key.
+
+        Returns:
+            The API key details (excluding the raw key).
+
+        Raises:
+            HTTPException: 404 if the key is not found, 403 if the user doesn't own the key.
+        """
+        api_key: APIKey = await self.apikey_repository.get_by_id_and_user(
+            api_key_id, user_id
+        )
+        if not api_key:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="API Key not found."
+            )
+        return APIKey.model_validate(api_key)

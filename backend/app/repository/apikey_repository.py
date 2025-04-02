@@ -27,11 +27,16 @@ class APIKeyRepository:
         db_key = result.scalar_one_or_none()
         return APIKey.model_validate(db_key) if db_key else None
 
-    async def get_by_project_id(self, project_id: int) -> APIKey | None:
+    async def get_by_project_id_and_user(
+        self, project_id: int, user_id: int
+    ) -> APIKey | None:
         stmt = (
             select(APIKeyDB)
             .join(api_key_project_association)
-            .where(api_key_project_association.c.project_id == project_id)
+            .where(
+                (api_key_project_association.c.project_id == project_id)
+                & (APIKeyDB.user_id == user_id)
+            )
         )
         result = await self.db_session.execute(stmt)
         db_key = result.scalar_one_or_none()
@@ -82,11 +87,10 @@ class APIKeyRepository:
         project_result = await self.db_session.execute(project_stmt)
         projects = project_result.scalars().all()
         if len(projects) != len(project_ids):
-             found_ids = {p.id for p in projects}
-             missing_ids = set(project_ids) - found_ids
-             # TODO: Consider logging a warning or raising an error
-             print(f"Warning: Projects not found for IDs: {missing_ids}")
-
+            found_ids = {p.id for p in projects}
+            missing_ids = set(project_ids) - found_ids
+            # TODO: Consider logging a warning or raising an error
+            print(f"Warning: Projects not found for IDs: {missing_ids}")
 
         db_key = APIKeyDB(
             user_id=user_id,
@@ -100,11 +104,10 @@ class APIKeyRepository:
 
         self.db_session.add(db_key)
         await self.db_session.flush()
-        await self.db_session.refresh(db_key, attribute_names=['id', 'created_at'])
-        await self.db_session.refresh(db_key, attribute_names=['projects'])
-        
-        return APIKey.model_validate(db_key)
+        await self.db_session.refresh(db_key, attribute_names=["id", "created_at"])
+        await self.db_session.refresh(db_key, attribute_names=["projects"])
 
+        return APIKey.model_validate(db_key)
 
     async def delete_api_key(self, api_key_id: int) -> bool:
         stmt_select = select(APIKeyDB).where(APIKeyDB.id == api_key_id)
@@ -115,3 +118,11 @@ class APIKeyRepository:
             await self.db_session.delete(db_key)
             return True
         return False
+
+    async def get_by_id_and_user(self, api_key_id: int, user_id: int) -> APIKey | None:
+        stmt = select(APIKeyDB).where(
+            (APIKeyDB.id == api_key_id) & (APIKeyDB.user_id == user_id)
+        )
+        result = await self.db_session.execute(stmt)
+        db_key = result.scalar_one_or_none()
+        return APIKey.model_validate(db_key) if db_key else None

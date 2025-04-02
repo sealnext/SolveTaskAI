@@ -41,7 +41,7 @@ class DocumentEmbeddingsService:
         logger.debug("Initialized DocumentEmbeddingsService")
 
     async def add_documents(
-        self, domain: str, project_key: str, internal_id: str, api_key: APIKey
+        self, domain: str, project_key: str, external_id: str, api_key: APIKey
     ) -> None:
         """
         Add documents from a ticketing system to the embeddings repository.
@@ -50,7 +50,7 @@ class DocumentEmbeddingsService:
         Args:
             domain: The ticketing system domain
             project_key: The project key in the ticketing system
-            internal_id: Internal identifier for the collection
+            external_id: Internal identifier for the collection
             api_key: The API key for ticketing system access
         """
         logger.info(f"Adding documents for project {project_key}")
@@ -76,7 +76,7 @@ class DocumentEmbeddingsService:
         await self.embeddings_repository.add_embeddings(
             domain=domain,
             project_key=project_key,
-            internal_id=internal_id,
+            external_id=external_id,
             documents=document_generator(),
         )
 
@@ -113,12 +113,12 @@ class DocumentEmbeddingsService:
         )
 
     async def delete_documents(
-        self, domain: str, project_key: str, internal_id: str
+        self, domain: str, project_key: str, external_id: str
     ) -> None:
         """Delete all documents for a project from the embeddings repository."""
         logger.info(f"Deleting documents for project {project_key}")
         await self.embeddings_repository.delete_collection(
-            domain=domain, project_key=project_key, internal_id=internal_id
+            domain=domain, project_key=project_key, external_id=external_id
         )
         logger.info(f"Successfully deleted collection for project {project_key}")
 

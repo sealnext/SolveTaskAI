@@ -16,7 +16,9 @@ class APIKey(BaseModel):
     domain_email: EmailStr = Field(
         ..., description="Email address associated with the domain"
     )
-    expires_at: datetime | None = Field(None, description="Optional expiration timestamp for the API key")
+    expires_at: datetime | None = Field(
+        None, description="Optional expiration timestamp for the API key"
+    )
 
     class Config:
         from_attributes = True

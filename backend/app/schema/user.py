@@ -5,10 +5,10 @@ import re
 
 class UserCreate(BaseModel):
     """Schema for creating a new user, with validation."""
+
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
-
 
     model_config = {}
 
@@ -43,10 +43,9 @@ class UserCreate(BaseModel):
 
 class UserRead(BaseModel):
     """Schema for reading user data."""
+
     id: int
     full_name: str
     email: EmailStr
 
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = {"from_attributes": True}

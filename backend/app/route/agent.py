@@ -29,8 +29,7 @@ router = APIRouter(prefix="/agent", tags=["agent"])
 
 @router.get("/threads")
 async def get_threads(
-    request: Request,
-    thread_repo: ThreadRepository = Depends(get_thread_repository)
+    request: Request, thread_repo: ThreadRepository = Depends(get_thread_repository)
 ) -> dict:
     """Get all threads for the current user."""
     user_id = get_user_id(request)
@@ -60,7 +59,9 @@ async def stream(
     project: Project = await project_service.get_project_by_id(
         user_id, user_input.get("project_id")
     )
-    api_key: APIKey = await api_key_repository.get_api_key_by_user_and_project(user_id, project.id)
+    api_key: APIKey = await api_key_repository.get_api_key_by_user_and_project(
+        user_id, project.id
+    )
     client = factory.get_client(api_key, project)
 
     return StreamingResponse(

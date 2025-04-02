@@ -26,6 +26,6 @@ class DocumentEmbeddingCreate(BaseModel):
     project_id: int
     project_key: str
     domain: str
-    internal_id: str
+    external_id: str
     api_key: Optional[APIKey] = None
     action: str = "add"  # "add" or "delete"

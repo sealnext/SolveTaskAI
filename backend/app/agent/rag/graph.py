@@ -107,7 +107,7 @@ async def retrieve_documents(state: RAGState, client: BaseTicketingClient) -> RA
         # Create project-specific vector store
         project_id = (
             f"{re.sub(r'^https?://|/$', '', state.project.domain)}/"
-            f"{state.project.key}/{state.project.internal_id}"
+            f"{state.project.key}/{state.project.external_id}"
         )
         vector_store = await create_vector_store(project_id)
 
@@ -177,7 +177,7 @@ async def retry_retrieve_documents(
         # Create project-specific vector store
         project_id = (
             f"{re.sub(r'^https?://|/$', '', state.project.domain)}/"
-            f"{state.project.key}/{state.project.internal_id}"
+            f"{state.project.key}/{state.project.external_id}"
         )
         vector_store = await create_vector_store(project_id)
 
