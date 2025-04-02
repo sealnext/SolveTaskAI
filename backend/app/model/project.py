@@ -2,7 +2,6 @@ from sqlalchemy import Column, Integer, String, Enum
 from sqlalchemy.orm import relationship
 from app.model.base import Base
 from app.misc.enums import TicketingSystemType
-from app.model.embedding import Embedding
 from app.model.associations import (
     api_key_project_association,
     user_project_association,
@@ -17,13 +16,12 @@ class ProjectDB(Base):
     domain = Column(String(255), nullable=False)
     service_type = Column(Enum(TicketingSystemType), nullable=False)
     key = Column(String(255), nullable=False, unique=True)
-    internal_id = Column(String(255), nullable=False, unique=True)
+    external_id = Column(String(255), nullable=False, unique=True)
 
     # Relationships
     api_keys = relationship(
         "APIKeyDB", secondary=api_key_project_association, back_populates="projects"
     )
-    embeddings = relationship("Embedding", back_populates="project", lazy="selectin")
     users = relationship(
         "UserDB", secondary=user_project_association, back_populates="projects"
     )

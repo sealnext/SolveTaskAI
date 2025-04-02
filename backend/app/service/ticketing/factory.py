@@ -66,7 +66,7 @@ class TicketingClientFactory:
         return self._http_clients[service_type]
 
     def get_client(
-        self, api_key: APIKey, project: Project = None
+        self, api_key: APIKey, project: Project | None = None
     ) -> BaseTicketingClient:
         """Get a client instance for the specified ticketing system.
 
@@ -81,9 +81,6 @@ class TicketingClientFactory:
             )
 
         http_client = self.get_http_client(api_key.service_type)
-
-        if api_key.service_type == TicketingSystemType.JIRA and project is None:
-            raise ValueError("Project is required for Jira client")
 
         return client_class(http_client, api_key, project)
 

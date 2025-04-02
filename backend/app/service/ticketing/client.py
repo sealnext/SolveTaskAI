@@ -16,14 +16,17 @@ class BaseTicketingClient(ABC):
     DEFAULT_TIMEOUT = DEFAULT_REQUEST_TIMEOUT
 
     def __init__(
-        self, http_client: httpx.AsyncClient, api_key: APIKey, project: Project
+        self,
+        http_client: httpx.AsyncClient,
+        api_key: APIKey,
+        project: Project | None = None,
     ):
         """Initialize the client with an HTTP client and API key.
 
         Args:
             http_client: Pre-configured httpx.AsyncClient with connection pooling
             api_key: API key configuration for the ticketing system
-            project: Project configuration containing project key and other details
+            project: Project | None configuration containing project key and other details
         """
         self.http_client = http_client
         self.api_key = api_key

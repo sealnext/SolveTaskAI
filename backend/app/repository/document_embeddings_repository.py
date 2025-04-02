@@ -58,13 +58,13 @@ class DocumentEmbeddingsRepository:
         self,
         domain: str,
         project_key: str,
-        internal_id: str,
+        external_id: str,
         documents: Union[List[DocumentEmbedding], AsyncIterator[DocumentEmbedding]],
         total_documents: Optional[int] = None,
     ) -> None:
         """Add embeddings to the vector store."""
         unique_identifier = self._get_unique_identifier(
-            domain, project_key, internal_id
+            domain, project_key, external_id
         )
         logger.info(f"Starting embedding process for {unique_identifier}")
 
@@ -250,11 +250,11 @@ class DocumentEmbeddingsRepository:
             return await vector_store.acollection_exists()
 
     async def delete_collection(
-        self, domain: str, project_key: str, internal_id: str
+        self, domain: str, project_key: str, external_id: str
     ) -> None:
         """Delete a collection."""
         unique_identifier = self._get_unique_identifier(
-            domain, project_key, internal_id
+            domain, project_key, external_id
         )
         logger.debug(f"Attempting to delete collection: {unique_identifier}")
 
@@ -263,10 +263,10 @@ class DocumentEmbeddingsRepository:
             logger.info(f"Successfully deleted collection: {unique_identifier}")
 
     def _get_unique_identifier(
-        self, domain: str, project_key: str, internal_id: str
+        self, domain: str, project_key: str, external_id: str
     ) -> str:
         """Generate a unique identifier for the collection."""
-        return f"{re.sub(r'^https?://|/$', '', domain)}/{project_key}/{internal_id}"
+        return f"{re.sub(r'^https?://|/$', '', domain)}/{project_key}/{external_id}"
 
     def _prepare_metadata(self, doc: DocumentEmbedding) -> Dict[str, Any]:
         """Prepare metadata for document, excluding null values and empty lists."""

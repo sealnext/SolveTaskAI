@@ -37,7 +37,7 @@ class Project(BaseModel):
     domain: str
     service_type: TicketingSystemType
     key: str
-    internal_id: str
+    external_id: int
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -52,8 +52,8 @@ class ProjectCreate(BaseModel):
     domain: str
     service_type: TicketingSystemType
     key: str
-    internal_id: str
     api_key_id: int
+    external_id: int
 
     class Config:
         from_attributes = True
