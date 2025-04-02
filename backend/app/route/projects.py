@@ -145,7 +145,9 @@ async def delete_internal_project(
 
         # Step 3: If the project record was deleted, clean up embeddings
         if project_was_deleted:
-            logger.info(f"Project record {external_project_id} deleted, cleaning up embeddings.")
+            logger.info(
+                f"Project record {external_project_id} deleted, cleaning up embeddings."
+            )
             # Use the 'project' variable fetched earlier for details
             try:
                 await embeddings_service.delete_documents(
@@ -153,16 +155,24 @@ async def delete_internal_project(
                     project_key=project.key,
                     external_id=str(project.external_id),
                 )
-                logger.info(f"Successfully deleted embeddings for project {external_project_id}")
+                logger.info(
+                    f"Successfully deleted embeddings for project {external_project_id}"
+                )
             except Exception as e:
-                 logger.error(f"Failed to delete embeddings for project {external_project_id} after DB deletion: {str(e)}", exc_info=True)
-                 # Raise an error because the cleanup failed, even though DB deletion succeeded
-                 raise HTTPException(
-                     HTTP_500_INTERNAL_SERVER_ERROR, "Project deleted from DB, but failed to delete embeddings"
-                 ) from e
+                logger.error(
+                    f"Failed to delete embeddings for project {external_project_id} after DB deletion: {str(e)}",
+                    exc_info=True,
+                )
+                # Raise an error because the cleanup failed, even though DB deletion succeeded
+                raise HTTPException(
+                    HTTP_500_INTERNAL_SERVER_ERROR,
+                    "Project deleted from DB, but failed to delete embeddings",
+                ) from e
         else:
-            logger.info(f"User {user_id} unlinked from project {external_project_id}. Embeddings not deleted.")
-        
+            logger.info(
+                f"User {user_id} unlinked from project {external_project_id}. Embeddings not deleted."
+            )
+
         return Response(status_code=204)
 
     except Exception as e:

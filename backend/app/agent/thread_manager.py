@@ -11,12 +11,8 @@ from uuid import UUID, uuid4
 
 from fastapi import HTTPException, Request, status
 from langchain_core.messages import (
-    AIMessage,
     BaseMessage,
     HumanMessage,
-    ToolMessage,
-    SystemMessage,
-    FunctionMessage,
 )
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
@@ -27,61 +23,12 @@ import json
 import logging
 from app.agent.state import AgentState
 
-from app.schema.agent import ChatMessage
 from app.service.ticketing.client import BaseTicketingClient
 from app.repository.thread_repository import ThreadRepository
 from app.schema.api_key import APIKey
 from app.schema.project import Project
 
 logger = logging.getLogger(__name__)
-
-
-def convert_message_content_to_string(content: str | list[str | dict]) -> str:
-    if isinstance(content, str):
-        return content
-    text: list[str] = []
-    for content_item in content:
-        if isinstance(content_item, str):
-            text.append(content_item)
-            continue
-        if content_item["type"] == "text":
-            text.append(content_item["text"])
-    return "".join(text)
-
-
-def langchain_to_chat_message(message: BaseMessage) -> Optional[ChatMessage]:
-    """Convert a LangChain message to a ChatMessage."""
-    if message is None:
-        return None
-
-    if isinstance(message, HumanMessage):
-        return ChatMessage(type="human", content=message.content)
-    elif isinstance(message, AIMessage):
-        return ChatMessage(type="ai", content=message.content)
-    elif isinstance(message, SystemMessage):
-        return ChatMessage(type="system", content=message.content)
-    elif isinstance(message, FunctionMessage):
-        return ChatMessage(type="function", content=message.content)
-    elif isinstance(message, ToolMessage):
-        return ChatMessage(type="tool", content=message.content)
-    elif isinstance(message, tuple):
-        # Handle tuple case by extracting the message
-        if len(message) > 0 and isinstance(message[0], BaseMessage):
-            return langchain_to_chat_message(message[0])
-    else:
-        raise ValueError(f"Unsupported message type: {message.__class__.__name__}")
-
-
-def remove_tool_calls(content: str | list[str | dict]) -> str | list[str | dict]:
-    """Remove tool calls from content."""
-    if isinstance(content, str):
-        return content
-    # Currently only Anthropic models stream tool calls, using content item type tool_use.
-    return [
-        content_item
-        for content_item in content
-        if isinstance(content_item, str) or content_item["type"] != "tool_use"
-    ]
 
 
 def get_user_id(request: Request) -> str:
@@ -185,7 +132,7 @@ async def message_generator(
             initial_state = Command(resume={"action": "cancel"})
         else:
             initial_state = AgentState(
-                messages=messages,  # Now uses parsed messages list
+                messages=messages,
                 project_data={"id": project.id, "name": project.name},
                 api_key=api_key,
             )
