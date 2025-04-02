@@ -166,7 +166,6 @@ class ProjectRepository:
             user_id, project_id
         )
 
-
         if not other_users_exist:
             logger.info(
                 f"No other users linked to project {project_id}. Deleting shared resources."
@@ -183,10 +182,12 @@ class ProjectRepository:
             result = await self.db_session.execute(delete_project_stmt)
 
             if result.rowcount > 0:
-                 project_was_deleted = True
-                 logger.info(f"Project {project_id} deleted successfully.")
+                project_was_deleted = True
+                logger.info(f"Project {project_id} deleted successfully.")
             else:
-                 logger.warning(f"Project {project_id} was expected to be deleted, but delete operation reported 0 rows affected.")
+                logger.warning(
+                    f"Project {project_id} was expected to be deleted, but delete operation reported 0 rows affected."
+                )
 
         else:
             logger.info(

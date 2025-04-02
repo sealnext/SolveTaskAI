@@ -132,9 +132,7 @@ class ProjectService:
                     existing_project, project_data, user_id
                 )
             else:
-                final_project_db = await self._create_new_project(
-                    project_data, user_id
-                )
+                final_project_db = await self._create_new_project(project_data, user_id)
 
             return Project.model_validate(final_project_db)
 
@@ -146,17 +144,11 @@ class ProjectService:
             if "unique constraint" in error_str:
                 status_code = HTTP_409_CONFLICT
                 if "user_project_association" in error_str:
-                    error_detail = (
-                        f"User {user_id} is already linked to this project."
-                    )
-                elif (
-                    "projects_name_service_type_key_key" in error_str
-                ):
+                    error_detail = f"User {user_id} is already linked to this project."
+                elif "projects_name_service_type_key_key" in error_str:
                     error_detail = f"A project with the name '{project_data.name}', service type '{project_data.service_type}', and key '{project_data.key}' already exists."
                 else:
-                    error_detail = (
-                        "A project with conflicting details already exists."
-                    )
+                    error_detail = "A project with conflicting details already exists."
 
             elif "foreign key constraint" in error_str:
                 status_code = HTTP_400_BAD_REQUEST
@@ -167,7 +159,9 @@ class ProjectService:
                 elif "users" in error_str:
                     error_detail = f"Invalid User ID '{user_id}' provided."
                 else:
-                    error_detail = "Invalid reference provided (e.g., API Key or User not found)."
+                    error_detail = (
+                        "Invalid reference provided (e.g., API Key or User not found)."
+                    )
 
             logger.error(
                 f"Database integrity error during project save: {e}", exc_info=True
@@ -177,9 +171,7 @@ class ProjectService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(
-                f"Unexpected error during project save: {e}", exc_info=True
-            )
+            logger.error(f"Unexpected error during project save: {e}", exc_info=True)
             raise HTTPException(
                 status_code=HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"An unexpected error occurred during project saving.",
@@ -223,9 +215,13 @@ class ProjectService:
             )
 
         # Optional: Check linkage first, although repo delete does too
-        is_linked = await self.project_repository.check_user_project_link(user_id, project_id)
+        is_linked = await self.project_repository.check_user_project_link(
+            user_id, project_id
+        )
         if not is_linked:
-             raise HTTPException(HTTP_404_NOT_FOUND, "User is not associated with this project.")
+            raise HTTPException(
+                HTTP_404_NOT_FOUND, "User is not associated with this project."
+            )
 
         try:
             # Call repository delete, which handles unlinking and potential project deletion
@@ -235,9 +231,13 @@ class ProjectService:
             )
 
             if project_was_deleted:
-                 logger.info(f"Project {project_id} (External: {external_project_id}) deleted by repository.")
+                logger.info(
+                    f"Project {project_id} (External: {external_project_id}) deleted by repository."
+                )
             else:
-                 logger.info(f"User {user_id} unlinked from project {project_id} (External: {external_project_id}). Project remains.")
+                logger.info(
+                    f"User {user_id} unlinked from project {project_id} (External: {external_project_id}). Project remains."
+                )
 
             # Return the status from the repository operation
             return project_was_deleted
@@ -252,9 +252,9 @@ class ProjectService:
                 exc_info=True,
             )
             raise HTTPException(
-                HTTP_500_INTERNAL_SERVER_ERROR, "Failed to complete project deletion operation."
+                HTTP_500_INTERNAL_SERVER_ERROR,
+                "Failed to complete project deletion operation.",
             ) from e
-
 
     async def is_project_still_in_use(self, external_project_id: int) -> bool:
         project_id = await self.project_repository.get_project_id_by_external_id(
