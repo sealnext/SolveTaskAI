@@ -1,13 +1,17 @@
-from pydantic_settings import BaseSettings
 from pydantic import PostgresDsn, RedisDsn
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class PostgresSettings(BaseSettings):
-    postgres_url: PostgresDsn
+	model_config = SettingsConfigDict(env_prefix='POSTGRES_')
+
+	url: PostgresDsn
 
 
 class RedisSettings(BaseSettings):
-    redis_url: RedisDsn
+	model_config = SettingsConfigDict(env_prefix='REDIS_')
+
+	url: RedisDsn
 
 
 postgres_settings = PostgresSettings()

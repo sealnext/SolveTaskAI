@@ -3,66 +3,66 @@ Configuration for the agent.
 """
 
 from dataclasses import dataclass, field
-from typing import Literal, Dict, Callable, Optional
+from typing import Callable, Dict, Literal
 
-from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.language_models import BaseChatModel
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
 
 def _create_model_providers():
-    """Factory function to create the model providers dictionary."""
-    return {
-        "openai": lambda config, temp=None: ChatOpenAI(
-            model=config.openai_model,
-            temperature=temp if temp is not None else config.default_temperature,
-        ),
-        "google": lambda config, temp=None: ChatGoogleGenerativeAI(
-            model=config.google_model,
-            temperature=temp if temp is not None else config.default_temperature,
-        ),
-    }
+	"""Factory function to create the model providers dictionary."""
+	return {
+		'openai': lambda config, temp=None: ChatOpenAI(
+			model=config.openai_model,
+			temperature=temp if temp is not None else config.default_temperature,
+		),
+		'google': lambda config, temp=None: ChatGoogleGenerativeAI(
+			model=config.google_model,
+			temperature=temp if temp is not None else config.default_temperature,
+		),
+	}
 
 
 @dataclass
 class AgentConfiguration:
-    """Configuration for the agent."""
+	"""Configuration for the agent."""
 
-    # Model provider to use
-    provider: Literal["openai", "google"] = "google"
+	# Model provider to use
+	provider: Literal['openai', 'google'] = 'google'
 
-    # OpenAI model to use
-    openai_model: str = "gpt-4o-mini"
+	# OpenAI model to use
+	openai_model: str = 'gpt-4o-mini'
 
-    # Google Gemini model to use
-    google_model: str = "gemini-2.0-flash"
+	# Google Gemini model to use
+	google_model: str = 'gemini-2.0-flash'
 
-    # Temperature for the model
-    default_temperature: float = 0.0
+	# Temperature for the model
+	default_temperature: float = 0.0
 
-    # Maximum number of iterations
-    max_iterations: int = 10
+	# Maximum number of iterations
+	max_iterations: int = 10
 
-    # Whether to stream responses
-    stream: bool = False
+	# Whether to stream responses
+	stream: bool = False
 
-    # Model provider factory mapping - using default_factory to avoid mutable default issue
-    _MODEL_PROVIDERS: Dict[
-        str, Callable[["AgentConfiguration", Optional[float]], BaseChatModel]
-    ] = field(default_factory=_create_model_providers)
+	# Model provider factory mapping - using default_factory to avoid mutable default issue
+	_MODEL_PROVIDERS: Dict[str, Callable[['AgentConfiguration', float | None], BaseChatModel]] = (
+		field(default_factory=_create_model_providers)
+	)
 
-    def get_llm(self, custom_temperature: Optional[float] = None) -> BaseChatModel:
-        """Get the appropriate language model based on the configuration.
+	def get_llm(self, custom_temperature: float | None = None) -> BaseChatModel:
+		"""Get the appropriate language model based on the configuration.
 
-        Args:
-            custom_temperature: Optional override for the temperature setting
+		Args:
+		    custom_temperature: Optional override for the temperature setting
 
-        Returns:
-            BaseChatModel: The configured language model
-        """
-        model_factory = self._MODEL_PROVIDERS.get(self.provider)
-        if not model_factory:
-            # Fallback to Google if provider is unknown
-            model_factory = self._MODEL_PROVIDERS["google"]
+		Returns:
+		    BaseChatModel: The configured language model
+		"""
+		model_factory = self._MODEL_PROVIDERS.get(self.provider)
+		if not model_factory:
+			# Fallback to Google if provider is unknown
+			model_factory = self._MODEL_PROVIDERS['google']
 
-        return model_factory(self, custom_temperature)
+		return model_factory(self, custom_temperature)

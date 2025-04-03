@@ -1,36 +1,36 @@
-from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy import text
-from app.misc.config import DATABASE_URL
 from logging import getLogger
+from typing import AsyncGenerator
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.misc.settings import postgres_settings
 from app.model.base import Base
-
 
 logger = getLogger(__name__)
 
-engine = create_async_engine(DATABASE_URL, echo=False)
-async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
+async_db_engine = create_async_engine(str(postgres_settings.url), echo=False)
+async_db_session_factory = async_sessionmaker(async_db_engine, expire_on_commit=False)
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    async with async_session_factory() as session:
-        try:
-            yield session
-            await session.commit()
-        except:
-            await session.rollback()
-            raise
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+	async with async_db_session_factory() as session:
+		try:
+			yield session
+			await session.commit()
+		except:
+			await session.rollback()
+			raise
 
 
 async def init_db():
-    logger.info("Initializing pgvector database...")
-    async with engine.begin() as conn:
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        await conn.run_sync(Base.metadata.create_all)
-        # Create langchain_pg_collection table if not exists
-        await conn.execute(
-            text("""
+	logger.info('Initializing pgvector database...')
+	async with async_db_engine.begin() as conn:
+		await conn.execute(text('CREATE EXTENSION IF NOT EXISTS vector'))
+		await conn.run_sync(Base.metadata.create_all)
+		# Create langchain_pg_collection table if not exists
+		await conn.execute(
+			text("""
             CREATE TABLE IF NOT EXISTS public.langchain_pg_collection (
                 "uuid" uuid NOT NULL,
                 "name" varchar NOT NULL,
@@ -39,11 +39,11 @@ async def init_db():
                 CONSTRAINT langchain_pg_collection_pkey PRIMARY KEY (uuid)
             )
         """)
-        )
+		)
 
-        # Create langchain_pg_embedding table if not exists
-        await conn.execute(
-            text("""
+		# Create langchain_pg_embedding table if not exists
+		await conn.execute(
+			text("""
             CREATE TABLE IF NOT EXISTS public.langchain_pg_embedding (
                 id varchar NOT NULL,
                 collection_id uuid NULL,
@@ -53,26 +53,26 @@ async def init_db():
                 CONSTRAINT langchain_pg_embedding_pkey PRIMARY KEY (id)
             )
         """)
-        )
+		)
 
-        # Create indexes if not exist
-        await conn.execute(
-            text("""
+		# Create indexes if not exist
+		await conn.execute(
+			text("""
             CREATE INDEX IF NOT EXISTS ix_cmetadata_gin
             ON public.langchain_pg_embedding USING gin (cmetadata jsonb_path_ops)
         """)
-        )
+		)
 
-        await conn.execute(
-            text("""
+		await conn.execute(
+			text("""
             CREATE UNIQUE INDEX IF NOT EXISTS ix_langchain_pg_embedding_id
             ON public.langchain_pg_embedding USING btree (id)
         """)
-        )
+		)
 
-        # Add foreign key if not exists
-        await conn.execute(
-            text("""
+		# Add foreign key if not exists
+		await conn.execute(
+			text("""
             DO $$
             BEGIN
                 IF NOT EXISTS (
@@ -87,4 +87,4 @@ async def init_db():
                 END IF;
             END $$;
         """)
-        )
+		)
