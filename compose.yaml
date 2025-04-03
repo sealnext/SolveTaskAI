@@ -3,8 +3,8 @@ services:
     image: pgvector/pgvector:pg17
     environment:
       POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin
-      POSTGRES_DB: sealnext
+      POSTGRES_PASSWORD: uzyO776eNVLjVY8SkGEZ
+      POSTGRES_DB: database
     ports:
       - "5432:5432"
     volumes:

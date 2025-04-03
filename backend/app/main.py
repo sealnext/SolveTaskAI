@@ -1,47 +1,43 @@
 from contextlib import asynccontextmanager
+from logging import getLogger
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from logging import getLogger
-
-from app.route.projects import router as projects_router
-from app.route.apikey import router as api_keys_router
-from app.route.chat import router as chat_router
-from app.route.ticketing import router as ticketing_router
-from app.route.agent import router as agent_router
-
-from app.misc.database.postgres import init_db
-from app.misc.database.postgres import engine
 from app.misc.database.pool import db_pool
+from app.misc.database.postgres import async_db_engine, init_db
+from app.route.agent import router as agent_router
+from app.route.apikey import router as api_keys_router
+from app.route.projects import router as projects_router
+from app.route.ticketing import router as ticketing_router
 
 logger = getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    await init_db()
-    await db_pool.initialize()
-    yield
-    await engine.dispose()
-    await db_pool.close()
+	await init_db()
+	await db_pool.initialize()
+	yield
+	await async_db_engine.dispose()
+	await db_pool.close()
 
 
 app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+	CORSMiddleware,
+	allow_origins=['*'],
+	allow_credentials=True,
+	allow_methods=['*'],
+	allow_headers=['*'],
 )
 
 
-@app.get("/")
+@app.get('/')
 async def health():
-    return {"status": "ok"}
+	return {'status': 'ok'}
 
 
 # Routers
@@ -49,4 +45,3 @@ app.include_router(agent_router)
 app.include_router(ticketing_router)
 app.include_router(projects_router)
 app.include_router(api_keys_router)
-app.include_router(chat_router)

@@ -1,38 +1,35 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+
+from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.orm import relationship
 
-from app.model.base import Base
 from app.model.associations import user_project_association
+from app.model.base import Base
 
 
 class UserDB(Base):
-    __tablename__ = "users"
+	__tablename__ = 'users'
 
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    full_name = Column(String(255), nullable=False)
-    hashed_password = Column(String(128), nullable=False)
-    is_superuser = Column(Boolean, default=False)
-    created_at = Column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
-    )
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
+	id = Column(Integer, primary_key=True, index=True)
+	email = Column(String(255), unique=True, nullable=False, index=True)
+	full_name = Column(String(255), nullable=False)
+	hashed_password = Column(String(128), nullable=False)
+	is_superuser = Column(Boolean, default=False)
+	created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+	updated_at = Column(
+		DateTime(timezone=True),
+		default=lambda: datetime.now(timezone.utc),
+		onupdate=lambda: datetime.now(timezone.utc),
+	)
 
-    # Relationship to APIKeys (One-to-many)
-    api_keys = relationship("APIKeyDB", back_populates="user")
+	# Relationship to APIKeys (One-to-many)
+	api_keys = relationship('APIKeyDB', back_populates='user')
 
-    # Relația many-to-many cu proiectele
-    projects = relationship(
-        "ProjectDB", secondary=user_project_association, back_populates="users"
-    )
+	# Relația many-to-many cu proiectele
+	projects = relationship('ProjectDB', secondary=user_project_association, back_populates='users')
 
-    # Add to existing relationships
-    chat_sessions = relationship("ChatSession", back_populates="user")
+	# Add to existing relationships
+	chat_sessions = relationship('ChatSession', back_populates='user')
 
-    def __repr__(self):
-        return f"<User(id={self.id}, email={self.email}, full_name={self.full_name})>"
+	def __repr__(self):
+		return f'<User(id={self.id}, email={self.email}, full_name={self.full_name})>'

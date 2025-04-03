@@ -1,12 +1,11 @@
-from langchain_core.tools import tool
-from typing import Literal
+from logging import getLogger
+from typing import Any, Literal, Union
+
 from langchain_core.messages import AnyMessage
-from typing import Any, Union
+from langchain_core.tools import tool
 from pydantic import BaseModel
 
-import logging
-
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 # rag_tool & ticket_tool serves as a declarative interface for the ticket_tool subgraph.
 # While it appears as a standard tool to the LLM, it actually orchestrates
@@ -23,41 +22,41 @@ logger = logging.getLogger(__name__)
 
 @tool
 async def rag_tool(query: str) -> str:
-    """
-    Use this tool for searching and retrieving information from tickets and documentation.
-    ALWAYS use this tool for:
-    - Finding information about bugs, issues, or features
-    - Searching through ticket content
-    - Getting context about specific topics
-    - Answering questions about existing tickets
-    - Finding how many tickets match certain criteria
+	"""
+	Use this tool for searching and retrieving information from tickets and documentation.
+	ALWAYS use this tool for:
+	- Finding information about bugs, issues, or features
+	- Searching through ticket content
+	- Getting context about specific topics
+	- Answering questions about existing tickets
+	- Finding how many tickets match certain criteria
 
-    Do NOT use this tool for:
-    - Creating new tickets
-    - Updating existing tickets
-    - Any actions that modify tickets
-    - Questions about ability to modify tickets
+	Do NOT use this tool for:
+	- Creating new tickets
+	- Updating existing tickets
+	- Any actions that modify tickets
+	- Questions about ability to modify tickets
 
-    Args:
-        query: The search query to use for document retrieval
+	Args:
+	    query: The search query to use for document retrieval
 
-    Returns:
-        String containing the retrieved documents or empty if none found
-    """
-    return {}
+	Returns:
+	    String containing the retrieved documents or empty if none found
+	"""
+	return {}
 
 
 async def ticket_tool(
-    action: Literal["create", "edit", "delete"], ticket_id: str, detailed_query: str
+	action: Literal['create', 'edit', 'delete'], ticket_id: str, detailed_query: str
 ):
-    """Tool for handling complex ticket operations, like creating, editing, or deleting tickets.
+	"""Tool for handling complex ticket operations, like creating, editing, or deleting tickets.
 
-    Parameters:
-    - action: create, edit, delete, search
-    - ticket_id (optional): the id of the ticket to be created, edited or deleted
-    - detailed_query: the detailed query to be used for the ticket
-    """
-    return {}
+	Parameters:
+	- action: create, edit, delete, search
+	- ticket_id (optional): the id of the ticket to be created, edited or deleted
+	- detailed_query: the detailed query to be used for the ticket
+	"""
+	return {}
 
 
 # This is a custom tool condition that determines the next node based on the current state
@@ -66,23 +65,23 @@ async def ticket_tool(
 # we do this because LangGraph has limitations when subgraphs are manually invoked from tools
 # we invoke the subgraph tool node to handle the checkpointer propagation
 def tools_condition(
-    state: Union[list[AnyMessage], dict[str, Any], BaseModel],
-) -> Literal["tools", "ticket_agent", "__end__"]:
-    if isinstance(state, list):
-        ai_message = state[-1]
-    elif isinstance(state, dict) and (messages := state.get("messages", [])):
-        ai_message = messages[-1]
-    elif messages := getattr(state, "messages", []):
-        ai_message = messages[-1]
-    else:
-        raise ValueError(f"No messages found in input state to tool_edge: {state}")
+	state: Union[list[AnyMessage], dict[str, Any], BaseModel],
+) -> Literal['tools', 'ticket_agent', '__end__']:
+	if isinstance(state, list):
+		ai_message = state[-1]
+	elif isinstance(state, dict) and (messages := state.get('messages', [])):
+		ai_message = messages[-1]
+	elif messages := getattr(state, 'messages', []):
+		ai_message = messages[-1]
+	else:
+		raise ValueError(f'No messages found in input state to tool_edge: {state}')
 
-    # Check if AI message is a tool call invocation
-    if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0:
-        tool_name = ai_message.tool_calls[0]["name"]
-        if tool_name == "ticket_tool":
-            return "ticket_agent"
-        elif tool_name == "rag_tool":
-            return "rag_agent"
-        return "tools"
-    return "__end__"
+	# Check if AI message is a tool call invocation
+	if hasattr(ai_message, 'tool_calls') and len(ai_message.tool_calls) > 0:
+		tool_name = ai_message.tool_calls[0]['name']
+		if tool_name == 'ticket_tool':
+			return 'ticket_agent'
+		elif tool_name == 'rag_tool':
+			return 'rag_agent'
+		return 'tools'
+	return '__end__'

@@ -1,14 +1,18 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class GoogleSettings(BaseSettings):
-    google_client_id: str
-    google_client_secret: str
+	model_config = SettingsConfigDict(env_prefix='GOOGLE_')
+
+	client_id: str
+	client_secret: str
 
 
 class GithubSettings(BaseSettings):
-    github_client_id: str
-    github_client_secret: str
+	model_config = SettingsConfigDict(env_prefix='GITHUB_')
+
+	client_id: str
+	client_secret: str
 
 
 google_settings = GoogleSettings()

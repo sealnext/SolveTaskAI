@@ -1,15 +1,19 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class OpenAiSettings(BaseSettings):
-    openai_api_key: str
-    openai_model: str
-    openai_embedding_model: str
-    openai_timeout_seconds: int
+	model_config = SettingsConfigDict(env_prefix='OPENAI_')
+
+	api_key: str
+	model: str
+	embedding_model: str
+	timeout_seconds: int
 
 
 class GeminiSettings(BaseSettings):
-    gemini_api_key: str
+	model_config = SettingsConfigDict(env_prefix='GEMINI_')
+
+	api_key: str
 
 
 openai_settings = OpenAiSettings()
