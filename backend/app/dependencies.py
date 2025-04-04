@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.misc.database.pool import db_pool
 from app.misc.database.postgres import get_db_session
 from app.repository.apikey_repository import APIKeyRepository
-from app.repository.chat_session_repository import ChatSessionRepository
 from app.repository.document_embeddings_repository import DocumentEmbeddingsRepository
 from app.repository.project_repository import ProjectRepository
 from app.repository.thread_repository import ThreadRepository
@@ -55,12 +54,6 @@ def get_apikey_service(
 	api_key_repository: APIKeyRepository = Depends(get_api_key_repository),
 ) -> APIKeyService:
 	return APIKeyService(api_key_repository)
-
-
-def get_chat_session_repository(
-	db_session: AsyncSession = Depends(get_db_session),
-) -> ChatSessionRepository:
-	return ChatSessionRepository(db_session)
 
 
 def get_db_checkpointer() -> AsyncPostgresSaver:
