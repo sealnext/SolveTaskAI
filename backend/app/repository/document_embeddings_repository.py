@@ -9,7 +9,7 @@ from langchain_postgres import PGVector
 
 from app.misc.config import OPENAI_EMBEDDING_MODEL
 from app.misc.database.postgres import async_db_engine
-from app.model.document_embeddings import DocumentEmbedding
+from app.schema.document_embeddings import DocumentEmbedding
 
 # Configure logging
 logger = getLogger(__name__)

@@ -1,9 +1,9 @@
 from logging import getLogger
 from typing import AsyncIterator
 
-from app.model.document_embeddings import DocumentEmbedding
 from app.repository.document_embeddings_repository import DocumentEmbeddingsRepository
 from app.schema.api_key import APIKey
+from app.schema.document_embeddings import DocumentEmbedding
 from app.schema.ticket import JiraIssueSchema
 from app.service.ticketing.factory import TicketingClientFactory
 
