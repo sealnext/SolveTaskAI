@@ -9,7 +9,6 @@ from app.model.associations import (
 	api_key_project_association,
 	user_project_association,
 )
-from app.model.chat_session import ChatSession
 from app.model.project import ProjectDB
 from app.schema.project import ProjectUpdate
 from app.service.ticketing.enums import TicketingSystemType
