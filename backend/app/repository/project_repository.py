@@ -10,7 +10,10 @@ from app.model.associations import (
 	user_project_association,
 )
 from app.model.project import ProjectDB
-from app.schema.project import ProjectUpdate
+from app.model.api_key import APIKeyDB
+from app.model.user import UserDB
+from app.schema.project import ProjectCreate
+from app.schema.api_key import APIKey
 from app.service.ticketing.enums import TicketingSystemType
 
 logger = getLogger(__name__)
@@ -19,20 +22,6 @@ logger = getLogger(__name__)
 class ProjectRepository:
 	def __init__(self, db_session: AsyncSession):
 		self.db_session = db_session
-
-	# async def get_by_external_id(self, user_id: int, external_project_id: int) -> ProjectDB | None:
-	# 	query = (
-	# 		select(ProjectDB)
-	# 		.join(user_project_association)
-	# 		.where(
-	# 			and_(
-	# 				ProjectDB.external_id == cast(str(external_project_id), String),
-	# 				user_project_association.c.user_id == user_id,
-	# 			)
-	# 		)
-	# 	)
-	# 	result = await self.db_session.execute(query)
-	# 	return result.scalar_one_or_none()
 
 	async def get_by_external_id(self, external_project_id: int) -> ProjectDB | None:
 		stmt = select(ProjectDB).where(ProjectDB.external_id == str(external_project_id))
@@ -75,21 +64,41 @@ class ProjectRepository:
 		count = result.scalar()
 		return count > 0
 
-	async def _add_project_db(self, project_data: dict) -> ProjectDB:
-		db_project = ProjectDB(**project_data)
-		self.db_session.add(db_project)
+	async def link_user_to_existing_project(
+		self, existing_project: ProjectDB, user_id: int, api_key: APIKey
+	) -> ProjectDB:
+		await self._link_entities_to_project(existing_project, user_id, api_key)
 		await self.db_session.flush()
+
+		await self.db_session.refresh(existing_project)
+		return existing_project
+
+	async def add_project_db(
+		self, project_data: ProjectCreate, user_id: int, api_key: APIKey
+	) -> ProjectDB:
+		db_project = ProjectDB()
+		db_project.domain = project_data.domain
+		db_project.external_id = project_data.external_id
+		db_project.name = project_data.name
+		db_project.key = project_data.key
+		db_project.service_type = project_data.service_type
+
+		self.db_session.add(db_project)
+
+		await self._link_entities_to_project(db_project, user_id, api_key)
+
+		await self.db_session.flush()
+
 		return db_project
 
-	async def link_user_to_project(self, user_id: int, project_id: int):
-		stmt = insert(user_project_association).values(user_id=user_id, project_id=project_id)
-		await self.db_session.execute(stmt)
+	async def _link_entities_to_project(
+		self, project_db: ProjectDB, user_id: int, api_key: APIKey = None
+	) -> None:
+		user_db = await self.db_session.get(UserDB, user_id)
+		project_db.users.append(user_db)
 
-	async def link_api_key_to_project(self, api_key_id: int, project_id: int):
-		stmt = insert(api_key_project_association).values(
-			api_key_id=api_key_id, project_id=project_id
-		)
-		await self.db_session.execute(stmt)
+		api_key_db = await self.db_session.get(APIKeyDB, api_key.id)
+		project_db.api_keys.append(api_key_db)
 
 	async def get_project_by_id_with_relations(self, project_id: int) -> ProjectDB | None:
 		stmt = (
@@ -122,17 +131,6 @@ class ProjectRepository:
 		)
 		result = await self.db_session.execute(query)
 		return result.scalars().all()
-
-	async def update(
-		self, user_id: int, project_id: int, project_update: ProjectUpdate
-	) -> ProjectDB | None:
-		project = await self.get_by_id(user_id, project_id)
-		if project:
-			for key, value in project_update.model_dump(exclude_unset=True).items():
-				setattr(project, key, value)
-			await self.db_session.flush()
-			await self.db_session.refresh(project)
-		return project
 
 	async def delete(self, user_id: int, project_id: int) -> bool:
 		"""

@@ -3,9 +3,12 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from app.service.ticketing.enums import TicketingSystemType
 
 
-class ExternalProject(BaseModel):
-	"""Schema for external project data."""
+class ProjectBase(BaseModel):
+	model_config = ConfigDict(from_attributes=True)
 
+
+class ExternalProject(ProjectBase):
+	"""Schema for external project data. JIRA only for now."""
 	name: str
 	key: str
 	id: str
@@ -13,24 +16,33 @@ class ExternalProject(BaseModel):
 	projectTypeKey: str
 	style: str
 
-	model_config = {
-		'from_attributes': True,
-		'populate_by_name': True,
-		'extra': 'allow',
-		'arbitrary_types_allowed': True,
-	}
-
 	@model_validator(mode='before')
 	@classmethod
 	def extract_avatar_url(cls, data: dict) -> dict:
-		"""Extract the 16x16 avatar URL from avatarUrls."""
+		"""Extract the smallest avatar URL from avatarUrls with fallbacks."""
 		if isinstance(data, dict):
 			avatar_urls = data.get('avatarUrls', {})
-			data['avatarUrl'] = avatar_urls.get('16x16', '')
+
+			data['avatarUrl'] = (
+				avatar_urls.get('16x16') or
+				avatar_urls.get('24x24') or
+				avatar_urls.get('32x32') or
+				avatar_urls.get('48x48') or
+				''
+			)
 		return data
 
 
-class Project(BaseModel):
+class ProjectCreate(ProjectBase):
+	name: str
+	domain: str
+	service_type: TicketingSystemType
+	key: str
+	api_key_id: int
+	external_id: str
+
+
+class Project(ProjectBase):
 	id: int
 	name: str
 	domain: str
@@ -38,21 +50,7 @@ class Project(BaseModel):
 	key: str
 	external_id: int
 
-	model_config = ConfigDict(from_attributes=True)
 
-
-class ProjectUpdate(BaseModel):
-	name: str | None = None
-	domain: str | None = None
-
-
-class ProjectCreate(BaseModel):
+class ProjectResponse(ProjectBase):
+	id: int
 	name: str
-	domain: str
-	service_type: TicketingSystemType
-	key: str
-	api_key_id: int
-	external_id: int
-
-	class Config:
-		from_attributes = True
