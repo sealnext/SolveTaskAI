@@ -13,8 +13,6 @@ class ExternalProject(ProjectBase):
 	key: str
 	id: str
 	avatarUrl: str
-	projectTypeKey: str
-	style: str
 
 	@model_validator(mode='before')
 	@classmethod
