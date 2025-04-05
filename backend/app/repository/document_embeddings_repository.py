@@ -16,23 +16,17 @@ logger = getLogger(__name__)
 
 
 class DocumentEmbeddingsRepository:
-	"""Repository for managing document embeddings using langchain components."""
-
 	def __init__(self, db_session):
-		# Configure langchain components
 		self.db_session = db_session
 
-		# Initialize embeddings model with optimized settings
 		self.embeddings_model = OpenAIEmbeddings(
 			model=OPENAI_EMBEDDING_MODEL,
-			chunk_size=50,  # Process more documents per API call
+			chunk_size=50,
 			request_timeout=30,
 			max_retries=3,
 			show_progress_bar=True,
 			skip_empty=True,
 		)
-
-		logger.debug('Initialized DocumentEmbeddingsRepository with optimized settings')
 
 	@asynccontextmanager
 	async def _get_vector_store(self, unique_identifier: str):
@@ -44,6 +38,7 @@ class DocumentEmbeddingsRepository:
 				connection=async_db_engine,
 				pre_delete_collection=True,
 				async_mode=True,
+				create_extension=False,
 			)
 			yield vector_store
 		except Exception as e:

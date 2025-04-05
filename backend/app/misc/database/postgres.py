@@ -9,8 +9,22 @@ from app.model.base import Base
 
 logger = getLogger(__name__)
 
-async_db_engine = create_async_engine(str(postgres_settings.url), echo=False)
-async_db_session_factory = async_sessionmaker(async_db_engine, expire_on_commit=False)
+async_db_engine = create_async_engine(
+	str(postgres_settings.url),
+	echo=False,
+	pool_size=20,  # default is 5
+	max_overflow=10,  # default is 10
+	pool_pre_ping=True,  # verify connection before using it, prevents connection loss
+)
+
+async_db_session_factory = async_sessionmaker(
+	bind=async_db_engine,
+	expire_on_commit=False,
+	autoflush=False,  # manually control when to flush, control when to commit
+	# Multi-stage transactions
+	# High-performance critical operations
+	# Complex logic for real applications
+)
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -18,16 +32,21 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 		try:
 			yield session
 			await session.commit()
-		except:
+		except Exception as e:
 			await session.rollback()
 			raise
+		finally:
+			await session.close()
 
 
 async def init_db():
-	logger.info('Initializing pgvector database...')
+	logger.info('Initializing database...')
+
 	async with async_db_engine.begin() as conn:
-		await conn.execute(text('CREATE EXTENSION IF NOT EXISTS vector'))
 		await conn.run_sync(Base.metadata.create_all)
+
+		await conn.execute(text('CREATE EXTENSION IF NOT EXISTS vector'))
+
 		# Create langchain_pg_collection table if not exists
 		await conn.execute(
 			text("""
