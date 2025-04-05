@@ -24,7 +24,6 @@ class ProjectDB(Base):
 		'APIKeyDB', secondary=api_key_project_association, back_populates='projects'
 	)
 	users = relationship('UserDB', secondary=user_project_association, back_populates='projects')
-	chat_sessions = relationship('ChatSession', back_populates='project')
 
 	def __repr__(self):
 		return f'<Project(id={self.id}, name={self.name})>'

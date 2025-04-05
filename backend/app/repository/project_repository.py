@@ -138,7 +138,7 @@ class ProjectRepository:
 		"""
 		Deletes the link between a user and a project.
 		If this is the last user linked to the project, deletes the project
-		and associated shared resources (ChatSession, APIKey links).
+		and associated shared resources (APIKey links).
 		Returns True if the project itself was deleted, False otherwise.
 		Relies on an outer transaction managed by get_db_session.
 		"""
@@ -165,9 +165,6 @@ class ProjectRepository:
 		if not other_users_exist:
 			logger.info(
 				f'No other users linked to project {project_id}. Deleting shared resources.'
-			)
-			await self.db_session.execute(
-				delete(ChatSession).where(ChatSession.project_id == project_id)
 			)
 			await self.db_session.execute(
 				delete(api_key_project_association).where(
