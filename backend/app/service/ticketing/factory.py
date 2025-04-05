@@ -54,7 +54,7 @@ class TicketingClientFactory:
 		return httpx.AsyncClient(
 			timeout=self._timeout,
 			transport=self._transport,
-			http2=False,
+			http2=True,
 			follow_redirects=True,
 		)
 
