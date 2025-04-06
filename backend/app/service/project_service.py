@@ -29,15 +29,15 @@ class ProjectService:
 
 	async def save_project(
 		self, project_data: ProjectCreate, user_id: int, api_key: APIKey
-	) -> ProjectResponse:
-		"""Saves a new project or links the user to an existing one."""
+	) -> tuple[ProjectResponse, bool]:
 		try:
 			existing_project = await self.project_repository.get_project_by_unique_attributes(
 				project_data.name, project_data.service_type, project_data.key
 			)
 
+			is_new_project = False
+
 			if existing_project:
-				# TODO test this behaviour
 				already_linked = await self.project_repository.check_user_project_link(
 					user_id, existing_project.id
 				)
@@ -53,8 +53,9 @@ class ProjectService:
 				final_project_db = await self.project_repository.add_project_db(
 					project_data, user_id, api_key
 				)
+				is_new_project = True
 
-			return ProjectResponse.model_validate(final_project_db)
+			return ProjectResponse.model_validate(final_project_db), is_new_project
 
 		except IntegrityError:
 			raise HTTPException(HTTP_409_CONFLICT, detail='Project already exists.')
@@ -76,7 +77,7 @@ class ProjectService:
 		if not is_linked:
 			raise HTTPException(HTTP_404_NOT_FOUND, 'User is not associated with this project.')
 
-		return await self.project_repository.delete(user_id=user_id, project_id=internal_project_id)
+		return await self.project_repository.delete(user_id, internal_project_id)
 
 	async def is_project_still_in_use(self, external_project_id: int) -> bool:
 		project_id = await self.project_repository.get_project_id_by_external_id(

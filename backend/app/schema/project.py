@@ -9,6 +9,7 @@ class ProjectBase(BaseModel):
 
 class ExternalProject(ProjectBase):
 	"""Schema for external project data. JIRA only for now."""
+
 	name: str
 	key: str
 	id: str
@@ -22,11 +23,11 @@ class ExternalProject(ProjectBase):
 			avatar_urls = data.get('avatarUrls', {})
 
 			data['avatarUrl'] = (
-				avatar_urls.get('16x16') or
-				avatar_urls.get('24x24') or
-				avatar_urls.get('32x32') or
-				avatar_urls.get('48x48') or
-				''
+				avatar_urls.get('16x16')
+				or avatar_urls.get('24x24')
+				or avatar_urls.get('32x32')
+				or avatar_urls.get('48x48')
+				or ''
 			)
 		return data
 
