@@ -27,7 +27,9 @@ logger = getLogger(__name__)
 router = APIRouter(prefix='/project', tags=['projects'])
 
 
-@router.get('/{api_key_id}/external', status_code=status.HTTP_200_OK, response_model=List[ExternalProject])
+@router.get(
+	'/{api_key_id}/external', status_code=status.HTTP_200_OK, response_model=List[ExternalProject]
+)
 async def get_external_project_by_api_key(
 	api_key_id: int,
 	user_service: UserService = Depends(get_user_service),
@@ -57,7 +59,7 @@ async def add_internal_project(
 	embeddings_service: DocumentEmbeddingsService = Depends(get_document_embeddings_service),
 ) -> ProjectResponse:
 	"""
-	Ingest and index an external project into the system.
+	Add and embed documents for a new project.
 	"""
 	# TODO AFTER AUTH REFACTOR
 	user: UserRead = await user_service.get_user_by_email('ovidiubachmatchi@gmail.com')
@@ -68,15 +70,15 @@ async def add_internal_project(
 	if api_key is None:
 		raise HTTPException(status.HTTP_404_NOT_FOUND, 'API key not found')
 
-	new_project: ProjectResponse = await project_service.save_project(project, user.id, api_key)
+	new_project, is_new_project = await project_service.save_project(project, user.id, api_key)
 
-	# TODO Streaming status updates to the client along with percentage completion as this could take a while
-	await embeddings_service.add_documents(
-		domain=project.domain,
-		project_key=project.key,
-		external_id=project.external_id,
-		api_key=api_key,
-	)
+	if is_new_project:
+		await embeddings_service.add_documents(
+			domain=project.domain,
+			project_key=project.key,
+			external_id=project.external_id,
+			api_key=api_key,
+		)
 
 	return new_project
 
@@ -97,16 +99,16 @@ async def get_all_internal_projects(
 
 @router.delete('/internal/{project_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_internal_project(
-	project_id: int,
-	project_service: ProjectService = Depends(get_project_service),
-	embeddings_service: DocumentEmbeddingsService = Depends(get_document_embeddings_service),
-	user_service: UserService = Depends(get_user_service),
+    project_id: int,
+    project_service: ProjectService = Depends(get_project_service),
+    embeddings_service: DocumentEmbeddingsService = Depends(get_document_embeddings_service),
+    user_service: UserService = Depends(get_user_service),
 ) -> None:
 	"""
-	Delete an internal project and its associated embedded documents.
+	Delete an internal project and its associated documents.
 	"""
 	# TODO AFTER AUTH REFACTOR
-	user: UserRead = await user_service.get_user_by_email('ovidiubachmatchi@gmail.com')
+	user: UserRead = await user_service.get_user_by_email('ovidiu@sealnext.com')
 
 	project = await project_service.get_project_by_id(user.id, project_id)
 
@@ -114,9 +116,7 @@ async def delete_internal_project(
 
 	if project_was_deleted:
 		await embeddings_service.delete_documents(
-			domain=project.domain,
-			project_key=project.key,
-			external_id=str(project.external_id),
-		)
-
-	return None
+            domain=project.domain,
+            project_key=project.key,
+            external_id=str(project.external_id),
+        )

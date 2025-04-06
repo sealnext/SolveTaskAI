@@ -1,7 +1,7 @@
 from logging import getLogger
 from typing import List
 
-from sqlalchemy import String, and_, cast, delete, exists, func, insert, select
+from sqlalchemy import String, and_, cast, delete, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -67,11 +67,41 @@ class ProjectRepository:
 	async def link_user_to_existing_project(
 		self, existing_project: ProjectDB, user_id: int, api_key: APIKey
 	) -> ProjectDB:
-		await self._link_entities_to_project(existing_project, user_id, api_key)
+		"""
+		Link an existing project to a user and an his API key.
+		"""
+		stmt = (
+			select(ProjectDB)
+			.options(selectinload(ProjectDB.users), selectinload(ProjectDB.api_keys))
+			.where(ProjectDB.id == existing_project.id)
+		)
+		result = await self.db_session.execute(stmt)
+		project = result.scalar_one_or_none()
+
+		if not project:
+			return None
+
+		user_already_linked = False
+		for user in project.users:
+			if user.id == user_id:
+				user_already_linked = True
+				break
+
+		if user_already_linked:
+			return project
+
+		user_db = await self.db_session.get(UserDB, user_id)
+		if user_db:
+			project.users.append(user_db)
+
+		if api_key:
+			api_key_db = await self.db_session.get(APIKeyDB, api_key.id)
+			if api_key_db:
+				project.api_keys.append(api_key_db)
+
 		await self.db_session.flush()
 
-		await self.db_session.refresh(existing_project)
-		return existing_project
+		return project
 
 	async def add_project_db(
 		self, project_data: ProjectCreate, user_id: int, api_key: APIKey
@@ -85,20 +115,18 @@ class ProjectRepository:
 
 		self.db_session.add(db_project)
 
-		await self._link_entities_to_project(db_project, user_id, api_key)
+		user_db = await self.db_session.get(UserDB, user_id)
+		if user_db:
+			db_project.users.append(user_db)
+
+		if api_key:
+			api_key_db = await self.db_session.get(APIKeyDB, api_key.id)
+			if api_key_db:
+				db_project.api_keys.append(api_key_db)
 
 		await self.db_session.flush()
 
 		return db_project
-
-	async def _link_entities_to_project(
-		self, project_db: ProjectDB, user_id: int, api_key: APIKey = None
-	) -> None:
-		user_db = await self.db_session.get(UserDB, user_id)
-		project_db.users.append(user_db)
-
-		api_key_db = await self.db_session.get(APIKeyDB, api_key.id)
-		project_db.api_keys.append(api_key_db)
 
 	async def get_project_by_id_with_relations(self, project_id: int) -> ProjectDB | None:
 		stmt = (
@@ -135,58 +163,55 @@ class ProjectRepository:
 	async def delete(self, user_id: int, project_id: int) -> bool:
 		"""
 		Deletes the link between a user and a project.
-		If this is the last user linked to the project, deletes the project
-		and associated shared resources (APIKey links).
+		If this is the last user linked to the project, deletes the project and all associated resources.
+		If other users remain, removes the user's API keys from the project if they aren't used by other users.
 		Returns True if the project itself was deleted, False otherwise.
-		Relies on an outer transaction managed by get_db_session.
 		"""
-		project_was_deleted = False
-		is_linked = await self.check_user_project_link(user_id, project_id)
-		if not is_linked:
-			logger.warning(
-				f'User {user_id} attempted to delete project {project_id} they are not linked to.'
+		# Get the project with relations using select
+		stmt = (
+			select(ProjectDB)
+			.options(
+				selectinload(ProjectDB.users),
+				selectinload(ProjectDB.api_keys).selectinload(APIKeyDB.user),
 			)
+			.where(ProjectDB.id == project_id)
+		)
+		result = await self.db_session.execute(stmt)
+		project = result.scalar_one_or_none()
+
+		if not project:
 			return False
 
-		await self.db_session.execute(
-			delete(user_project_association).where(
-				and_(
-					user_project_association.c.project_id == project_id,
-					user_project_association.c.user_id == user_id,
-				)
-			)
-		)
+		# Find the user to unlink
+		user_to_remove = None
+		for user in project.users:
+			if user.id == user_id:
+				user_to_remove = user
+				break
+
+		if not user_to_remove:
+			return False
+
+		# Remove the user from the project
+		project.users.remove(user_to_remove)
+
+		# Find API keys owned by this user that are linked to the project
+		user_api_keys = [api_key for api_key in project.api_keys if api_key.user_id == user_id]
+
+		for api_key in user_api_keys:
+			project.api_keys.remove(api_key)
+
+		# Flush to update the relationships
 		await self.db_session.flush()
 
-		other_users_exist = await self.check_other_user_project_link(user_id, project_id)
+		# Check if there are other users linked to the project
+		if not project.users:
+			# No other users, delete the project
+			await self.db_session.delete(project)
+			await self.db_session.flush()
+			return True
 
-		if not other_users_exist:
-			logger.info(
-				f'No other users linked to project {project_id}. Deleting shared resources.'
-			)
-			await self.db_session.execute(
-				delete(api_key_project_association).where(
-					api_key_project_association.c.project_id == project_id
-				)
-			)
-			delete_project_stmt = delete(ProjectDB).where(ProjectDB.id == project_id)
-			result = await self.db_session.execute(delete_project_stmt)
-
-			if result.rowcount > 0:
-				project_was_deleted = True
-				logger.info(f'Project {project_id} deleted successfully.')
-			else:
-				logger.warning(
-					f'Project {project_id} was expected to be deleted, but delete operation reported 0 rows affected.'
-				)
-
-		else:
-			logger.info(
-				f'Other users still linked to project {project_id}. Only removing link for user {user_id}.'
-			)
-			project_was_deleted = False
-
-		return project_was_deleted
+		return False
 
 	async def get_with_related(self, user_id: int, project_id: int) -> ProjectDB | None:
 		query = (
