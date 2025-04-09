@@ -33,11 +33,9 @@ async def get_async_db_session() -> AsyncGenerator[AsyncSession, None]:
 		try:
 			yield session
 			await shield(session.commit())
-		except Exception as e:
+		except:
 			await shield(session.rollback())
 			raise
-		finally:
-			await session.close()
 
 
 async def init_db():

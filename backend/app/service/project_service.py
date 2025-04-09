@@ -9,9 +9,9 @@ from starlette.status import (
 	HTTP_409_CONFLICT,
 )
 
-from app.repository.project_repository import ProjectRepository
-from app.dto.project import Project, ProjectCreate, ProjectResponse
 from app.dto.api_key import APIKey
+from app.dto.project import Project, ProjectCreate, ProjectResponse
+from app.repository.project_repository import ProjectRepository
 
 logger = getLogger(__name__)
 

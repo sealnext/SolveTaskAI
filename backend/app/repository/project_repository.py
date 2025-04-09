@@ -1,25 +1,16 @@
 from logging import getLogger
 from typing import List
 
-from sqlalchemy import String, and_, cast, delete, exists, func, select
+from sqlalchemy import String, and_, cast, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.dto.project import ProjectUpdate
-from app.model.associations import (
-	api_key_project_association,
-	user_project_association,
-)
-from app.model.project import ProjectDB
-<<<<<<< HEAD
+from app.dto.api_key import APIKey
+from app.dto.project import ProjectCreate
 from app.model.api_key import APIKeyDB
+from app.model.associations import user_project_association
+from app.model.project import ProjectDB
 from app.model.user import UserDB
-from app.schema.project import ProjectCreate
-from app.schema.api_key import APIKey
-||||||| parent of 8fb45e1 (Added authentication (oauth google & github + email & password))
-from app.schema.project import ProjectUpdate
-=======
->>>>>>> 8fb45e1 (Added authentication (oauth google & github + email & password))
 from app.service.ticketing.enums import TicketingSystemType
 
 logger = getLogger(__name__)
