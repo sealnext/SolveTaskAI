@@ -15,12 +15,12 @@ from pydantic import BaseModel, Field
 
 from app.agent.configuration import AgentConfiguration
 from app.agent.rag.prompts import doc_grader_instructions, doc_grader_prompt
+from app.dto.project import Project
 from app.misc.config import (
 	NUMBER_OF_DOCS_TO_RETRIEVE,
 	OPENAI_EMBEDDING_MODEL,
 )
 from app.misc.database.postgres import async_db_engine
-from app.schema.project import Project
 from app.service.ticketing.client import BaseTicketingClient
 
 logger = getLogger(__name__)

@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Enum, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.model.associations import (
 	api_key_project_association,
@@ -12,12 +11,12 @@ from app.service.ticketing.enums import TicketingSystemType
 class ProjectDB(Base):
 	__tablename__ = 'projects'
 
-	id = Column(Integer, primary_key=True, index=True)
-	name = Column(String, index=True)
-	domain = Column(String(255), nullable=False)
-	service_type = Column(Enum(TicketingSystemType), nullable=False)
-	key = Column(String(255), nullable=False, unique=True)
-	external_id = Column(String(255), nullable=False, unique=True)
+	id: Mapped[int] = mapped_column(init=False, primary_key=True)
+	name: Mapped[str] = mapped_column()
+	domain: Mapped[str] = mapped_column()
+	service_type: Mapped[TicketingSystemType] = mapped_column()
+	key: Mapped[str] = mapped_column()
+	external_id: Mapped[str] = mapped_column(unique=True)
 
 	# Relationships
 	api_keys = relationship(
@@ -26,4 +25,4 @@ class ProjectDB(Base):
 	users = relationship('UserDB', secondary=user_project_association, back_populates='projects')
 
 	def __repr__(self):
-		return f'<Project(id={self.id}, name={self.name})>'
+		return f'<Project(id={self.id!r}, name={self.name!r})>'

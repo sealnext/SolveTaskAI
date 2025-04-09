@@ -1,3 +1,4 @@
+from asyncio import shield
 from contextlib import asynccontextmanager
 from logging import getLogger
 from typing import AsyncGenerator
@@ -20,8 +21,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 	await init_db()
 	await db_pool.initialize()
 	yield
-	await async_db_engine.dispose()
 	await db_pool.close()
+	await shield(async_db_engine.dispose())
 
 
 app = FastAPI(lifespan=lifespan)

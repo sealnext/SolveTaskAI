@@ -1,8 +1,8 @@
 from typing import AsyncGenerator, List
 
-from app.schema.api_key import APIKey
-from app.schema.project import ExternalProject
-from app.schema.ticket import JiraIssueSchema
+from app.dto.api_key import APIKey
+from app.dto.project import ExternalProject
+from app.dto.ticket import JiraIssueSchema
 from app.service.ticketing.client import BaseTicketingClient
 
 

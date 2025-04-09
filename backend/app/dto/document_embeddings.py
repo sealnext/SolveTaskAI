@@ -3,7 +3,7 @@ from typing import List
 
 from pydantic import BaseModel
 
-from app.schema.api_key import APIKey
+from app.dto.api_key import APIKey
 
 
 class DocumentEmbedding(BaseModel):

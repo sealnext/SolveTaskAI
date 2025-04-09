@@ -11,10 +11,12 @@ from app.dependencies import (
 	get_ticketing_factory,
 	get_apikey_service,
 )
+from app.dto.api_key import APIKey
+from app.dto.project import ExternalProject, ProjectCreate
 from app.repository.apikey_repository import APIKeyRepository
-from app.schema.api_key import APIKey
-from app.schema.project import Project, ProjectCreate, ExternalProject, ProjectResponse
-from app.schema.user import UserRead
+from app.dto.api_key import APIKey
+from app.dto.project import ProjectCreate, ExternalProject, ProjectResponse
+from app.dto.user import UserRead
 from app.service.document_embeddings_service import DocumentEmbeddingsService
 from app.service.project_service import ProjectService
 from app.service.user_service import UserService

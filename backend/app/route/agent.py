@@ -16,10 +16,10 @@ from app.dependencies import (
 	get_thread_repository,
 	get_ticketing_factory,
 )
+from app.dto.api_key import APIKey
+from app.dto.project import Project
 from app.repository.apikey_repository import APIKeyRepository
 from app.repository.thread_repository import ThreadRepository
-from app.schema.api_key import APIKey
-from app.schema.project import Project
 from app.service.project_service import ProjectService
 from app.service.ticketing.factory import TicketingClientFactory
 

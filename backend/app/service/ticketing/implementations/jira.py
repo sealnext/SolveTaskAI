@@ -9,14 +9,14 @@ from urllib.parse import urljoin
 import httpx
 from fastapi import HTTPException, status
 
-from app.misc.settings import jira_settings
-from app.schema.api_key import APIKey
-from app.schema.project import ExternalProject, Project
-from app.schema.ticket import (
+from app.dto.api_key import APIKey
+from app.dto.project import ExternalProject, Project
+from app.dto.ticket import (
 	JiraIssueContentSchema,
 	JiraIssueSchema,
 	JiraSearchResponse,
 )
+from app.misc.settings import jira_settings
 from app.service.ticketing.client import BaseTicketingClient
 
 logger = getLogger(__name__)

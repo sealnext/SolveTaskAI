@@ -10,7 +10,7 @@ from langchain_core.messages import AnyMessage, BaseMessage
 from langgraph.graph import add_messages
 from pydantic import BaseModel
 
-from app.schema.api_key import APIKey
+from app.dto.api_key import APIKey
 
 
 def add_unique_documents(

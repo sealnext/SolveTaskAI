@@ -1,24 +1,26 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.model.associations import api_key_project_association
-from app.model.base import Base
+from app.model.base import Base, utc_now
 from app.service.ticketing.enums import TicketingSystemType
 
 
 class APIKeyDB(Base):
 	__tablename__ = 'api_keys'
 
-	id = Column(Integer, primary_key=True, index=True)
-	user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
-	api_key = Column(String(512), nullable=False, unique=True)
-	service_type = Column(Enum(TicketingSystemType), nullable=False)
-	domain = Column(String(255), nullable=False)
-	domain_email = Column(String(255), nullable=False)
-	created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-	expires_at = Column(DateTime(timezone=True), nullable=True)
+	id: Mapped[int] = mapped_column(init=False, primary_key=True)
+	user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
+	api_key: Mapped[str] = mapped_column(String(512), unique=True)
+	service_type: Mapped[TicketingSystemType] = mapped_column()
+	domain: Mapped[str] = mapped_column()
+	domain_email: Mapped[str] = mapped_column()
+	created_at: Mapped[datetime] = mapped_column(default_factory=utc_now)
+	expires_at: Mapped[datetime] = mapped_column(
+		default_factory=lambda: utc_now() + timedelta(days=1)
+	)
 
 	# Relationships
 	user = relationship('UserDB', back_populates='api_keys')
@@ -27,4 +29,4 @@ class APIKeyDB(Base):
 	)
 
 	def __repr__(self):
-		return f'<APIKey(id={self.id}, user_id={self.user_id}, api_key={self.api_key})>'
+		return f'<APIKey(id={self.id!r}, user_id={self.user_id!r}, api_key={self.api_key!r})>'

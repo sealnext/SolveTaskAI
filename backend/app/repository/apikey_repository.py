@@ -4,10 +4,10 @@ from typing import List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dto.api_key import APIKey
 from app.model.api_key import APIKeyDB
 from app.model.associations import api_key_project_association
 from app.model.project import ProjectDB
-from app.schema.api_key import APIKey
 from app.service.ticketing.enums import TicketingSystemType
 
 

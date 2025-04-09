@@ -4,8 +4,8 @@ from typing import List
 
 from fastapi import HTTPException, status
 
+from app.dto.api_key import APIKey, APIKeyCreate, APIKeyResponse
 from app.repository.apikey_repository import APIKeyRepository
-from app.schema.api_key import APIKey, APIKeyCreate, APIKeyResponse
 
 logger = getLogger(__name__)
 
