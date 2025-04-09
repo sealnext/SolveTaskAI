@@ -7,9 +7,9 @@ from typing import Any, AsyncIterator, Dict, List, Union
 from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
 
+from app.dto.document_embeddings import DocumentEmbedding
 from app.misc.config import OPENAI_EMBEDDING_MODEL
 from app.misc.database.postgres import async_db_engine
-from app.schema.document_embeddings import DocumentEmbedding
 
 # Configure logging
 logger = getLogger(__name__)

@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.agent.ticket_agent.graph import create_ticket_agent
 from app.dependencies import get_api_key_repository, get_project_service
+from app.dto.status import StatusSchema
 from app.repository.apikey_repository import APIKeyRepository
-from app.schema.status import StatusSchema
 from app.service.project_service import ProjectService
 
 router = APIRouter(prefix='/ticketing', tags=['ticketing'])

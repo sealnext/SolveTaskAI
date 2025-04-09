@@ -1,6 +1,6 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class TicketingSystemType(str, Enum):
+class TicketingSystemType(StrEnum):
 	JIRA = 'jira'
 	AZURE = 'azure'

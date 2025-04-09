@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request, status
 
 from app.dependencies import get_apikey_service, get_user_service
-from app.schema.api_key import APIKeyCreate
+from app.dto.api_key import APIKeyCreate
 from app.service.apikey_service import APIKeyService
 from app.service.user_service import UserService
 

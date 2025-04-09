@@ -4,6 +4,7 @@ from fastapi import Depends
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dto.api_key import APIKey
 from app.misc.database.pool import db_pool
 from app.misc.database.postgres import get_db_session
 from app.repository.apikey_repository import APIKeyRepository
@@ -11,7 +12,6 @@ from app.repository.document_embeddings_repository import DocumentEmbeddingsRepo
 from app.repository.project_repository import ProjectRepository
 from app.repository.thread_repository import ThreadRepository
 from app.repository.user_repository import UserRepository
-from app.schema.api_key import APIKey
 from app.service.apikey_service import APIKeyService
 from app.service.document_embeddings_service import DocumentEmbeddingsService
 from app.service.project_service import ProjectService

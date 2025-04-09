@@ -22,9 +22,9 @@ from langgraph.types import Command
 
 from app.agent.graph import create_agent_graph
 from app.agent.state import AgentState
+from app.dto.api_key import APIKey
+from app.dto.project import Project
 from app.repository.thread_repository import ThreadRepository
-from app.schema.api_key import APIKey
-from app.schema.project import Project
 from app.service.ticketing.client import BaseTicketingClient
 
 logger = getLogger(__name__)

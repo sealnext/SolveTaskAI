@@ -5,9 +5,9 @@ import httpx
 from httpx import Limits, Timeout
 from pydantic import BaseModel
 
+from app.dto.api_key import APIKey
+from app.dto.project import Project
 from app.misc.settings import jira_settings
-from app.schema.api_key import APIKey
-from app.schema.project import Project
 from app.service.ticketing.client import BaseTicketingClient
 from app.service.ticketing.enums import TicketingSystemType
 from app.service.ticketing.implementations.azure import AzureClient

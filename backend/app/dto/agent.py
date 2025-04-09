@@ -3,7 +3,7 @@ from typing import Any, Literal, NotRequired
 from pydantic import BaseModel, Field, SerializeAsAny
 from typing_extensions import TypeAlias, TypedDict
 
-from app.schema.llm_model import AnthropicModelName, OpenAIModelName
+from app.dto.llm_model import AnthropicModelName, OpenAIModelName
 
 AllModelEnum: TypeAlias = OpenAIModelName | AnthropicModelName
 

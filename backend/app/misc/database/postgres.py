@@ -1,3 +1,4 @@
+from asyncio import shield
 from logging import getLogger
 from typing import AsyncGenerator
 
@@ -27,13 +28,13 @@ async_db_session_factory = async_sessionmaker(
 )
 
 
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_async_db_session() -> AsyncGenerator[AsyncSession, None]:
 	async with async_db_session_factory() as session:
 		try:
 			yield session
-			await session.commit()
+			await shield(session.commit())
 		except Exception as e:
-			await session.rollback()
+			await shield(session.rollback())
 			raise
 		finally:
 			await session.close()

@@ -10,8 +10,8 @@ from starlette.status import (
 )
 
 from app.repository.project_repository import ProjectRepository
-from app.schema.project import Project, ProjectCreate, ProjectResponse
-from app.schema.api_key import APIKey
+from app.dto.project import Project, ProjectCreate, ProjectResponse
+from app.dto.api_key import APIKey
 
 logger = getLogger(__name__)
 

@@ -5,9 +5,9 @@ import httpx
 from fastapi import HTTPException, status
 from pydantic import BaseModel, ValidationError
 
-from app.schema.api_key import APIKey
-from app.schema.project import ExternalProject, Project
-from app.schema.ticket import JiraIssueSchema
+from app.dto.api_key import APIKey
+from app.dto.project import ExternalProject, Project
+from app.dto.ticket import JiraIssueSchema
 
 
 class BaseTicketingClient(ABC):
