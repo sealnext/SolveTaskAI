@@ -5,24 +5,22 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies import (
 	get_api_key_repository,
+	get_apikey_service,
 	get_document_embeddings_service,
 	get_project_service,
-	get_user_service,
 	get_ticketing_factory,
-	get_apikey_service,
+	get_user_service,
 )
 from app.dto.api_key import APIKey
-from app.dto.project import ExternalProject, ProjectCreate
-from app.repository.apikey_repository import APIKeyRepository
-from app.dto.api_key import APIKey
-from app.dto.project import ProjectCreate, ExternalProject, ProjectResponse
+from app.dto.project import ExternalProject, ProjectCreate, ProjectResponse
 from app.dto.user import UserRead
+from app.repository.apikey_repository import APIKeyRepository
+from app.service.apikey_service import APIKeyService
 from app.service.document_embeddings_service import DocumentEmbeddingsService
 from app.service.project_service import ProjectService
-from app.service.user_service import UserService
-from app.service.apikey_service import APIKeyService
-from app.service.ticketing.factory import TicketingClientFactory
 from app.service.ticketing.client import BaseTicketingClient
+from app.service.ticketing.factory import TicketingClientFactory
+from app.service.user_service import UserService
 
 logger = getLogger(__name__)
 
@@ -101,10 +99,10 @@ async def get_all_internal_projects(
 
 @router.delete('/internal/{project_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_internal_project(
-    project_id: int,
-    project_service: ProjectService = Depends(get_project_service),
-    embeddings_service: DocumentEmbeddingsService = Depends(get_document_embeddings_service),
-    user_service: UserService = Depends(get_user_service),
+	project_id: int,
+	project_service: ProjectService = Depends(get_project_service),
+	embeddings_service: DocumentEmbeddingsService = Depends(get_document_embeddings_service),
+	user_service: UserService = Depends(get_user_service),
 ) -> None:
 	"""
 	Delete an internal project and its associated documents.
@@ -118,7 +116,7 @@ async def delete_internal_project(
 
 	if project_was_deleted:
 		await embeddings_service.delete_documents(
-            domain=project.domain,
-            project_key=project.key,
-            external_id=str(project.external_id),
-        )
+			domain=project.domain,
+			project_key=project.key,
+			external_id=str(project.external_id),
+		)
