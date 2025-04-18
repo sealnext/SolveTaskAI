@@ -16,8 +16,8 @@ from app.dependency import (
 	get_thread_repository,
 	get_ticketing_client_factory,
 )
-from app.dto.api_key import ApiKey
 from app.dto.agent import AgentStreamInput
+from app.dto.api_key import ApiKey
 from app.dto.project import Project
 from app.repository.api_key import ApiKeyRepository
 from app.repository.thread import ThreadRepository

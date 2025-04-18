@@ -3,7 +3,8 @@ from typing import Annotated, Any, Dict, Literal, Sequence, TypedDict
 
 from langchain_core.messages import AnyMessage
 from langgraph.graph import add_messages
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+
 
 class TicketAgentState(BaseModel):
 	"""State for the ticket agent."""
@@ -22,6 +23,7 @@ class ReviewAction(str, Enum):
 
 	CONFIRM = 'confirm'  # Proceed with operation as is
 	CANCEL = 'cancel'  # Cancel the entire operation
+
 
 class ReviewConfig(TypedDict):
 	"""Configuration for review workflows."""

@@ -23,25 +23,19 @@ def _set_session_cookie(response: Response, session_token: str) -> None:
 
 
 @router.post('/login')
-async def login(
-	auth_service: AuthServiceDep,
-	user_dto: UserLogin,
-	response: Response,
-):
+async def login(auth_service: AuthServiceDep, user_dto: UserLogin):
 	session_token: str = await auth_service.login(user_dto)
+	response = RedirectResponse('/')
 	_set_session_cookie(response, session_token)
-	return RedirectResponse('/')
+	return response
 
 
 @router.post('/signup')
-async def signup(
-	auth_service: AuthServiceDep,
-	user_dto: UserCreateByPassword,
-	response: Response,
-):
+async def signup(auth_service: AuthServiceDep, user_dto: UserCreateByPassword):
 	session_token: str = await auth_service.register(user_dto)
+	response = RedirectResponse('/')
 	_set_session_cookie(response, session_token)
-	return RedirectResponse('/')
+	return response
 
 
 # @router.post('/login/google', response_class=RedirectResponse)

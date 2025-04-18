@@ -1,13 +1,15 @@
 import logging
-from typing import Any, Tuple
-import httpx
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, Dict, List
+from typing import Any, AsyncGenerator, Dict, List
+
+import httpx
+
 from app.dto.api_key import ApiKey
-from app.dto.project import Project, ExternalProject
+from app.dto.project import ExternalProject, Project
 from app.dto.ticket import JiraIssueSchema
 
 logger = logging.getLogger(__name__)
+
 
 class BaseTicketingClient(ABC):
 	DEFAULT_TIMEOUT: int = 45
@@ -43,7 +45,7 @@ class BaseTicketingClient(ABC):
 		    Exception: Any other unexpected error during the request.
 		"""
 		timeout = timeout or self.DEFAULT_TIMEOUT
-		logger.debug(f"Making request: {method} {url}")
+		logger.debug(f'Making request: {method} {url}')
 
 		response = await self.http_client.request(method, url, timeout=timeout, **kwargs)
 

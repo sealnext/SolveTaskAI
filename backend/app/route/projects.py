@@ -108,13 +108,13 @@ async def delete_internal_project(
 	Delete an internal project and its associated documents.
 	"""
 	# TODO AFTER AUTH REFACTOR
-	user: UserLogin = await user_service.get_user_by_email('ovidiu@sealnext.com')
+	# user: UserDB = await user_service.get_user_by_email(Email(email='ovidiu@sealnext.com'))
 
-	project_was_deleted = await project_service.delete_project_by_id(user.id, project_id)
+	# project_was_deleted = await project_service.delete_project_by_id(user.id, project_id)
 
-	if project_was_deleted:
-		await embeddings_service.delete_documents(
-			domain=project.domain,
-			project_key=project.key,
-			external_id=str(project.external_id),
-		)
+	# if project_was_deleted:
+	# 	await embeddings_service.delete_documents(
+	# 		domain=project.domain,
+	# 		project_key=project.key,
+	# 		external_id=str(project.external_id),
+	# 	)
