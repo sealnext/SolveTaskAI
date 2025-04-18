@@ -235,57 +235,13 @@ async def _handle_create_confirmation(
 		try:
 			payload = review_response.get('payload', {})
 
-			# Ensure payload is a dictionary
-			if not isinstance(payload, dict):
-				payload = {}
-
-			# Ensure fields exists in payload
-			if 'fields' not in payload:
-				payload['fields'] = {}
-
-			# Ensure update exists in payload
-			if 'update' not in payload:
-				payload['update'] = {}
-
-			# Ensure issuetype exists in fields with proper structure, defaulting to Task if not provided
-			if 'issuetype' not in payload['fields']:
-				payload['fields']['issuetype'] = {'name': 'Task'}
-			elif (
-				isinstance(payload['fields']['issuetype'], dict)
-				and 'name' not in payload['fields']['issuetype']
-			):
-				payload['fields']['issuetype']['name'] = 'Task'
-			elif not isinstance(payload['fields']['issuetype'], dict):
-				payload['fields']['issuetype'] = {'name': 'Task'}
-
-			# Ensure project exists in fields, defaulting to the project key from the client
 			if 'project' not in payload['fields']:
 				payload['fields']['project'] = {'key': client.project.key}
 
-			# Store the final payload for reporting
-			final_payload = {
-				'fields': {k: v for k, v in payload['fields'].items()},
-				'update': {k: v for k, v in payload['update'].items()},
-			}
-
-			# Create the ticket
 			result = await client.create_ticket(payload)
+			formatted_payload = json.dumps(result, indent=2)
+			return formatted_payload
 
-			# Check if there was an error
-			if 'error' in result:
-				return f'Failed to create ticket: {result["error"]}'
-
-			# Format the payload for better readability
-			formatted_payload = json.dumps(final_payload, indent=2)
-
-			# Success case with payload information
-			return (
-				f'Successfully created ticket: {result.get("url", "")}\n'
-				f'Give the user the url so he can see it\n'
-				f'The following fields were submitted:\n```json\n{formatted_payload}\n```\n'
-				f'Note: Some fields may differ from what was requested.'
-				f'Please inform the user about these differences and what was actually submitted. Tell the user that only the submitted fields were created'
-			)
 		except Exception as e:
 			return f'Failed to create ticket: {str(e)}'
 
@@ -558,9 +514,8 @@ async def handle_edit_error(e: Exception, tool_call_id: str, field_values: Dict)
 
 async def handle_account_search(client: BaseTicketingClient, value: str) -> str:
 	"""Handle Jira account search logic."""
-	result = await client.search_user(value)
-	total = result.get('total', 0)
-	users = result.get('users', [])
+	users = await client.search_user(value)
+	total = len(users)
 
 	if total == 1:
 		return f'Success! Use this accountId instead of the username: {users[0]["accountId"]}'
@@ -603,7 +558,6 @@ async def prepare_creation_fields(
 	"""Fetch and prepare available fields for ticket creation using createmeta."""
 	metadata = await client.get_issue_createmeta(project_key, issue_type)
 
-	# Procesăm și filtrăm câmpurile într-un singur loc
 	processed_fields = {}
 	for field_id, field_data in metadata['fields'].items():
 		# Skip empty fields
@@ -619,7 +573,6 @@ async def prepare_creation_fields(
 			'required': field_data.get('required', False),
 		}
 
-		# Adăugăm allowed values doar dacă există și nu sunt goale
 		if field_data.get('allowedValues'):
 			if field_id in ['priority', 'issuetype']:
 				field_info['allowedValues'] = [
@@ -628,11 +581,9 @@ async def prepare_creation_fields(
 			else:
 				field_info['allowedValues'] = field_data['allowedValues']
 
-		# Adăugăm schema doar dacă există și nu e goală
 		if field_data.get('schema') and field_data['schema'] != {}:
 			field_info['schema'] = field_data['schema']
 
-		# Adăugăm autoCompleteUrl doar dacă există
 		if field_data.get('autoCompleteUrl'):
 			field_info['autoCompleteUrl'] = field_data['autoCompleteUrl']
 

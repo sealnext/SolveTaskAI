@@ -158,7 +158,7 @@ class JiraClient(BaseTicketingClient):
 						exc_info=True,
 					)
 					raise HTTPException(
-						status.e.response.status_code,
+						e.response.status_code,
 						detail=f'Failed to fetch projects: {e.response.text}',
 					)
 			except Exception as e:
@@ -363,7 +363,7 @@ class JiraClient(BaseTicketingClient):
 				f'Delete request for {ticket_id} returned unexpected status {response.status_code}'
 			)
 			raise HTTPException(
-				status.response.status_code,
+				response.status_code,
 				detail=f'Unexpected status code {response.status_code} during deletion.',
 			)
 
@@ -398,7 +398,7 @@ class JiraClient(BaseTicketingClient):
 			logger.error(
 				f'Error deleting ticket {ticket_id} (Status {status_code}): {user_message}'
 			)
-			raise HTTPException(status.status_code, detail=user_message)
+			raise HTTPException(status_code, detail=user_message)
 		except Exception as e:
 			logger.error(f'Unexpected error deleting ticket {ticket_id}: {str(e)}')
 			raise HTTPException(
@@ -444,7 +444,7 @@ class JiraClient(BaseTicketingClient):
 			logger.error(
 				f'Error fetching edit metadata for {ticket_id} (Status {status_code}): {detail}'
 			)
-			raise HTTPException(status.status_code, detail=detail)
+			raise HTTPException(status_code, detail=detail)
 		except Exception as e:
 			logger.error(f'Unexpected error fetching edit metadata for {ticket_id}: {str(e)}')
 			raise HTTPException(
@@ -488,7 +488,7 @@ class JiraClient(BaseTicketingClient):
 				detail = 'Jira authentication failed.'
 
 			logger.error(f'Error fetching fields for {ticket_id} (Status {status_code}): {detail}')
-			raise HTTPException(status.status_code, detail=detail)
+			raise HTTPException(status_code, detail=detail)
 		except Exception as e:
 			logger.error(f'Unexpected error fetching fields for {ticket_id}: {str(e)}')
 			raise HTTPException(
@@ -534,7 +534,7 @@ class JiraClient(BaseTicketingClient):
 				detail = f'Invalid user search request: {e.response.text}'
 
 			logger.error(f'Error searching users (Status {status_code}): {detail}')
-			raise HTTPException(status.status_code, detail=detail)
+			raise HTTPException(status_code, detail=detail)
 		except Exception as e:
 			logger.error(f'Unexpected error searching users: {str(e)}')
 			raise HTTPException(
@@ -603,7 +603,7 @@ class JiraClient(BaseTicketingClient):
 					detail = 'Jira authentication failed.'
 
 				logger.error(f'Error fetching project boards (Status {status_code}): {detail}')
-				raise HTTPException(status.status_code, detail=detail)
+				raise HTTPException(status_code, detail=detail)
 			except Exception as e:
 				logger.error(
 					f'Unexpected error fetching project boards for {project_key_or_id}: {str(e)}'
@@ -670,7 +670,7 @@ class JiraClient(BaseTicketingClient):
 					detail = 'Jira authentication failed.'
 
 				logger.error(f'Error fetching board sprints (Status {status_code}): {detail}')
-				raise HTTPException(status.status_code, detail=detail)
+				raise HTTPException(status_code, detail=detail)
 			except Exception as e:
 				logger.error(f'Unexpected error fetching sprints for board {board_id}: {str(e)}')
 				raise HTTPException(
@@ -806,7 +806,7 @@ class JiraClient(BaseTicketingClient):
 				detail = f'Permission denied to search issues in project {project_key}.'
 
 			logger.error(f'Error searching issues (Status {status_code}): {detail}')
-			raise HTTPException(status.status_code, detail=detail)
+			raise HTTPException(status_code, detail=detail)
 		except Exception as e:
 			logger.error(f'Unexpected error searching issues in project {project_key}: {str(e)}')
 			raise HTTPException(
@@ -896,7 +896,7 @@ class JiraClient(BaseTicketingClient):
 			logger.error(
 				f'Error updating ticket {ticket_id} (Status {status_code}): {user_message}'
 			)
-			raise HTTPException(status.status_code, detail=user_message)
+			raise HTTPException(status_code, detail=user_message)
 		except Exception as e:
 			logger.error(f'Unexpected error updating ticket {ticket_id}: {str(e)}')
 			raise HTTPException(
@@ -1012,7 +1012,7 @@ class JiraClient(BaseTicketingClient):
 				detail = f'Permission denied to fetch createmeta for project {project_key}.'
 
 			logger.error(f'Error fetching createmeta (Status {status_code}): {detail}')
-			raise HTTPException(status.status_code, detail=detail)
+			raise HTTPException(status_code, detail=detail)
 		except Exception as e:
 			logger.error(
 				f'Unexpected error fetching createmeta for {project_key}/{issue_type_name}: {str(e)}'
@@ -1023,99 +1023,34 @@ class JiraClient(BaseTicketingClient):
 			)
 
 	async def create_ticket(self, payload: dict) -> dict:
-		"""Create a new Jira ticket using the provided payload.
-
-		The payload should conform to the Jira API structure, typically:
-		{
-		    "fields": {
-		        "project": {"key": "PROJECT_KEY"},
-		        "issuetype": {"name": "Task"},
-		        "summary": "Ticket summary",
-		        "description": "Ticket description...",
-		        ... other fields ...
-		    }
-		}
+		"""
+		Creates a Jira ticket.
 
 		Args:
-		    payload: Dictionary representing the ticket creation request body.
+		    payload: The request body for ticket creation.
 
 		Returns:
-		    Dictionary containing the key and URL of the created ticket, or an error message.
-		    Example success: {"key": "PROJ-123", "url": "https://domain.atlassian.net/browse/PROJ-123"}
-		    Example error: {"error": "Failed to create ticket: ..."}
+		    A dictionary with 'key', 'id', and 'url' of the created ticket.
 
 		Raises:
-		    HTTPException: Can be raised by underlying _make_request on severe errors.
+		    HTTPException: If the input payload is invalid.
+		    ValueError: If the successful response from Jira is missing expected fields ('key', 'id').
+		    httpx.HTTPStatusError: If Jira returns a 4xx or 5xx status.
+		    httpx.RequestError: If there's a connection error, timeout, etc.
+		    json.JSONDecodeError: If Jira's response is not valid JSON.
+		    Exception: For any other unexpected errors.
 		"""
-		if not payload or not isinstance(payload, dict) or 'fields' not in payload:
-			logger.error(f'Invalid payload for ticket creation: {payload}')
-			raise HTTPException(
-				status.HTTP_400_BAD_REQUEST,
-				detail="Invalid payload format for ticket creation. 'fields' key is required.",
-			)
-
 		url = self._build_url('issue')
 
-		try:
-			# Use _make_request for potential automatic retries and consistent handling
-			response_data = await self._make_request(
-				'POST',
-				url,
-				headers=self._get_auth_headers(),
-				json_payload=payload,
-				timeout=30.0,
-			)
+		response_data = await self._make_request(
+			'POST',
+			url,
+			headers=self._get_auth_headers(),
+			json=payload,
+			timeout=30.0,
+		)
 
-			# Check if response_data indicates success (e.g., contains 'key')
-			if isinstance(response_data, dict) and 'key' in response_data:
-				ticket_key = response_data.get('key')
-				# Construct the browse URL using the domain from the API key
-				base_url = self.api_key.domain.rstrip('/')
-				browse_url = urljoin(base_url, f'/browse/{ticket_key}')
-				logger.info(f'Ticket {ticket_key} created successfully at {browse_url}')
-				return {
-					'key': ticket_key,
-					'url': browse_url,
-					'id': response_data.get('id'),
-				}
-			else:
-				# Handle cases where _make_request might return non-dict or unexpected success format
-				logger.error(
-					f'Ticket creation succeeded but response format unexpected: {response_data}'
-				)
-				# Attempt to extract key/id if possible, otherwise return generic success
-				key = (
-					response_data.get('key', 'UNKNOWN')
-					if isinstance(response_data, dict)
-					else 'UNKNOWN'
-				)
-				id_ = (
-					response_data.get('id', 'UNKNOWN')
-					if isinstance(response_data, dict)
-					else 'UNKNOWN'
-				)
-				return {
-					'key': key,
-					'id': id_,
-					'url': None,
-					'message': 'Ticket created, but response format was unexpected.',
-				}
-
-		except httpx.HTTPStatusError as e:
-			error_msg = self._parse_create_errors(e)
-			logger.error(f'Error creating ticket (Status {e.response.status_code}): {error_msg}')
-			# Return error in dict format instead of raising HTTPException directly
-			# This allows the caller (e.g., agent) to potentially handle specific errors
-			raise HTTPException(e.response.status_code, error_msg)
-			# return {"error": error_msg, "status_code": e.response.status_code}
-
-		except Exception as e:
-			logger.error(f'Unexpected error creating ticket: {str(e)}')
-			raise HTTPException(
-				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				detail=f'Unexpected error creating ticket: {str(e)}',
-			)
-			# return {"error": f"Unexpected error: {str(e)}", "status_code": 500}
+		return response_data
 
 	async def get_issue_types(
 		self, project_id: str | None = None, names_only: bool = False
@@ -1183,7 +1118,7 @@ class JiraClient(BaseTicketingClient):
 				detail = f'Project with ID {target_project_id} not found.'
 
 			logger.error(f'Error fetching issue types (Status {status_code}): {detail}')
-			raise HTTPException(status.status_code, detail=detail)
+			raise HTTPException(status_code, detail=detail)
 		except Exception as e:
 			project_context = f' for project {target_project_id}' if target_project_id else ''
 			logger.error(f'Unexpected error fetching issue types{project_context}: {str(e)}')
@@ -1215,24 +1150,3 @@ class JiraClient(BaseTicketingClient):
 		except Exception:
 			# If response is not JSON or parsing fails
 			return e.response.text
-
-	def _handle_400_error(self, e: httpx.HTTPStatusError) -> str:
-		"""Provides more specific feedback for common 400 errors."""
-		try:
-			error_data = e.response.json()
-			messages = error_data.get('errorMessages', [])
-			errors = error_data.get('errors', {})
-			if messages:
-				# Check for common patterns
-				msg_str = '. '.join(messages).lower()
-				if 'project id is required' in msg_str:
-					return 'Project ID is missing or invalid in the request.'
-				if 'issue type is required' in msg_str:
-					return 'Issue Type is missing or invalid in the request.'
-				return f'Bad Request: {". ".join(messages)}'
-			if errors:
-				field_errors = [f"Field '{k}': {v}" for k, v in errors.items()]
-				return f'Invalid field(s): {"; ".join(field_errors)}'
-			return f'Bad Request: {e.response.text}'  # Fallback
-		except Exception:
-			return f'Bad Request: {e.response.text}'  # Fallback if not JSON

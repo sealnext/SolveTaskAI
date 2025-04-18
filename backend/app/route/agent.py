@@ -17,6 +17,7 @@ from app.dependency import (
 	get_ticketing_client_factory,
 )
 from app.dto.api_key import ApiKey
+from app.dto.agent import AgentStreamInput
 from app.dto.project import Project
 from app.repository.api_key import ApiKeyRepository
 from app.repository.thread import ThreadRepository
@@ -41,7 +42,7 @@ async def get_threads(
 @router.post('/stream')
 async def stream(
 	request: Request,
-	user_input: dict,
+	user_input: AgentStreamInput,
 	checkpointer: AsyncPostgresSaver = Depends(get_db_checkpointer),
 	factory: TicketingClientFactory = Depends(get_ticketing_client_factory),
 	thread_repo: ThreadRepository = Depends(get_thread_repository),
@@ -50,16 +51,8 @@ async def stream(
 ) -> StreamingResponse:
 	"""Stream responses from the agent."""
 	user_id = get_user_id(request)
-	if not user_input.get('project_id'):
-		raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Project ID is required')
 
-	# if the message is empty, check if the "action" is present
-	if not (user_input.get('message') or user_input.get('action')):
-		raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Message or action is required')
-
-	project: Project = await project_service.get_project_by_id(
-		user_id, user_input.get('project_id')
-	)
+	project: Project = await project_service.get_project_by_id(user_id, user_input.project_id)
 	api_key: ApiKey = await api_key_repository.get_api_key_by_user_and_project(user_id, project.id)
 	client = factory.get_client(api_key, project)
 
