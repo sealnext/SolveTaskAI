@@ -66,7 +66,7 @@ async def ticket_tool(
 # we invoke the subgraph tool node to handle the checkpointer propagation
 def tools_condition(
 	state: Union[list[AnyMessage], dict[str, Any], BaseModel],
-) -> Literal['tools', 'ticket_agent', '__end__']:
+) -> Literal['tools', 'ticket_agent', 'rag_agent', '__end__']:
 	if isinstance(state, list):
 		ai_message = state[-1]
 	elif isinstance(state, dict) and (messages := state.get('messages', [])):

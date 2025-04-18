@@ -13,6 +13,7 @@ from app.dependency import (
 )
 from app.dto.api_key import ApiKey
 from app.dto.project import ExternalProject, ProjectCreate, ProjectResponse
+from app.dto.user import UserLogin
 from app.repository.api_key import ApiKeyRepository
 from app.service.apikey import ApiKeyService
 from app.service.document_embeddings import DocumentEmbeddingsService
@@ -39,8 +40,9 @@ async def get_external_project_by_api_key(
 	Get external projects (JIRA, AZURE, etc) for a specific api key.
 	"""
 	# TODO AFTER AUTH REFACTOR
-	user_id = 0
-	api_key: ApiKey = await api_key_service.get_api_key_by_id_and_user(api_key_id, user_id)
+	user: UserLogin = await user_service.get_user_by_email('ovidiubachmatchi@gmail.com')
+
+	api_key: ApiKey = await api_key_service.get_api_key_by_id_and_user(api_key_id, user.id)
 
 	client: BaseTicketingClient = factory.get_client(api_key)
 	projects: List[ExternalProject] = await client.get_projects()
@@ -60,14 +62,15 @@ async def add_internal_project(
 	Add and embed documents for a new project.
 	"""
 	# TODO AFTER AUTH REFACTOR
-	user_id = 0
+	user: UserLogin = await user_service.get_user_by_email('ovidiubachmatchi@gmail.com')
+
 	api_key: ApiKey | None = await api_key_repository.get_by_id_and_user(
-		project.api_key_id, user_id
+		project.api_key_id, user.id
 	)
 	if api_key is None:
 		raise HTTPException(status.HTTP_404_NOT_FOUND, 'API key not found')
 
-	new_project, is_new_project = await project_service.save_project(project, user_id, api_key)
+	new_project, is_new_project = await project_service.save_project(project, user.id, api_key)
 
 	if is_new_project:
 		await embeddings_service.add_documents(
@@ -89,8 +92,8 @@ async def get_all_internal_projects(
 	Get all internal projects for the current user.
 	"""
 	# TODO AFTER AUTH REFACTOR
-	user_id = 0
-	projects = await project_service.get_all_for_user(user_id)
+	user: UserLogin = await user_service.get_user_by_email('ovidiubachmatchi@gmail.com')
+	projects = await project_service.get_all_for_user(user.id)
 	return projects
 
 
@@ -105,10 +108,9 @@ async def delete_internal_project(
 	Delete an internal project and its associated documents.
 	"""
 	# TODO AFTER AUTH REFACTOR
-	user_id = 0
-	project = await project_service.get_project_by_id(user_id, project_id)
+	user: UserLogin = await user_service.get_user_by_email('ovidiu@sealnext.com')
 
-	project_was_deleted = await project_service.delete_project_by_id(user_id, project_id)
+	project_was_deleted = await project_service.delete_project_by_id(user.id, project_id)
 
 	if project_was_deleted:
 		await embeddings_service.delete_documents(

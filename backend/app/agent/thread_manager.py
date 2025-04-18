@@ -8,7 +8,7 @@ streaming responses, and handling various conversation-related operations for th
 import json
 from datetime import datetime, timezone
 from logging import getLogger
-from typing import AsyncGenerator, Tuple
+from typing import AsyncGenerator, Optional, Tuple
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, Request, status
@@ -23,11 +23,23 @@ from langgraph.types import Command
 from app.agent.graph import create_agent_graph
 from app.agent.state import AgentState
 from app.dto.api_key import ApiKey
+from app.dto.agent import AgentStreamInput
 from app.dto.project import Project
 from app.repository.thread import ThreadRepository
 from app.service.ticketing.client import BaseTicketingClient
 
 logger = getLogger(__name__)
+
+# Constants for Event Handling (langgraph)
+EV_CHAT_MODEL_END = 'on_chat_model_end'
+EV_CUSTOM = 'on_custom_event'
+EV_CHAIN_STREAM = 'on_chain_stream'
+EV_CHAT_MODEL_STREAM = 'on_chat_model_stream'
+EV_NAME_AGENT_PROGRESS = 'agent_progress'
+META_LANGGRAPH_NODE = 'langgraph_node'
+META_CHECKPOINT_NS = 'checkpoint_ns'
+NODE_AGENT = 'agent'
+KEY_INTERRUPT = '__interrupt__'
 
 
 def get_user_id(request: Request) -> str:
@@ -41,64 +53,113 @@ def get_user_id(request: Request) -> str:
 
 
 async def parse_input(
-	user_input: dict,
+	user_input: AgentStreamInput,
 	user_id: str,
-	checkpointer: AsyncPostgresSaver,
 	thread_repo: ThreadRepository,
-) -> Tuple[list[BaseMessage], RunnableConfig, UUID]:
+) -> Tuple[list[BaseMessage], RunnableConfig, UUID, str]:
 	"""
-	Parse user input and prepare messages and configuration for the graph.
+	Parse user input, handle thread creation/update, and prepare messages/config.
 
 	Args:
-	    user_input: Input from the user
+	    user_input: Input from the user (AgentStreamInput model)
 	    user_id: User ID
 	    checkpointer: AsyncPostgresSaver instance
 	    thread_repo: Thread repository instance
 
 	Returns:
-	    Tuple containing initial messages, configuration and run ID
+	    Tuple containing initial messages, configuration, run ID, and thread ID
 	"""
-	run_id = uuid4()
-	thread_id = user_input.get('thread_id', str(uuid4()))
+	thread_id = user_input.thread_id
 
-	thread = await thread_repo.get(thread_id)
-
-	if not thread and user_input.get('thread_id'):
-		raise HTTPException(
-			status.HTTP_404_NOT_FOUND,
-			f'Thread with id {thread_id} not found',
-		)
-	elif not thread:
-		# Create a new thread-user association
+	if thread_id is None:
+		# Generate a new thread ID and create the thread record
+		thread_id = str(uuid4())
+		logger.info(f'No thread_id provided, creating new thread: {thread_id}')
 		await thread_repo.create(thread_id, user_id)
 	else:
-		# Update timestamp for existing thread
+		# Validate the provided thread ID and update its timestamp
+		thread = await thread_repo.get(thread_id)
+		if not thread:
+			raise HTTPException(
+				status.HTTP_404_NOT_FOUND,
+				f'Thread with id {thread_id} not found',
+			)
 		await thread_repo.update_timestamp(thread_id)
 
-	configurable = {
-		'thread_id': thread_id,
-		'checkpoint_ns': '',
-	}
-
-	config = RunnableConfig(
-		configurable=configurable,
-		metadata={
-			'user_id': user_id,
-			'updated_at': datetime.now(timezone.utc).isoformat(),
-		},
-		run_id=run_id,
-	)
-
-	# Modified message handling
 	initial_messages = []
-	if 'message' in user_input:
-		initial_messages.append(HumanMessage(content=user_input['message'], type='human'))
+	if user_input.message is not None:
+		initial_messages.append(HumanMessage(content=user_input.message, type='human'))
 
-	return initial_messages, config, run_id, thread_id
+	return initial_messages, thread_id
+
+
+# --- Helper functions for message_generator ---
+def _format_sse(data: dict) -> str:
+	"""Formats data as a Server-Sent Event string."""
+	return f'data: {json.dumps(data)}\n\n'
+
+
+def _handle_final_message(event: dict, thread_id: str) -> Optional[str]:
+	"""Handles 'on_chat_model_end' events from the agent node."""
+	metadata = event.get('metadata', {})
+	if metadata.get(META_LANGGRAPH_NODE) == NODE_AGENT and metadata.get(
+		META_CHECKPOINT_NS, ''
+	).startswith(NODE_AGENT):
+		final_content = event.get('data', {}).get('output', {}).content
+		if final_content:
+			return _format_sse(
+				{'type': 'final', 'content': final_content, 'thread_id': str(thread_id)}
+			)
+	return None
+
+
+def _handle_progress_event(event: dict, thread_id: str) -> Optional[str]:
+	"""Handles 'agent_progress' custom events."""
+	data = event.get('data', {})
+	if message := data.get('message'):
+		return _format_sse({'type': 'progress', 'content': message, 'thread_id': str(thread_id)})
+	return None
+
+
+def _handle_interrupt_event(event: dict, thread_id: str) -> Optional[str]:
+	"""
+	Handles interrupt events within 'on_chain_stream'.
+	Langgraph interrupts are often nested within the 'chunk' tuple: (..., {'__interrupt__': (InterruptObject, ...)})
+	"""
+	chunk = event.get('data', {}).get('chunk', {})
+	if isinstance(chunk, tuple) and len(chunk) == 2 and isinstance(chunk[1], dict):
+		interrupt_data = chunk[1].get(KEY_INTERRUPT)
+		if (
+			isinstance(interrupt_data, tuple)
+			and len(interrupt_data) > 0
+			and hasattr(interrupt := interrupt_data[0], 'value')
+			and hasattr(interrupt, 'resumable')
+		):
+			return _format_sse(
+				{
+					'type': 'interrupt',
+					'resumable': interrupt.resumable,
+					'content': interrupt.value,
+					'thread_id': str(thread_id),
+				}
+			)
+	return None
+
+
+def _handle_stream_event(event: dict, thread_id: str) -> Optional[str]:
+	"""Handles 'on_chat_model_stream' events from the agent node."""
+	metadata = event.get('metadata', {})
+	if metadata.get(META_LANGGRAPH_NODE) == NODE_AGENT and metadata.get(
+		META_CHECKPOINT_NS, ''
+	).startswith(NODE_AGENT):
+		chunk = event.get('data', {}).get('chunk')
+		if chunk and chunk.content:
+			return _format_sse({'type': 'stream', 'content': chunk.content})
+	return None
 
 
 async def message_generator(
-	user_input: dict,
+	user_input: AgentStreamInput,
 	user_id: str,
 	project: Project,
 	api_key: ApiKey,
@@ -106,26 +167,24 @@ async def message_generator(
 	thread_repo: ThreadRepository,
 	ticketing_client: BaseTicketingClient,
 ) -> AsyncGenerator[str, None]:
+	"""Generates Server-Sent Events for the agent's response stream."""
+	thread_id = None
 	try:
-		logger.info('Starting message_generator')
-
-		logger.info('Parsing input...')
-		messages, config, run_id, thread_id = await parse_input(
-			user_input, user_id, checkpointer, thread_repo
-		)
-		logger.info(f'Input parsed successfully. Thread ID: {thread_id}')
+		messages, thread_id = await parse_input(user_input, user_id, thread_repo)
 
 		graph = create_agent_graph(checkpointer, ticketing_client)
 
-		if user_input.get('action') == 'confirm':
+		# Determine initial state
+		if user_input.action == 'confirm':
+			ticket_data = user_input.ticket
 			initial_state = Command(
 				resume={
 					'action': 'confirm',
-					'payload': user_input.get('payload'),
-					'ticket': user_input.get('ticket'),
+					'payload': user_input.payload,
+					'ticket': ticket_data,
 				}
 			)
-		elif user_input.get('action') == 'cancel':
+		elif user_input.action == 'cancel':
 			initial_state = Command(resume={'action': 'cancel'})
 		else:
 			initial_state = AgentState(
@@ -134,92 +193,35 @@ async def message_generator(
 				api_key=api_key,
 			)
 
-		thread = {'configurable': {'thread_id': thread_id}}
+		thread_config = {'configurable': {'thread_id': thread_id}}
 
 		async for event in graph.astream_events(
-			initial_state, thread, version='v2', subgraphs=True
+			initial_state, thread_config, version='v2', subgraphs=True
 		):
 			if not event:
 				continue
 
-			# Handle final stream completed message from agent node
-			elif (
-				event.get('event') == 'on_chat_model_end'
-				and event['metadata']['langgraph_node'] == 'agent'
-				and event['metadata']['checkpoint_ns'].startswith('agent')
-			):
-				final_content = event['data']['output'].content
-				if final_content:
-					yield f'data: {
-						json.dumps(
-							{
-								"type": "final",
-								"content": final_content,
-								"thread_id": str(thread_id),
-							}
-						)
-					}\n\n'
-				continue
+			event_type = event.get('event')
+			sse_message = None
 
-			# Handle custom progress events
-			elif event.get('event') == 'on_custom_event' and event.get('name') == 'agent_progress':
-				data = event.get('data', {})
-				if data and 'message' in data:
-					yield f'data: {
-						json.dumps(
-							{
-								"type": "progress",
-								"content": data["message"],
-								"thread_id": str(thread_id),
-							}
-						)
-					}\n\n'
-					continue
+			# Dispatch to the appropriate handler based on event type
+			if event_type == EV_CHAT_MODEL_END:
+				sse_message = _handle_final_message(event, thread_id)
+			elif event_type == EV_CUSTOM and event.get('name') == EV_NAME_AGENT_PROGRESS:
+				sse_message = _handle_progress_event(event, thread_id)
+			elif event_type == EV_CHAIN_STREAM:
+				sse_message = _handle_interrupt_event(event, thread_id)
+			elif event_type == EV_CHAT_MODEL_STREAM:
+				sse_message = _handle_stream_event(event, thread_id)
 
-			# Handle interrupt events
-			elif event.get('event') == 'on_chain_stream':
-				chunk = event.get('data', {}).get('chunk', {})
-				if isinstance(chunk, tuple) and len(chunk) == 2 and isinstance(chunk[1], dict):
-					interrupt_data = chunk[1].get('__interrupt__')
-					if (
-						interrupt_data
-						and isinstance(interrupt_data, tuple)
-						and len(interrupt_data) > 0
-					):
-						interrupt = interrupt_data[0]
-						if hasattr(interrupt, 'value') and hasattr(interrupt, 'resumable'):
-							yield f'data: {
-								json.dumps(
-									{
-										"type": "interrupt",
-										"resumable": interrupt.resumable,
-										"content": interrupt.value,
-										"thread_id": str(thread_id),
-									}
-								)
-							}\n\n'
-							continue
+			if sse_message:
+				yield sse_message
 
-			# Handle stream events from agent node
-			elif event.get('event') == 'on_chat_model_stream':
-				if event['metadata']['langgraph_node'] == 'agent' and event['metadata'][
-					'checkpoint_ns'
-				].startswith('agent'):
-					chunk = event['data']['chunk']
-					if chunk.content:
-						yield f'data: {
-							json.dumps(
-								{
-									"type": "stream",
-									"content": chunk.content,
-								}
-							)
-						}\n\n'
-
-		yield f'data: {json.dumps({"type": "done", "thread_id": str(thread_id)})}\n\n'
+		yield _format_sse({'type': 'done', 'thread_id': str(thread_id)})
 
 	except Exception as e:
-		logger.error(f'Error in message generator: {e}', exc_info=True)
-		yield f'data: {
-			json.dumps({"type": "error", "content": str(e), "thread_id": str(thread_id)})
-		}\n\n'
+		logger.error(f'Error in message generator (Thread ID: {thread_id}): {e}', exc_info=True)
+		error_payload = {'type': 'error', 'content': str(e)}
+		if thread_id:
+			error_payload['thread_id'] = str(thread_id)
+		yield _format_sse(error_payload)

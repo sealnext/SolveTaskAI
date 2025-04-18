@@ -55,6 +55,7 @@ def create_ticket_agent(
 
 			if is_resuming:
 				message = await handle_review_process(ReviewConfig(operation_type='create'), client)
+				# todo don't set done , maybe there is an error
 				return Command(
 					goto='agent',
 					update={
