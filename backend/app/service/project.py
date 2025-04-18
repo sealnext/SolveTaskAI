@@ -9,9 +9,9 @@ from starlette.status import (
 	HTTP_409_CONFLICT,
 )
 
-from app.dto.api_key import APIKey
+from app.dto.api_key import ApiKey
 from app.dto.project import Project, ProjectCreate, ProjectResponse
-from app.repository.project_repository import ProjectRepository
+from app.repository.project import ProjectRepository
 
 logger = getLogger(__name__)
 
@@ -28,7 +28,7 @@ class ProjectService:
 		return projects_db
 
 	async def save_project(
-		self, project_data: ProjectCreate, user_id: int, api_key: APIKey
+		self, project_data: ProjectCreate, user_id: int, api_key: ApiKey
 	) -> tuple[ProjectResponse, bool]:
 		try:
 			existing_project = await self.project_repository.get_project_by_unique_attributes(

@@ -1,6 +1,6 @@
 from typing import List, Literal, TypedDict
 
-from app.dto.api_key import APIKey
+from app.dto.api_key import ApiKey
 from app.dto.ticket import Ticket
 from app.model.project import ProjectDB
 
@@ -9,7 +9,7 @@ class AgentState(TypedDict):
 	question: str
 	user_id: int
 	project: ProjectDB
-	api_key: APIKey
+	api_key: ApiKey
 	generation: str
 	max_retries: int
 	answers: int

@@ -14,9 +14,14 @@ dependencies = [
     "langchain-postgres>=0.0.13",
     "langgraph>=0.3.21",
     "langgraph-checkpoint-postgres>=2.0.19",
-    "pgvector>=0.3.6",
     "psycopg[binary,pool]>=3.2.6",
     "pydantic-settings>=2.8.1",
     "sqlalchemy[asyncio]>=2.0.40",
     "httpx[http2]>=0.28.1",
+    "redis[hiredis]>=5.2.1",
+]
+
+[dependency-groups]
+dev = [
+    "alembic>=1.15.2",
 ]

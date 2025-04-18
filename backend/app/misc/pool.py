@@ -3,7 +3,7 @@ from logging import getLogger
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg_pool import AsyncConnectionPool
 
-from app.misc.settings import postgres_settings
+from app.misc.settings import settings
 
 logger = getLogger(__name__)
 
@@ -19,7 +19,7 @@ class DatabasePool:
 			logger.warning('Database pool already initialized.')
 			return
 
-		db_url = str(postgres_settings.url)
+		db_url = str(settings.postgres_url)
 		db_url = db_url.replace('postgresql+asyncpg://', 'postgresql://', 1)
 		try:
 			self.pool = AsyncConnectionPool(

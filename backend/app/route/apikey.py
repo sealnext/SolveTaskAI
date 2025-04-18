@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Request, status
 
-from app.dependencies import get_apikey_service, get_user_service
-from app.dto.api_key import APIKeyCreate
-from app.service.apikey_service import APIKeyService
-from app.service.user_service import UserService
+from app.dependency import get_apikey_service, get_user_service
+from app.dto.api_key import ApiKeyCreate
+from app.service.apikey import ApiKeyService
+from app.service.user import UserService
 
 router = APIRouter(prefix='/api-keys', tags=['api-keys'])
 
@@ -19,9 +19,9 @@ async def retrieve_api_keys(
 
 @router.post('/add', status_code=status.HTTP_201_CREATED)
 async def add_api_key(
-	api_key_data: APIKeyCreate,
+	api_key_data: ApiKeyCreate,
 	request: Request,
-	apikey_service: APIKeyService = Depends(get_apikey_service),
+	apikey_service: ApiKeyService = Depends(get_apikey_service),
 ):
 	user = request.state.user
 	new_api_key = await apikey_service.create_api_key(user.id, api_key_data)
@@ -32,7 +32,7 @@ async def add_api_key(
 async def delete_api_key(
 	api_key_id: int,
 	request: Request,
-	apikey_service: APIKeyService = Depends(get_apikey_service),
+	apikey_service: ApiKeyService = Depends(get_apikey_service),
 ):
 	user = request.state.user
 	await apikey_service.delete_api_key(user.id, api_key_id)

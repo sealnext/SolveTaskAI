@@ -5,26 +5,17 @@ from typing import AsyncGenerator
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.misc.settings import postgres_settings
+from app.misc.settings import settings
 from app.model.base import Base
 
 logger = getLogger(__name__)
 
 async_db_engine = create_async_engine(
-	str(postgres_settings.url),
-	echo=False,
-	pool_size=20,  # default is 5
-	max_overflow=10,  # default is 10
-	pool_pre_ping=True,  # verify connection before using it, prevents connection loss
+	url=str(settings.postgres_url), echo=True, pool_size=10, max_overflow=10, pool_pre_ping=True
 )
 
 async_db_session_factory = async_sessionmaker(
-	bind=async_db_engine,
-	expire_on_commit=False,
-	autoflush=False,  # manually control when to flush, control when to commit
-	# Multi-stage transactions
-	# High-performance critical operations
-	# Complex logic for real applications
+	bind=async_db_engine, autoflush=True, expire_on_commit=False
 )
 
 
@@ -42,6 +33,7 @@ async def init_db():
 	logger.info('Initializing database...')
 
 	async with async_db_engine.begin() as conn:
+		await conn.run_sync(Base.metadata.drop_all)
 		await conn.run_sync(Base.metadata.create_all)
 
 		await conn.execute(text('CREATE EXTENSION IF NOT EXISTS vector'))

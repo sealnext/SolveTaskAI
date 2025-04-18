@@ -9,14 +9,14 @@ from urllib.parse import urljoin
 import httpx
 from fastapi import HTTPException, status
 
-from app.dto.api_key import APIKey
+from app.dto.api_key import ApiKey
 from app.dto.project import ExternalProject, Project
 from app.dto.ticket import (
 	JiraIssueContentSchema,
 	JiraIssueSchema,
 	JiraSearchResponse,
 )
-from app.misc.settings import jira_settings
+from app.misc.settings import settings
 from app.service.ticketing.client import BaseTicketingClient
 
 logger = getLogger(__name__)
@@ -30,13 +30,13 @@ class TicketingSystemType(str, Enum):
 class JiraClient(BaseTicketingClient):
 	"""Jira-specific implementation of the ticketing client."""
 
-	BATCH_SIZE = jira_settings.max_results_per_page
-	API_VERSION = jira_settings.api_version
+	BATCH_SIZE = settings.jira_max_results_per_page
+	API_VERSION = settings.jira_api_version
 
 	def __init__(
 		self,
 		http_client: httpx.AsyncClient,
-		api_key: APIKey,
+		api_key: ApiKey,
 		project: Project | None = None,
 	):
 		super().__init__(http_client, api_key, project)
@@ -264,7 +264,7 @@ class JiraClient(BaseTicketingClient):
 			return  # Return empty generator
 
 		# Process in batches using concurrent requests
-		semaphore = asyncio.Semaphore(jira_settings.max_concurrent_requests)
+		semaphore = asyncio.Semaphore(settings.jira_max_concurrent_requests)
 		tasks = []
 
 		for start_at in range(0, total_tickets, self.BATCH_SIZE):

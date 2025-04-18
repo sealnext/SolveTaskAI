@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING, List
+
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.model.associations import (
@@ -6,6 +8,10 @@ from app.model.associations import (
 )
 from app.model.base import Base
 from app.service.ticketing.enums import TicketingSystemType
+
+if TYPE_CHECKING:
+	from app.model.api_key import ApiKeyDB
+	from app.model.user import UserDB
 
 
 class ProjectDB(Base):
@@ -18,11 +24,15 @@ class ProjectDB(Base):
 	key: Mapped[str] = mapped_column()
 	external_id: Mapped[str] = mapped_column(unique=True)
 
-	# Relationships
-	api_keys = relationship(
-		'APIKeyDB', secondary=api_key_project_association, back_populates='projects'
+	# Many-to-many relationship to ApiKeyDB
+	api_keys: Mapped[List['ApiKeyDB']] = relationship(
+		secondary=api_key_project_association, back_populates='projects', default_factory=list
 	)
-	users = relationship('UserDB', secondary=user_project_association, back_populates='projects')
+
+	# Many-to-many relationship to UserDB
+	users: Mapped[List['UserDB']] = relationship(
+		secondary=user_project_association, back_populates='projects', default_factory=list
+	)
 
 	def __repr__(self):
 		return f'<Project(id={self.id!r}, name={self.name!r})>'
