@@ -9,15 +9,21 @@ from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 
+from app.misc.settings import settings
 
-def _create_model_providers():
+
+def _create_model_providers() -> Dict[
+	str, Callable[['AgentConfiguration', float | None], BaseChatModel]
+]:
 	"""Factory function to create the model providers dictionary."""
 	return {
 		'openai': lambda config, temp=None: ChatOpenAI(
+			api_key=settings.openai_api_key,
 			model=config.openai_model,
 			temperature=temp if temp is not None else config.default_temperature,
 		),
 		'google': lambda config, temp=None: ChatGoogleGenerativeAI(
+			api_key=settings.google_api_key,
 			model=config.google_model,
 			temperature=temp if temp is not None else config.default_temperature,
 		),
@@ -60,9 +66,5 @@ class AgentConfiguration:
 		Returns:
 		    BaseChatModel: The configured language model
 		"""
-		model_factory = self._MODEL_PROVIDERS.get(self.provider)
-		if not model_factory:
-			# Fallback to Google if provider is unknown
-			model_factory = self._MODEL_PROVIDERS['google']
-
+		model_factory = self._MODEL_PROVIDERS.get(self.provider, 'google')
 		return model_factory(self, custom_temperature)

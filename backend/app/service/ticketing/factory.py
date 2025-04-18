@@ -5,9 +5,9 @@ import httpx
 from httpx import Limits, Timeout
 from pydantic import BaseModel
 
-from app.dto.api_key import APIKey
+from app.dto.api_key import ApiKey
 from app.dto.project import Project
-from app.misc.settings import jira_settings
+from app.misc.settings import settings
 from app.service.ticketing.client import BaseTicketingClient
 from app.service.ticketing.enums import TicketingSystemType
 from app.service.ticketing.implementations.azure import AzureClient
@@ -17,8 +17,8 @@ from app.service.ticketing.implementations.jira import JiraClient
 class TicketingConfig(BaseModel):
 	"""Configuration for ticketing clients."""
 
-	max_connections: int = jira_settings.max_concurrent_requests
-	max_keepalive_connections: int = jira_settings.max_concurrent_requests // 2
+	max_connections: int = settings.jira_max_concurrent_requests
+	max_keepalive_connections: int = settings.jira_max_concurrent_requests // 2
 	timeout: float = 30.0
 	keepalive_expiry: float = 5.0
 	connect_timeout: float = 10.0
@@ -64,7 +64,7 @@ class TicketingClientFactory:
 			self._http_clients[service_type] = self._create_client(service_type)
 		return self._http_clients[service_type]
 
-	def get_client(self, api_key: APIKey, project: Project | None = None) -> BaseTicketingClient:
+	def get_client(self, api_key: ApiKey, project: Project | None = None) -> BaseTicketingClient:
 		"""Get a client instance for the specified ticketing system.
 
 		Args:

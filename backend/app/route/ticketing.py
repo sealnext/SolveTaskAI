@@ -3,10 +3,10 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.agent.ticket_agent.graph import create_ticket_agent
-from app.dependencies import get_api_key_repository, get_project_service
+from app.dependency import get_api_key_repository, get_project_service
 from app.dto.status import StatusSchema
-from app.repository.apikey_repository import APIKeyRepository
-from app.service.project_service import ProjectService
+from app.repository.api_key import ApiKeyRepository
+from app.service.project import ProjectService
 
 router = APIRouter(prefix='/ticketing', tags=['ticketing'])
 
@@ -16,7 +16,7 @@ async def get_issue_statuses(
 	project_id: int,
 	request: Request,
 	project_service: ProjectService = Depends(get_project_service),
-	api_key_repository: APIKeyRepository = Depends(get_api_key_repository),
+	api_key_repository: ApiKeyRepository = Depends(get_api_key_repository),
 ):
 	"""
 	Get available statuses for a specific issue type in the project.

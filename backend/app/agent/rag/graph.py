@@ -16,17 +16,14 @@ from pydantic import BaseModel, Field
 from app.agent.configuration import AgentConfiguration
 from app.agent.rag.prompts import doc_grader_instructions, doc_grader_prompt
 from app.dto.project import Project
-from app.misc.config import (
-	NUMBER_OF_DOCS_TO_RETRIEVE,
-	OPENAI_EMBEDDING_MODEL,
-)
-from app.misc.database.postgres import async_db_engine
+from app.misc.postgres import async_db_engine
+from app.misc.settings import settings
 from app.service.ticketing.client import BaseTicketingClient
 
 logger = getLogger(__name__)
 
 
-embeddings_model = OpenAIEmbeddings(model=OPENAI_EMBEDDING_MODEL)
+embeddings_model = OpenAIEmbeddings(model=settings.openai_embedding_model)
 
 agent_config = AgentConfiguration()
 llm = agent_config.get_llm()
@@ -102,7 +99,7 @@ async def retrieve_documents(state: RAGState, client: BaseTicketingClient) -> RA
 		vector_store = await create_vector_store(project_id)
 
 		# Calculate number of documents to retrieve
-		k = NUMBER_OF_DOCS_TO_RETRIEVE * (state.retry_retrieve_count + 1)
+		k = settings.number_of_docs_to_retrieve * (state.retry_retrieve_count + 1)
 
 		# Retrieve documents with similarity scores
 		documents_with_scores = await vector_store.asimilarity_search_with_score_by_vector(
@@ -115,7 +112,7 @@ async def retrieve_documents(state: RAGState, client: BaseTicketingClient) -> RA
 			(doc, score)
 			for doc, score in documents_with_scores
 			if doc.metadata['key'] not in state.ignore_tickets
-		][:NUMBER_OF_DOCS_TO_RETRIEVE]
+		][: settings.number_of_docs_to_retrieve]
 
 		# Fetch full document content
 		documents = await fetch_documents(state, filtered_docs, client)
@@ -168,7 +165,7 @@ async def retry_retrieve_documents(state: RAGState, client: BaseTicketingClient)
 		vector_store = await create_vector_store(project_id)
 
 		# Retrieve more documents on retry
-		k = NUMBER_OF_DOCS_TO_RETRIEVE * 2
+		k = settings.number_of_docs_to_retrieve * 2
 
 		# Retrieve documents with similarity scores
 		documents_with_scores = await vector_store.asimilarity_search_with_score_by_vector(
@@ -181,7 +178,7 @@ async def retry_retrieve_documents(state: RAGState, client: BaseTicketingClient)
 			(doc, score)
 			for doc, score in documents_with_scores
 			if doc.metadata['key'] not in state.ignore_tickets
-		][:NUMBER_OF_DOCS_TO_RETRIEVE]
+		][: settings.number_of_docs_to_retrieve]
 
 		# Fetch full document content
 		documents = await fetch_documents(state, filtered_docs, client)

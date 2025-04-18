@@ -9,18 +9,18 @@ from fastapi.responses import StreamingResponse
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from app.agent.thread_manager import get_user_id, message_generator
-from app.dependencies import (
+from app.dependency import (
 	get_api_key_repository,
 	get_db_checkpointer,
 	get_project_service,
 	get_thread_repository,
-	get_ticketing_factory,
+	get_ticketing_client_factory,
 )
-from app.dto.api_key import APIKey
+from app.dto.api_key import ApiKey
 from app.dto.project import Project
-from app.repository.apikey_repository import APIKeyRepository
-from app.repository.thread_repository import ThreadRepository
-from app.service.project_service import ProjectService
+from app.repository.api_key import ApiKeyRepository
+from app.repository.thread import ThreadRepository
+from app.service.project import ProjectService
 from app.service.ticketing.factory import TicketingClientFactory
 
 logger = getLogger(__name__)
@@ -43,10 +43,10 @@ async def stream(
 	request: Request,
 	user_input: dict,
 	checkpointer: AsyncPostgresSaver = Depends(get_db_checkpointer),
-	factory: TicketingClientFactory = Depends(get_ticketing_factory),
+	factory: TicketingClientFactory = Depends(get_ticketing_client_factory),
 	thread_repo: ThreadRepository = Depends(get_thread_repository),
 	project_service: ProjectService = Depends(get_project_service),
-	api_key_repository: APIKeyRepository = Depends(get_api_key_repository),
+	api_key_repository: ApiKeyRepository = Depends(get_api_key_repository),
 ) -> StreamingResponse:
 	"""Stream responses from the agent."""
 	user_id = get_user_id(request)
@@ -60,7 +60,7 @@ async def stream(
 	project: Project = await project_service.get_project_by_id(
 		user_id, user_input.get('project_id')
 	)
-	api_key: APIKey = await api_key_repository.get_api_key_by_user_and_project(user_id, project.id)
+	api_key: ApiKey = await api_key_repository.get_api_key_by_user_and_project(user_id, project.id)
 	client = factory.get_client(api_key, project)
 
 	return StreamingResponse(

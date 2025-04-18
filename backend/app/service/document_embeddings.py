@@ -1,10 +1,10 @@
 from logging import getLogger
 from typing import AsyncIterator
 
-from app.dto.api_key import APIKey
+from app.dto.api_key import ApiKey
 from app.dto.document_embeddings import DocumentEmbedding
 from app.dto.ticket import JiraIssueSchema
-from app.repository.document_embeddings_repository import DocumentEmbeddingsRepository
+from app.repository.document_embeddings import DocumentEmbeddingsRepository
 from app.service.ticketing.factory import TicketingClientFactory
 
 logger = getLogger(__name__)
@@ -39,7 +39,7 @@ class DocumentEmbeddingsService:
 		logger.debug('Initialized DocumentEmbeddingsService')
 
 	async def add_documents(
-		self, domain: str, project_key: str, external_id: str, api_key: APIKey
+		self, domain: str, project_key: str, external_id: str, api_key: ApiKey
 	) -> None:
 		"""
 		Add documents from a ticketing system to the embeddings repository.

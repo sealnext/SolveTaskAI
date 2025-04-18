@@ -3,7 +3,7 @@ from typing import List
 
 from pydantic import BaseModel
 
-from app.dto.api_key import APIKey
+from app.dto.api_key import ApiKey
 
 
 class DocumentEmbedding(BaseModel):
@@ -29,5 +29,5 @@ class DocumentEmbeddingCreate(BaseModel):
 	project_key: str
 	domain: str
 	external_id: str
-	api_key: APIKey | None = None
+	api_key: ApiKey | None = None
 	action: str = 'add'  # "add" or "delete"

@@ -6,10 +6,11 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.misc.database.pool import db_pool
-from app.misc.database.postgres import async_db_engine, init_db
+from app.misc.pool import db_pool
+from app.misc.postgres import async_db_engine, init_db
 from app.route.agent import router as agent_router
 from app.route.apikey import router as api_keys_router
+from app.route.auth import router as auth_router
 from app.route.projects import router as projects_router
 from app.route.ticketing import router as ticketing_router
 
@@ -41,7 +42,7 @@ async def health():
 	return {'status': 'ok'}
 
 
-# Routers
+app.include_router(auth_router)
 app.include_router(agent_router)
 app.include_router(ticketing_router)
 app.include_router(projects_router)

@@ -5,9 +5,9 @@ from sqlalchemy import String, and_, cast, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.dto.api_key import APIKey
+from app.dto.api_key import ApiKey
 from app.dto.project import ProjectCreate
-from app.model.api_key import APIKeyDB
+from app.model.api_key import ApiKeyDB
 from app.model.associations import user_project_association
 from app.model.project import ProjectDB
 from app.model.user import UserDB
@@ -62,7 +62,7 @@ class ProjectRepository:
 		return count > 0
 
 	async def link_user_to_existing_project(
-		self, existing_project: ProjectDB, user_id: int, api_key: APIKey
+		self, existing_project: ProjectDB, user_id: int, api_key: ApiKey
 	) -> ProjectDB:
 		"""
 		Link an existing project to a user and an his API key.
@@ -92,7 +92,7 @@ class ProjectRepository:
 			project.users.append(user_db)
 
 		if api_key:
-			api_key_db = await self.db_session.get(APIKeyDB, api_key.id)
+			api_key_db = await self.db_session.get(ApiKeyDB, api_key.id)
 			if api_key_db:
 				project.api_keys.append(api_key_db)
 
@@ -101,7 +101,7 @@ class ProjectRepository:
 		return project
 
 	async def add_project_db(
-		self, project_data: ProjectCreate, user_id: int, api_key: APIKey
+		self, project_data: ProjectCreate, user_id: int, api_key: ApiKey
 	) -> ProjectDB:
 		db_project = ProjectDB()
 		db_project.domain = project_data.domain
@@ -117,7 +117,7 @@ class ProjectRepository:
 			db_project.users.append(user_db)
 
 		if api_key:
-			api_key_db = await self.db_session.get(APIKeyDB, api_key.id)
+			api_key_db = await self.db_session.get(ApiKeyDB, api_key.id)
 			if api_key_db:
 				db_project.api_keys.append(api_key_db)
 
@@ -169,7 +169,7 @@ class ProjectRepository:
 			select(ProjectDB)
 			.options(
 				selectinload(ProjectDB.users),
-				selectinload(ProjectDB.api_keys).selectinload(APIKeyDB.user),
+				selectinload(ProjectDB.api_keys).selectinload(ApiKeyDB.user),
 			)
 			.where(ProjectDB.id == project_id)
 		)

@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, List
 
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -7,8 +8,12 @@ from app.model.associations import api_key_project_association
 from app.model.base import Base, utc_now
 from app.service.ticketing.enums import TicketingSystemType
 
+if TYPE_CHECKING:
+	from app.model.project import ProjectDB
+	from app.model.user import UserDB
 
-class APIKeyDB(Base):
+
+class ApiKeyDB(Base):
 	__tablename__ = 'api_keys'
 
 	id: Mapped[int] = mapped_column(init=False, primary_key=True)
@@ -17,15 +22,18 @@ class APIKeyDB(Base):
 	service_type: Mapped[TicketingSystemType] = mapped_column()
 	domain: Mapped[str] = mapped_column()
 	domain_email: Mapped[str] = mapped_column()
+
+	# One-to-many relationship to UserDB
+	user: Mapped['UserDB'] = relationship(back_populates='api_keys')
+
 	created_at: Mapped[datetime] = mapped_column(default_factory=utc_now)
 	expires_at: Mapped[datetime] = mapped_column(
 		default_factory=lambda: utc_now() + timedelta(days=1)
 	)
 
-	# Relationships
-	user = relationship('UserDB', back_populates='api_keys')
-	projects = relationship(
-		'ProjectDB', secondary=api_key_project_association, back_populates='api_keys'
+	# Many-to-many relationship to ProjectDB
+	projects: Mapped[List['ProjectDB']] = relationship(
+		secondary=api_key_project_association, back_populates='api_keys', default_factory=list
 	)
 
 	def __repr__(self):

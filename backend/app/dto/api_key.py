@@ -5,7 +5,7 @@ from pydantic import AnyHttpUrl, BaseModel, EmailStr, Field
 from app.service.ticketing.enums import TicketingSystemType
 
 
-class APIKey(BaseModel):
+class ApiKey(BaseModel):
 	id: int = Field(None, description='Unique identifier for the API key')
 	service_type: TicketingSystemType = Field(..., description='Type of the ticketing system')
 	api_key: str = Field(..., min_length=1, description='API key for the ticketing system')
@@ -51,7 +51,7 @@ class APIKey(BaseModel):
 		self.domain = self.validate_domain(self.domain)
 
 
-class APIKeyResponse(BaseModel):
+class ApiKeyResponse(BaseModel):
 	id: int
 	service_type: TicketingSystemType
 	domain: str
@@ -61,5 +61,5 @@ class APIKeyResponse(BaseModel):
 		from_attributes = True
 
 
-class APIKeyCreate(APIKey):
+class ApiKeyCreate(ApiKey):
 	pass

@@ -5,7 +5,7 @@ import httpx
 from fastapi import HTTPException, status
 from pydantic import BaseModel, ValidationError
 
-from app.dto.api_key import APIKey
+from app.dto.api_key import ApiKey
 from app.dto.project import ExternalProject, Project
 from app.dto.ticket import JiraIssueSchema
 
@@ -18,7 +18,7 @@ class BaseTicketingClient(ABC):
 	def __init__(
 		self,
 		http_client: httpx.AsyncClient,
-		api_key: APIKey,
+		api_key: ApiKey,
 		project: Project | None = None,
 	):
 		"""Initialize the client with an HTTP client and API key.

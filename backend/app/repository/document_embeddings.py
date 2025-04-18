@@ -8,10 +8,9 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
 
 from app.dto.document_embeddings import DocumentEmbedding
-from app.misc.config import OPENAI_EMBEDDING_MODEL
-from app.misc.database.postgres import async_db_engine
+from app.misc.postgres import async_db_engine
+from app.misc.settings import settings
 
-# Configure logging
 logger = getLogger(__name__)
 
 
@@ -20,7 +19,7 @@ class DocumentEmbeddingsRepository:
 		self.db_session = db_session
 
 		self.embeddings_model = OpenAIEmbeddings(
-			model=OPENAI_EMBEDDING_MODEL,
+			model=settings.openai_embedding_model,
 			chunk_size=50,
 			request_timeout=30,
 			max_retries=3,

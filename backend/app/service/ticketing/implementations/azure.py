@@ -1,6 +1,6 @@
 from typing import AsyncGenerator, List
 
-from app.dto.api_key import APIKey
+from app.dto.api_key import ApiKey
 from app.dto.project import ExternalProject
 from app.dto.ticket import JiraIssueSchema
 from app.service.ticketing.client import BaseTicketingClient
@@ -19,7 +19,7 @@ class AzureClient(BaseTicketingClient):
 		# TODO: Implement Azure-specific ticket fetching
 		raise NotImplementedError('Azure ticket fetching not implemented yet')
 
-	def _get_auth_headers(self, api_key: APIKey) -> dict:
+	def _get_auth_headers(self, api_key: ApiKey) -> dict:
 		return {
 			'Authorization': f'Bearer {api_key.api_key}',
 			'Accept': 'application/json',

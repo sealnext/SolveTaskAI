@@ -20,9 +20,7 @@ services:
     image: cgr.dev/chainguard/redis:latest
     ports:
       - "6379:6379"
-    environment:
-      REDIS_PASSWORD: "6X5z6?M9,A.=9Z&B<HH5"
-    command: ["--requirepass", "$$REDIS_PASSWORD"]
+    command: ["--requirepass", "JKaGOI0JO9zU4BPv5xID"]
     restart: on-failure
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -33,6 +31,7 @@ services:
   backend:
     build: ./backend
     env_file: ./backend/.env
+    tty: true
     environment:
       PYTHONUNBUFFERED: 1
     ports:

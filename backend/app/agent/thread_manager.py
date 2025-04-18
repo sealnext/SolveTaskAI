@@ -22,9 +22,9 @@ from langgraph.types import Command
 
 from app.agent.graph import create_agent_graph
 from app.agent.state import AgentState
-from app.dto.api_key import APIKey
+from app.dto.api_key import ApiKey
 from app.dto.project import Project
-from app.repository.thread_repository import ThreadRepository
+from app.repository.thread import ThreadRepository
 from app.service.ticketing.client import BaseTicketingClient
 
 logger = getLogger(__name__)
@@ -101,7 +101,7 @@ async def message_generator(
 	user_input: dict,
 	user_id: str,
 	project: Project,
-	api_key: APIKey,
+	api_key: ApiKey,
 	checkpointer: AsyncPostgresSaver,
 	thread_repo: ThreadRepository,
 	ticketing_client: BaseTicketingClient,
