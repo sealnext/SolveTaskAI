@@ -6,7 +6,6 @@ streaming responses, and handling various conversation-related operations for th
 """
 
 import json
-from datetime import datetime, timezone
 from logging import getLogger
 from typing import AsyncGenerator, Optional, Tuple
 from uuid import UUID, uuid4
@@ -22,8 +21,8 @@ from langgraph.types import Command
 
 from app.agent.graph import create_agent_graph
 from app.agent.state import AgentState
-from app.dto.api_key import ApiKey
 from app.dto.agent import AgentStreamInput
+from app.dto.api_key import ApiKey
 from app.dto.project import Project
 from app.repository.thread import ThreadRepository
 from app.service.ticketing.client import BaseTicketingClient

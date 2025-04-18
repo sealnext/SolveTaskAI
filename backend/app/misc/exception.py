@@ -4,3 +4,7 @@ class BaseCustomException(Exception):
 
 class UserAlreadyExistsException(BaseCustomException):
 	pass
+
+
+class SessionNotFoundException(BaseCustomException):
+	pass
