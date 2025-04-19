@@ -1,12 +1,13 @@
 from hashlib import blake2b
 from secrets import token_urlsafe
 
+from app.misc.exception import SessionNotFoundException
+
 from app.dto.user import UserCreateByPassword, UserLogin
 from app.misc.redis import redis
 from app.misc.security import password_hasher
 from app.misc.settings import settings
 from app.service.user import UserService
-from backend.app.misc.exception import SessionNotFoundException
 
 
 class AuthService:
@@ -25,7 +26,7 @@ class AuthService:
 		session_id = blake2b(session_token.encode()).hexdigest()
 		user_id_str: str | None = await redis.get(f'session:{session_id}')
 		if user_id_str is None:
-			raise SessionNotFoundException("Session not found")
+			raise SessionNotFoundException('Session not found')
 		user_id = int(user_id_str)
 		return user_id
 
