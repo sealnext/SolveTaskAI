@@ -15,28 +15,11 @@ class Encryption:
 	def __init__(self) -> None:
 		"""Initialize encryption service with the master key."""
 		self.logger = getLogger(__name__)
-		self._fernet_instance = self._initialize_fernet()
+		master_key_bytes = base64.urlsafe_b64decode(settings.encryption_key)
+		if len(master_key_bytes) != 32:
+			raise ValueError('ENCRYPTION_KEY must be a valid 32-byte key')
+		self._fernet_instance = Fernet(settings.encryption_key.encode())
 		self.logger.info('Encryption service initialized successfully')
-
-	def _initialize_fernet(self) -> Fernet:
-		"""
-		Initialize and validate Fernet instance with master key.
-
-		Raises:
-		    ValueError: If encryption key is invalid or missing.
-		"""
-		if not settings.encryption_key:
-			raise ValueError('ENCRYPTION_KEY must be set in environment settings')
-
-		try:
-			master_key_bytes = base64.urlsafe_b64decode(settings.encryption_key)
-			if len(master_key_bytes) != 32:
-				raise ValueError('ENCRYPTION_KEY must be a valid 32-byte key')
-
-			return Fernet(settings.encryption_key.encode())
-
-		except Exception as e:
-			raise ValueError(f'Invalid encryption key format: {e}')
 
 	def encrypt(self, data: Any) -> str:
 		"""
