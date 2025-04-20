@@ -220,7 +220,7 @@ class DocumentEmbeddingsRepository:
 		async with self._get_vector_store(unique_identifier) as vector_store:
 			return await vector_store.acollection_exists()
 
-	async def delete_collection(self, domain: str, project_key: str, external_id: str) -> None:
+	async def delete_collection(self, domain: str, project_key: str, external_id: int) -> None:
 		"""Delete a collection."""
 		unique_identifier = self._get_unique_identifier(domain, project_key, external_id)
 		logger.debug(f'Attempting to delete collection: {unique_identifier}')
@@ -229,7 +229,7 @@ class DocumentEmbeddingsRepository:
 			await vector_store.adelete_collection()
 			logger.info(f'Successfully deleted collection: {unique_identifier}')
 
-	def _get_unique_identifier(self, domain: str, project_key: str, external_id: str) -> str:
+	def _get_unique_identifier(self, domain: str, project_key: str, external_id: int) -> str:
 		"""Generate a unique identifier for the collection."""
 		return f'{re.sub(r"^https?://|/$", "", domain)}/{project_key}/{external_id}'
 

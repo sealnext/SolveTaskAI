@@ -1,12 +1,12 @@
 from datetime import datetime
 
-from pydantic import AnyHttpUrl, BaseModel, EmailStr, Field
+from pydantic import AnyHttpUrl, BaseModel, EmailStr, Field, ConfigDict, field_validator
 
 from app.service.ticketing.enums import TicketingSystemType
 
 
 class ApiKey(BaseModel):
-	id: int = Field(None, description='Unique identifier for the API key')
+	id: int | None = Field(None, description='Unique identifier for the API key')
 	service_type: TicketingSystemType = Field(..., description='Type of the ticketing system')
 	api_key: str = Field(..., min_length=1, description='API key for the ticketing system')
 	domain: str = Field(..., description='Domain URL for the ticketing system')
@@ -15,25 +15,11 @@ class ApiKey(BaseModel):
 		None, description='Optional expiration timestamp for the API key'
 	)
 
-	class Config:
-		from_attributes = True
-		json_schema_extra = {
-			'example': {
-				'service_type': 'JIRA',
-				'api_key': 'abc123',
-				'domain': 'https://example.atlassian.net',
-				'domain_email': 'admin@example.com',
-			}
-		}
+	model_config = ConfigDict(from_attributes=True)
 
+	@field_validator('domain', mode='before')
 	@classmethod
-	def validate_domain(cls, v: str) -> str:
-		"""Validate and normalize domain URL.
-
-		Ensures:
-		1. Domain starts with https://
-		2. Domain doesn't end with /
-		"""
+	def normalize_domain(cls, v: str) -> str:
 		# Add https:// if not present
 		if not v.startswith('https://'):
 			v = 'https://' + v.removeprefix('http://')
@@ -47,19 +33,33 @@ class ApiKey(BaseModel):
 			raise ValueError('Invalid domain URL')
 		return v
 
-	def model_post_init(self, __context):
-		self.domain = self.validate_domain(self.domain)
-
 
 class ApiKeyResponse(BaseModel):
 	id: int
 	service_type: TicketingSystemType
 	domain: str
 	domain_email: EmailStr
+	api_key: str = Field(..., description='Masked API key')
 
-	class Config:
-		from_attributes = True
+	@field_validator('api_key', mode='before')
+	@classmethod
+	def mask_api_key(cls, value: str) -> str:
+		if value:
+			return f'{value[:3]}{"*" * 5}'
+		return value
+
+	model_config = ConfigDict(from_attributes=True)
 
 
-class ApiKeyCreate(ApiKey):
-	pass
+class ApiKeyCreate(BaseModel):
+	service_type: TicketingSystemType = Field(..., description='Type of the ticketing system')
+	api_key: str = Field(..., min_length=1, description='API key for the ticketing system')
+	domain: str = Field(..., description='Domain URL for the ticketing system')
+	domain_email: EmailStr = Field(..., description='Email address associated with the domain')
+
+	model_config = ConfigDict(from_attributes=True)
+
+	@field_validator('domain', mode='before')
+	@classmethod
+	def validate_domain(cls, v: str) -> str:
+		return ApiKey.normalize_domain(v)

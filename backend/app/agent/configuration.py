@@ -2,8 +2,8 @@
 Configuration for the agent.
 """
 
-from dataclasses import dataclass, field
-from typing import Callable, Dict, Literal
+from dataclasses import dataclass
+from typing import Literal
 
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -12,59 +12,35 @@ from langchain_openai import ChatOpenAI
 from app.misc.settings import settings
 
 
-def _create_model_providers() -> Dict[
-	str, Callable[['AgentConfiguration', float | None], BaseChatModel]
-]:
-	"""Factory function to create the model providers dictionary."""
-	return {
-		'openai': lambda config, temp=None: ChatOpenAI(
-			api_key=settings.openai_api_key,
-			model=config.openai_model,
-			temperature=temp if temp is not None else config.default_temperature,
-		),
-		'google': lambda config, temp=None: ChatGoogleGenerativeAI(
-			api_key=settings.google_api_key,
-			model=config.google_model,
-			temperature=temp if temp is not None else config.default_temperature,
-		),
-	}
-
-
 @dataclass
 class AgentConfiguration:
 	"""Configuration for the agent."""
 
-	# Model provider to use
-	provider: Literal['openai', 'google'] = 'google'
+	openai_model: str = settings.openai_model
+	google_model: str = settings.google_model
 
-	# OpenAI model to use
-	openai_model: str = 'gpt-4o-mini'
-
-	# Google Gemini model to use
-	google_model: str = 'gemini-2.0-flash'
-
-	# Temperature for the model
 	default_temperature: float = 0.0
 
-	# Maximum number of iterations
 	max_iterations: int = 10
 
-	# Whether to stream responses
 	stream: bool = False
 
-	# Model provider factory mapping - using default_factory to avoid mutable default issue
-	_MODEL_PROVIDERS: Dict[str, Callable[['AgentConfiguration', float | None], BaseChatModel]] = (
-		field(default_factory=_create_model_providers)
-	)
+	def get_llm(
+		self,
+		custom_temperature: float | None = None,
+		provider: Literal['openai', 'google'] | None = None,
+	) -> BaseChatModel:
+		"""Get the appropriate language model based on the configuration."""
+		temperature = (
+			custom_temperature if custom_temperature is not None else self.default_temperature
+		)
 
-	def get_llm(self, custom_temperature: float | None = None) -> BaseChatModel:
-		"""Get the appropriate language model based on the configuration.
+		if provider == 'openai':
+			return ChatOpenAI(
+				api_key=settings.openai_api_key, model=self.openai_model, temperature=temperature
+			)
 
-		Args:
-		    custom_temperature: Optional override for the temperature setting
-
-		Returns:
-		    BaseChatModel: The configured language model
-		"""
-		model_factory = self._MODEL_PROVIDERS.get(self.provider, 'google')
-		return model_factory(self, custom_temperature)
+		# Default to Google
+		return ChatGoogleGenerativeAI(
+			api_key=settings.google_api_key, model=self.google_model, temperature=temperature
+		)

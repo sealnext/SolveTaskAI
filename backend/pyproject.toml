@@ -19,6 +19,7 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.40",
     "httpx[http2]>=0.28.1",
     "redis[hiredis]>=5.2.1",
+    "cryptography>=44.0.2",
 ]
 
 [dependency-groups]

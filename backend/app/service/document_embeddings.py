@@ -108,7 +108,7 @@ class DocumentEmbeddingsService:
 			updated_at=ticket.updated_at,
 		)
 
-	async def delete_documents(self, domain: str, project_key: str, external_id: str) -> None:
+	async def delete_documents(self, domain: str, project_key: str, external_id: int) -> None:
 		"""Delete all documents for a project from the embeddings repository."""
 		logger.info(f'Deleting documents for project {project_key}')
 		await self.embeddings_repository.delete_collection(

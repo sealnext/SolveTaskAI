@@ -5,7 +5,9 @@ from typing import List
 from fastapi import HTTPException, status
 
 from app.dto.api_key import ApiKey, ApiKeyCreate, ApiKeyResponse
+from app.model.api_key import ApiKeyDB
 from app.repository.api_key import ApiKeyRepository
+from app.misc.encryption import Encryption
 
 logger = getLogger(__name__)
 
@@ -13,22 +15,11 @@ logger = getLogger(__name__)
 class ApiKeyService:
 	def __init__(self, apikey_repository: ApiKeyRepository):
 		self.apikey_repository = apikey_repository
+		self.encryption = Encryption()
 
-	async def create_api_key(self, user_id: int, api_key_data: ApiKeyCreate) -> ApiKeyResponse:
-		"""
-		Creates a new API key for a user after validating uniqueness.
-
-		Args:
-		    user_id: The ID of the user creating the key.
-		    api_key_data: The data for the new API key.
-
-		Returns:
-		    The created API key details (excluding the raw key).
-
-		Raises:
-		    HTTPException: 409 if key value exists, 500 on other creation errors.
-		"""
-		existing_key = await self.apikey_repository.get_by_value(api_key_data.api_key)
+	async def add_api_key(self, user_id: int, api_key_data: ApiKeyCreate) -> ApiKeyResponse:
+		encrypted_key = self.encryption.encrypt(api_key_data.api_key)
+		existing_key = await self.apikey_repository.get_by_value(encrypted_key)
 		if existing_key:
 			raise HTTPException(
 				status.HTTP_409_CONFLICT,
@@ -36,18 +27,12 @@ class ApiKeyService:
 			)
 
 		try:
-			created_key: ApiKey = await self.apikey_repository.create_api_key(
-				user_id=user_id,
-				api_key_value=api_key_data.api_key,
-				service_type=api_key_data.service_type,
-				domain=api_key_data.domain,
-				domain_email=api_key_data.domain_email,
-				project_ids=getattr(api_key_data, 'project_ids', []),
-				# permissions=getattr(api_key_data, 'permissions', None), # Keep example commented out
-				expires_at=getattr(api_key_data, 'expires_at', None),
+			api_key_data.api_key = encrypted_key
+			created_key: ApiKeyDB = await self.apikey_repository.create_api_key(
+				user_id, api_key_data
 			)
 		except Exception as e:
-			logger.error(f'Failed to create API key for user {user_id}: {e}', exc_info=True)
+			logger.error(f'Failed to create API key: {str(e)}')
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
 				detail='Failed to create API key due to an internal error.',
@@ -55,79 +40,15 @@ class ApiKeyService:
 
 		return ApiKeyResponse.model_validate(created_key)
 
-	async def get_api_keys_by_user(self, user_id: int) -> List[ApiKeyResponse]:
-		"""
-		Fetches API key details for a specific user.
-
-		Args:
-		    user_id: The ID of the user whose keys are to be fetched.
-
-		Returns:
-		    A list of API key details (excluding the raw key). Returns empty list if none found.
-		"""
-		api_keys: List[ApiKey] = await self.apikey_repository.get_api_keys_by_user(user_id)
+	async def get_api_keys(self, user_id: int) -> List[ApiKeyResponse]:
+		"""Get all API keys for a user with masked key values."""
+		api_keys: List[ApiKeyDB] = await self.apikey_repository.get_api_keys_by_user(user_id)
+		for key in api_keys:
+			key.api_key = self.encryption.decrypt(key.api_key)
 		return [ApiKeyResponse.model_validate(key) for key in api_keys]
 
-	async def get_api_key_by_id(self, api_key_id: int) -> ApiKeyResponse:
-		"""
-		Fetches details for a single API key by its ID.
-
-		Args:
-		    api_key_id: The ID of the API key to fetch.
-
-		Returns:
-		    The API key details (excluding the raw key).
-
-		Raises:
-		    HTTPException: 404 if the API key is not found.
-		"""
-		api_key = await self.apikey_repository.get_by_id(api_key_id)
-		if not api_key:
-			raise HTTPException(status.HTTP_404_NOT_FOUND, detail='API Key not found.')
-		return ApiKeyResponse.model_validate(api_key)
-
-	async def get_api_key_for_project(self, user_id: int, project_id: int) -> ApiKey:
-		"""
-		Fetches the API key associated with a specific user and project.
-
-		Checks for key expiration.
-
-		Args:
-		    user_id: The ID of the user.
-		    project_id: The ID of the project.
-
-		Returns:
-		    The API key details (excluding the raw key).
-
-		Raises:
-		    HTTPException: 404 if no matching key found, 403 if the key is expired.
-		"""
-		api_key: ApiKey = await self.apikey_repository.get_api_key_by_user_and_project(
-			user_id, project_id
-		)
-		if not api_key:
-			raise HTTPException(
-				status.HTTP_404_NOT_FOUND,
-				detail='API key not found for this user and project combination.',
-			)
-
-		if api_key.expires_at and api_key.expires_at <= datetime.now(UTC):
-			raise HTTPException(status.HTTP_403_FORBIDDEN, detail='API key has expired.')
-
-		return ApiKey.model_validate(api_key)
-
 	async def delete_api_key(self, user_id: int, api_key_id: int) -> None:
-		"""
-		Deletes an API key after verifying ownership.
-
-		Args:
-		    user_id: The ID of the user requesting the deletion.
-		    api_key_id: The ID of the API key to delete.
-
-		Raises:
-		    HTTPException: 404 if key not found, 403 if user doesn't own the key.
-		"""
-		key_to_delete: ApiKey | None = await self.apikey_repository.get_by_id(api_key_id)
+		key_to_delete: ApiKeyDB | None = await self.apikey_repository.get_by_id(api_key_id)
 
 		if not key_to_delete:
 			raise HTTPException(status.HTTP_404_NOT_FOUND, detail='API Key not found.')
@@ -150,23 +71,23 @@ class ApiKeyService:
 			)
 		logger.info(f'API key {api_key_id} deleted successfully by user {user_id}.')
 
-	async def get_api_key_by_id_and_user(self, api_key_id: int, user_id: int) -> ApiKey:
-		"""
-		Fetches an API key by its ID and the user's ID.
-
-		Args:
-		    api_key_id: The ID of the API key to fetch.
-		    user_id: The ID of the user who owns the key.
-
-		Returns:
-		    The API key details (excluding the raw key).
-
-		Raises:
-		    HTTPException: 404 if the key is not found, 403 if the user doesn't own the key.
-		"""
-		api_key: ApiKey | None = await self.apikey_repository.get_by_id_and_user(
+	async def get_api_key_unmasked(self, api_key_id: int, user_id: int) -> ApiKey:
+		"""Get an API key by ID with unmasked key value. Use with caution."""
+		api_key_data: ApiKey | None = await self.apikey_repository.get_by_id_and_user(
 			api_key_id, user_id
 		)
-		if not api_key:
+		if not api_key_data:
 			raise HTTPException(status.HTTP_404_NOT_FOUND, detail='API Key not found.')
-		return ApiKey.model_validate(api_key)
+
+		api_key_data.api_key = self.encryption.decrypt(api_key_data.api_key)
+		return ApiKey.model_validate(api_key_data)
+
+	async def get_api_key_by_project_unmasked(self, user_id: int, project_id: int) -> ApiKey:
+		api_key_data: ApiKeyDB | None = await self.apikey_repository.get_api_key_by_project(
+			user_id, project_id
+		)
+		if not api_key_data:
+			raise HTTPException(status.HTTP_404_NOT_FOUND, detail='API Key not found.')
+
+		api_key_data.api_key = self.encryption.decrypt(api_key_data.api_key)
+		return ApiKey.model_validate(api_key_data)

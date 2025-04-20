@@ -48,7 +48,7 @@ class ProjectRepository:
 			)
 		)
 		result = await self.db_session.execute(stmt)
-		return result.scalar()
+		return bool(result.scalar())
 
 	async def check_other_user_project_link(self, user_id: int, project_id: int) -> bool:
 		stmt = select(func.count(user_project_association.c.user_id)).where(
@@ -59,11 +59,11 @@ class ProjectRepository:
 		)
 		result = await self.db_session.execute(stmt)
 		count = result.scalar()
-		return count > 0
+		return (count or 0) > 0
 
 	async def link_user_to_existing_project(
 		self, existing_project: ProjectDB, user_id: int, api_key: ApiKey
-	) -> ProjectDB:
+	) -> ProjectDB | None:
 		"""
 		Link an existing project to a user and an his API key.
 		"""
@@ -103,12 +103,13 @@ class ProjectRepository:
 	async def add_project_db(
 		self, project_data: ProjectCreate, user_id: int, api_key: ApiKey
 	) -> ProjectDB:
-		db_project = ProjectDB()
-		db_project.domain = project_data.domain
-		db_project.external_id = project_data.external_id
-		db_project.name = project_data.name
-		db_project.key = project_data.key
-		db_project.service_type = project_data.service_type
+		db_project = ProjectDB(
+			name=project_data.name,
+			domain=project_data.domain,
+			service_type=project_data.service_type,
+			key=project_data.key,
+			external_id=project_data.external_id,
+		)
 
 		self.db_session.add(db_project)
 
@@ -155,7 +156,7 @@ class ProjectRepository:
 			.where(user_project_association.c.user_id == user_id)
 		)
 		result = await self.db_session.execute(query)
-		return result.scalars().all()
+		return list(result.scalars().all())
 
 	async def delete(self, user_id: int, project_id: int) -> bool:
 		"""
@@ -164,58 +165,39 @@ class ProjectRepository:
 		If other users remain, removes the user's API keys from the project if they aren't used by other users.
 		Returns True if the project itself was deleted, False otherwise.
 		"""
-		# Get the project with relations using select
-		stmt = (
-			select(ProjectDB)
-			.options(
-				selectinload(ProjectDB.users),
-				selectinload(ProjectDB.api_keys).selectinload(ApiKeyDB.user),
-			)
-			.where(ProjectDB.id == project_id)
+		# Get project directly using get() instead of select for PK lookup
+		project = await self.db_session.get(
+			ProjectDB,
+			project_id,
+			options=[selectinload(ProjectDB.users), selectinload(ProjectDB.api_keys)],
 		)
-		result = await self.db_session.execute(stmt)
-		project = result.scalar_one_or_none()
 
 		if not project:
 			return False
 
-		# Find the user to unlink
-		user_to_remove = None
-		for user in project.users:
-			if user.id == user_id:
-				user_to_remove = user
-				break
-
-		if not user_to_remove:
+		# Find the user to unlink - use get() for PK lookup
+		user_to_remove = await self.db_session.get(UserDB, user_id)
+		if not user_to_remove or user_to_remove not in project.users:
 			return False
 
 		# Remove the user from the project
 		project.users.remove(user_to_remove)
 
-		# Find API keys owned by this user that are linked to the project
-		user_api_keys = [api_key for api_key in project.api_keys if api_key.user_id == user_id]
+		# Find and remove user's API keys from project
+		project.api_keys = [api_key for api_key in project.api_keys if api_key.user_id != user_id]
 
-		for api_key in user_api_keys:
-			project.api_keys.remove(api_key)
-
-		# Flush to update the relationships
-		await self.db_session.flush()
-
-		# Check if there are other users linked to the project
+		# If no users left, delete the project
 		if not project.users:
-			# No other users, delete the project
 			await self.db_session.delete(project)
-			await self.db_session.flush()
-			return True
 
-		return False
+		await self.db_session.flush()
+		return not bool(project.users)
 
 	async def get_with_related(self, user_id: int, project_id: int) -> ProjectDB | None:
 		query = (
 			select(ProjectDB)
 			.options(
 				selectinload(ProjectDB.api_keys),
-				selectinload(ProjectDB.embeddings),
 				selectinload(ProjectDB.users),
 			)
 			.join(user_project_association)
@@ -253,4 +235,4 @@ class ProjectRepository:
 	async def is_project_associated(self, project_id: int) -> bool:
 		query = select(exists().where(user_project_association.c.project_id == project_id))
 		result = await self.db_session.execute(query)
-		return result.scalar()
+		return bool(result.scalar())
