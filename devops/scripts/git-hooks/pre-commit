@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+
+# Display what's being run
+echo "Running import sorting check and fix..."
+uvx ruff check --select I --fix
+
+echo "Running code formatting..."
+uvx ruff format
+
+echo "Running linting checks..."
+uvx ruff check
+
+# If we got this far, all checks passed
+echo "✓ All checks passed"
+
