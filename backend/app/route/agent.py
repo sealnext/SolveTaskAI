@@ -10,7 +10,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from app.agent.thread_manager import get_user_id, message_generator
 from app.dependency import (
-	get_api_key_repository,
+	get_apikey_service,
 	get_db_checkpointer,
 	get_project_service,
 	get_thread_repository,
@@ -19,7 +19,7 @@ from app.dependency import (
 from app.dto.agent import AgentStreamInput
 from app.dto.api_key import ApiKey
 from app.dto.project import Project
-from app.repository.api_key import ApiKeyRepository
+from app.service.apikey import ApiKeyService
 from app.repository.thread import ThreadRepository
 from app.service.project import ProjectService
 from app.service.ticketing.factory import TicketingClientFactory
@@ -34,8 +34,8 @@ async def get_threads(
 	request: Request, thread_repo: ThreadRepository = Depends(get_thread_repository)
 ) -> dict:
 	"""Get all threads for the current user."""
-	user_id = get_user_id(request)
-	threads = await thread_repo.get_by_user_id(user_id)
+	# TODO Add pagination
+	threads = await thread_repo.get_by_user_id(request.state.user_id)
 	return {'threads': threads, 'count': len(threads)}
 
 
@@ -47,13 +47,13 @@ async def stream(
 	factory: TicketingClientFactory = Depends(get_ticketing_client_factory),
 	thread_repo: ThreadRepository = Depends(get_thread_repository),
 	project_service: ProjectService = Depends(get_project_service),
-	api_key_repository: ApiKeyRepository = Depends(get_api_key_repository),
+	api_key_service: ApiKeyService = Depends(get_apikey_service),
 ) -> StreamingResponse:
 	"""Stream responses from the agent."""
-	user_id = get_user_id(request)
+	user_id = request.state.user_id
 
 	project: Project = await project_service.get_project_by_id(user_id, user_input.project_id)
-	api_key: ApiKey = await api_key_repository.get_api_key_by_user_and_project(user_id, project.id)
+	api_key: ApiKey = await api_key_service.get_api_key_by_project_unmasked(user_id, project.id)
 	client = factory.get_client(api_key, project)
 
 	return StreamingResponse(
@@ -69,14 +69,12 @@ async def delete_thread(
 	thread_repo: ThreadRepository = Depends(get_thread_repository),
 ) -> dict:
 	"""Delete a thread and all its associated data."""
-	user_id = get_user_id(request)
-
-	if not await thread_repo.verify_ownership(thread_id, user_id):
+	if not await thread_repo.verify_ownership(thread_id, request.state.user_id):
 		raise HTTPException(
 			status.HTTP_404_NOT_FOUND,
-			detail="Thread not found or you don't have permission to delete it",
+			detail='Thread not found',
 		)
 
 	await thread_repo.remove(thread_id)
 
-	return {'status': 'success', 'message': f'Thread {thread_id} has been deleted'}
+	return {'status': 'success'}
