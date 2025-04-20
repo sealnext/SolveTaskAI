@@ -7,7 +7,6 @@ from app.dto.api_key import ApiKey, ApiKeyCreate
 from app.model.api_key import ApiKeyDB
 from app.model.associations import api_key_project_association
 from app.service.ticketing.enums import TicketingSystemType
-from app.model.user import UserDB
 
 
 class ApiKeyRepository:
