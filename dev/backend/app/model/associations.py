@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.model.base import Base
 
@@ -18,16 +19,13 @@ user_project_association = Table(
 	Column('project_id', Integer, ForeignKey('projects.id'), primary_key=True),
 )
 
+
 thread_user_association = Table(
 	'thread_user',
 	Base.metadata,
 	Column('thread_id', String, primary_key=True),
 	Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
-	Column(
-		'created_at',
-		DateTime(timezone=True),
-		default=lambda: datetime.now(timezone.utc),
-	),
+	Column('created_at', DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
 	Column(
 		'updated_at',
 		DateTime(timezone=True),

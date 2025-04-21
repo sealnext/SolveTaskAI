@@ -3,6 +3,7 @@ Agent router that handles graph operations.
 """
 
 from logging import getLogger
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
@@ -15,10 +16,12 @@ from app.dependency import (
 	get_project_service,
 	get_thread_repository,
 	get_ticketing_client_factory,
+	ThreadServiceDep,
 )
 from app.dto.agent import AgentStreamInput
 from app.dto.api_key import ApiKey
 from app.dto.project import Project
+from app.dto.thread import Thread
 from app.repository.thread import ThreadRepository
 from app.service.apikey import ApiKeyService
 from app.service.project import ProjectService
@@ -29,14 +32,14 @@ logger = getLogger(__name__)
 router = APIRouter()
 
 
-@router.get('/threads')
-async def get_threads(
-	request: Request, thread_repo: ThreadRepository = Depends(get_thread_repository)
-) -> dict:
+@router.get('/threads', response_model=List[Thread])
+async def get_threads(request: Request, thread_service: ThreadServiceDep):
 	"""Get all threads for the current user."""
-	# TODO Add pagination
-	threads = await thread_repo.get_by_user_id(request.state.user_id)
-	return {'threads': threads, 'count': len(threads)}
+	try:
+		threads = await thread_service.get_user_threads(request.state.user_id)
+		return threads
+	except ValueError as e:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post('/stream')
@@ -66,15 +69,11 @@ async def stream(
 async def delete_thread(
 	request: Request,
 	thread_id: str,
-	thread_repo: ThreadRepository = Depends(get_thread_repository),
-) -> dict:
+	thread_service: ThreadServiceDep,
+):
 	"""Delete a thread and all its associated data."""
-	if not await thread_repo.verify_ownership(thread_id, request.state.user_id):
-		raise HTTPException(
-			status.HTTP_404_NOT_FOUND,
-			detail='Thread not found',
-		)
-
-	await thread_repo.remove(thread_id)
-
-	return {'status': 'success'}
+	try:
+		await thread_service.delete_thread(request.state.user_id, thread_id)
+		return {'status': 'success'}
+	except ValueError as e:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
