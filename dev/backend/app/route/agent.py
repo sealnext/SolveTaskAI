@@ -11,12 +11,12 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from app.agent.thread_manager import message_generator
 from app.dependency import (
+	ThreadServiceDep,
 	get_apikey_service,
 	get_db_checkpointer,
 	get_project_service,
 	get_thread_repository,
 	get_ticketing_client_factory,
-	ThreadServiceDep,
 )
 from app.dto.agent import AgentStreamInput
 from app.dto.api_key import ApiKey

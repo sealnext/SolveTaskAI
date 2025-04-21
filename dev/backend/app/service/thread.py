@@ -1,5 +1,6 @@
 from typing import Sequence
-from app.dto.thread import Thread, ThreadList, ThreadResponse
+
+from app.dto.thread import Thread
 from app.repository.thread import ThreadRepository
 
 
@@ -14,17 +15,17 @@ class ThreadService:
 
 		threads: Sequence[dict] = await self.thread_repo.get_all(user_id)
 		if not threads:
-			raise ValueError(f'No threads found')
+			raise ValueError('No threads found')
 
 		return [Thread.model_validate(thread) for thread in threads]
 
 	async def delete_thread(self, user_id: int, thread_id: str) -> None:
 		"""Delete thread and verify ownership."""
 		if not thread_id:
-			raise ValueError("Thread ID is required")
-			
+			raise ValueError('Thread ID is required')
+
 		exists = await self.thread_repo.verify_ownership(thread_id, user_id)
 		if not exists:
-			raise ValueError(f"Thread not found")
-			
+			raise ValueError('Thread not found')
+
 		await self.thread_repo.remove(thread_id)

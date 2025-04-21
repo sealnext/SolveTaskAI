@@ -5,6 +5,7 @@ from typing import AsyncGenerator
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 
+from app.misc.exception import SessionNotFoundException
 from app.misc.pool import db_pool
 from app.misc.postgres import async_db_engine, init_db
 from app.route.agent import router as agent_router
@@ -14,7 +15,6 @@ from app.route.health import router as health_router
 from app.route.projects import router as projects_router
 from app.route.ticketing import router as ticketing_router
 from app.service.auth import AuthService
-from app.misc.exception import SessionNotFoundException
 
 logger = getLogger(__name__)
 
