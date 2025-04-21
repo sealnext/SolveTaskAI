@@ -14,6 +14,7 @@ from app.repository.project import ProjectRepository
 from app.repository.thread import ThreadRepository
 from app.repository.user import UserRepository
 from app.service.apikey import ApiKeyService
+from app.service.thread import ThreadService
 from app.service.auth import AuthService
 from app.service.document_embeddings import DocumentEmbeddingsService
 from app.service.health import HealthService
@@ -159,3 +160,10 @@ def get_document_embeddings_service(
 DocumentEmbeddingsServiceDep = Annotated[
 	DocumentEmbeddingsService, Depends(get_document_embeddings_service)
 ]
+
+
+def get_thread_service(thread_repository: ThreadRepositoryDep) -> ThreadService:
+	return ThreadService(thread_repository)
+
+
+ThreadServiceDep = Annotated[ThreadService, Depends(get_thread_service)]

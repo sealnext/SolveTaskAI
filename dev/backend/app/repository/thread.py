@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from logging import getLogger
-from typing import List
+from typing import List, Sequence
 
 from sqlalchemy import delete, insert, select, text, update
 from sqlalchemy.exc import SQLAlchemyError
@@ -62,29 +62,20 @@ class ThreadRepository:
 			logger.error(f'Failed to get thread {thread_id}: {e}')
 			raise
 
-	async def get_by_user_id(self, user_id: str) -> List[dict]:
+	async def get_all(self, user_id: int) -> Sequence[dict]:
 		"""Get all threads for a user."""
-		if not user_id:
-			return []
+		stmt = (
+			select(
+				thread_user_association.c.thread_id,
+				thread_user_association.c.created_at,
+				thread_user_association.c.updated_at,
+			)
+			.where(thread_user_association.c.user_id == user_id)
+			.order_by(thread_user_association.c.updated_at.desc())
+		)
 
-		try:
-			result = await self.session.execute(
-				select(
-					thread_user_association.c.thread_id,
-					thread_user_association.c.updated_at,
-				)
-				.where(thread_user_association.c.user_id == int(user_id))
-				.order_by(thread_user_association.c.updated_at.desc())
-			)
-			rows = result.all()
-			return (
-				[{'thread_id': row.thread_id, 'updated_at': row.updated_at} for row in rows]
-				if rows
-				else []
-			)
-		except SQLAlchemyError as e:
-			logger.error(f'Failed to get threads for user {user_id}: {e}')
-			raise
+		result = await self.session.execute(stmt)
+		return result.mappings().all()
 
 	async def update_timestamp(self, thread_id: str) -> None:
 		"""Update the updated_at timestamp for a thread."""
@@ -100,7 +91,7 @@ class ThreadRepository:
 			logger.error(f'Failed to update timestamp for thread {thread_id}: {e}')
 			raise
 
-	async def verify_ownership(self, thread_id: str, user_id: str) -> bool:
+	async def verify_ownership(self, thread_id: str, user_id: int) -> bool:
 		"""Verify if thread belongs to user."""
 		if not thread_id or not user_id:
 			return False
@@ -109,7 +100,7 @@ class ThreadRepository:
 			result = await self.session.execute(
 				select(thread_user_association).where(
 					thread_user_association.c.thread_id == thread_id,
-					thread_user_association.c.user_id == int(user_id),
+					thread_user_association.c.user_id == user_id,
 				)
 			)
 			return result.first() is not None
