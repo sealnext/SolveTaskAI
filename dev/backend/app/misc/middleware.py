@@ -7,7 +7,7 @@ from app.service.auth import AuthService
 
 @app.middleware('http')
 async def authorize(request: Request, call_next):
-	if request.url.path.startswith('/auth') or request.url.path == '/':
+	if request.url.path.startswith('/api/auth') or request.url.path == '/api/health':
 		return await call_next(request)
 
 	session_token = request.cookies.get('session_token')
