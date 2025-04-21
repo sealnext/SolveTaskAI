@@ -1,13 +1,12 @@
-from datetime import UTC
 from logging import getLogger
 from typing import List
 
 from fastapi import HTTPException, status
 
 from app.dto.api_key import ApiKey, ApiKeyCreate, ApiKeyResponse
+from app.misc.crypto import decrypt, encrypt
 from app.model.api_key import ApiKeyDB
 from app.repository.api_key import ApiKeyRepository
-from app.misc.crypto import encrypt, decrypt
 
 logger = getLogger(__name__)
 
@@ -17,7 +16,7 @@ class ApiKeyService:
 		self.apikey_repository = apikey_repository
 
 	async def add_api_key(self, user_id: int, api_key_data: ApiKeyCreate) -> ApiKeyResponse:
-		encrypted_key = encrypt(api_key_data.api_key.encode()).decode()
+		encrypted_key = encrypt(api_key_data.api_key)
 		existing_key = await self.apikey_repository.get_by_value(encrypted_key)
 		if existing_key:
 			raise HTTPException(
@@ -43,7 +42,7 @@ class ApiKeyService:
 		"""Get all API keys for a user with masked key values."""
 		api_keys: List[ApiKeyDB] = await self.apikey_repository.get_api_keys_by_user(user_id)
 		for key in api_keys:
-			key.api_key = decrypt(key.api_key.encode()).decode()
+			key.api_key = decrypt(key.api_key)
 		return [ApiKeyResponse.model_validate(key) for key in api_keys]
 
 	async def delete_api_key(self, user_id: int, api_key_id: int) -> None:
@@ -78,7 +77,7 @@ class ApiKeyService:
 		if not api_key_data:
 			raise HTTPException(status.HTTP_404_NOT_FOUND, detail='API Key not found.')
 
-		api_key_data.api_key = decrypt(api_key_data.api_key.encode()).decode()
+		api_key_data.api_key = decrypt(api_key_data.api_key)
 		return ApiKey.model_validate(api_key_data)
 
 	async def get_api_key_by_project_unmasked(self, user_id: int, project_id: int) -> ApiKey:
@@ -88,5 +87,5 @@ class ApiKeyService:
 		if not api_key_data:
 			raise HTTPException(status.HTTP_404_NOT_FOUND, detail='API Key not found.')
 
-		api_key_data.api_key = decrypt(api_key_data.api_key.encode()).decode()
+		api_key_data.api_key = decrypt(api_key_data.api_key)
 		return ApiKey.model_validate(api_key_data)

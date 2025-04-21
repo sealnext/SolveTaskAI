@@ -16,11 +16,11 @@ from app.repository.user import UserRepository
 from app.service.apikey import ApiKeyService
 from app.service.auth import AuthService
 from app.service.document_embeddings import DocumentEmbeddingsService
+from app.service.health import HealthService
 from app.service.project import ProjectService
 from app.service.ticketing.client import BaseTicketingClient
 from app.service.ticketing.factory import TicketingClientFactory, TicketingConfig
 from app.service.user import UserService
-from app.service.health import HealthService
 
 """ Core dependencies """
 

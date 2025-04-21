@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import AnyHttpUrl, BaseModel, EmailStr, Field, ConfigDict, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.service.ticketing.enums import TicketingSystemType
 

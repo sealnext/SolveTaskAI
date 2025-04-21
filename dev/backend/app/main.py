@@ -7,10 +7,10 @@ from fastapi import APIRouter, FastAPI
 
 from app.misc.pool import db_pool
 from app.misc.postgres import async_db_engine, init_db
-from app.route.health import router as health_router
 from app.route.agent import router as agent_router
 from app.route.apikey import router as api_keys_router
 from app.route.auth import router as auth_router
+from app.route.health import router as health_router
 from app.route.projects import router as projects_router
 from app.route.ticketing import router as ticketing_router
 

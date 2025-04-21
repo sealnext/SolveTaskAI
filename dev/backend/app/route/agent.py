@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-from app.agent.thread_manager import get_user_id, message_generator
+from app.agent.thread_manager import message_generator
 from app.dependency import (
 	get_apikey_service,
 	get_db_checkpointer,
@@ -19,8 +19,8 @@ from app.dependency import (
 from app.dto.agent import AgentStreamInput
 from app.dto.api_key import ApiKey
 from app.dto.project import Project
-from app.service.apikey import ApiKeyService
 from app.repository.thread import ThreadRepository
+from app.service.apikey import ApiKeyService
 from app.service.project import ProjectService
 from app.service.ticketing.factory import TicketingClientFactory
 
