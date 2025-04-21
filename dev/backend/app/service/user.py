@@ -1,8 +1,8 @@
 from fastapi import HTTPException, status
 
 from app.dto.user import Email, UserCreateByPassword
-from app.misc.exception import UserAlreadyExistsException
 from app.misc.crypto import password_hasher
+from app.misc.exception import UserAlreadyExistsException
 from app.model.user import UserDB
 from app.repository.user import UserRepository
 

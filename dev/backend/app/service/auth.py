@@ -2,9 +2,9 @@ from hashlib import blake2b
 from secrets import token_urlsafe
 
 from app.dto.user import UserCreateByPassword, UserLogin
+from app.misc.crypto import password_hasher
 from app.misc.exception import SessionNotFoundException
 from app.misc.redis import redis
-from app.misc.crypto import password_hasher
 from app.misc.settings import settings
 from app.service.user import UserService
 

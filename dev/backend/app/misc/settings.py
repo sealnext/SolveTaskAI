@@ -1,9 +1,8 @@
-from typing import Annotated
 from base64 import b64decode
+from typing import Annotated
 
-from pydantic import BeforeValidator, HttpUrl, PostgresDsn, RedisDsn
+from pydantic import BeforeValidator, HttpUrl, PostgresDsn, RedisDsn, SecretBytes, SecretStr
 from pydantic_settings import BaseSettings
-from pydantic import SecretStr, SecretBytes
 
 
 class Settings(BaseSettings):

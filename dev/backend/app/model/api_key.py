@@ -3,11 +3,11 @@ from typing import TYPE_CHECKING, List
 
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql.sqltypes import TIMESTAMP
 
 from app.model.associations import api_key_project_association
 from app.model.base import Base, utc_now
 from app.service.ticketing.enums import TicketingSystemType
-from sqlalchemy.sql.sqltypes import TIMESTAMP
 
 if TYPE_CHECKING:
 	from app.model.project import ProjectDB

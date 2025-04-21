@@ -3,7 +3,6 @@ from logging import getLogger
 from fastapi import APIRouter, HTTPException, status
 
 from app.dependency import HealthServiceDep
-from app.misc.redis import redis
 
 logger = getLogger(__name__)
 
