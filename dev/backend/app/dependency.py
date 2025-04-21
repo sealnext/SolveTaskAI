@@ -14,11 +14,11 @@ from app.repository.project import ProjectRepository
 from app.repository.thread import ThreadRepository
 from app.repository.user import UserRepository
 from app.service.apikey import ApiKeyService
-from app.service.thread import ThreadService
 from app.service.auth import AuthService
 from app.service.document_embeddings import DocumentEmbeddingsService
 from app.service.health import HealthService
 from app.service.project import ProjectService
+from app.service.thread import ThreadService
 from app.service.ticketing.client import BaseTicketingClient
 from app.service.ticketing.factory import TicketingClientFactory, TicketingConfig
 from app.service.user import UserService
