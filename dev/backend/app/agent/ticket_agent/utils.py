@@ -141,8 +141,8 @@ async def handle_review_process(review_config: ReviewConfig, client: BaseTicketi
 	except GraphInterrupt as i:
 		raise i
 	except Exception as e:
-		logger.error(f'Review process failed: {str(e)}', exc_info=True)
-		return f'Review process error: {str(e)}'
+		logger.error(f'Review process failed: {e}', exc_info=True)
+		return f'Review process error: {e}'
 
 
 async def _handle_edit_confirmation(
@@ -175,7 +175,7 @@ async def _handle_edit_confirmation(
 
 			return await _handle_direct_confirmation(payload, ticket, client)
 		except Exception as e:
-			return f'Failed to apply changes: {str(e)}'
+			return f'Failed to apply changes: {e}'
 	elif action == ReviewAction.CANCEL:
 		return 'Operation cancelled by user'
 	else:
@@ -204,7 +204,7 @@ async def _handle_delete_confirmation(
 				)
 			return await client.delete_ticket(ticket_id, delete_subtasks=False)
 		except Exception as e:
-			return f'Failed to delete ticket: {str(e)}'
+			return f'Failed to delete ticket: {e}'
 
 	return 'Deletion cancelled by user'
 
@@ -243,7 +243,7 @@ async def _handle_create_confirmation(
 			return formatted_payload
 
 		except Exception as e:
-			return f'Failed to create ticket: {str(e)}'
+			return f'Failed to create ticket: {e}'
 
 	elif action == ReviewAction.CANCEL:
 		return 'Operation cancelled by user'
@@ -473,7 +473,7 @@ async def handle_edit_error(e: Exception, tool_call_id: str, field_values: Dict)
 			update={
 				'internal_messages': [
 					ToolMessage(
-						content=f'Failed to apply changes after 3 attempts. Error: {str(e)}. Please try a different approach.',
+						content=f'Failed to apply changes after 3 attempts. Error: {e}. Please try a different approach.',
 						tool_call_id=tool_call_id,
 					)
 				],
@@ -495,7 +495,7 @@ async def handle_edit_error(e: Exception, tool_call_id: str, field_values: Dict)
 			update={
 				'internal_messages': [
 					ToolMessage(
-						content=f'Failed to process the request: {str(e)}. Please try a different approach.',
+						content=f'Failed to process the request: {e}. Please try a different approach.',
 						tool_call_id=tool_call_id,
 					)
 				],

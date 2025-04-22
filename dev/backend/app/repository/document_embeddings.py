@@ -41,7 +41,7 @@ class DocumentEmbeddingsRepository:
 			)
 			yield vector_store
 		except Exception as e:
-			logger.error(f'Error in vector store: {str(e)}')
+			logger.error(f'Error in vector store: {e}')
 			raise
 
 	async def add_embeddings(
@@ -106,7 +106,7 @@ class DocumentEmbeddingsRepository:
 					processed_count += len(batch)
 				except Exception as e:
 					failed_count += len(batch)
-					logger.error(f'Batch processing error: {str(e)}')
+					logger.error(f'Batch processing error: {e}')
 				finally:
 					# Log detailed progress with rates
 					current_time = asyncio.get_running_loop().time()
@@ -212,7 +212,7 @@ class DocumentEmbeddingsRepository:
 			}
 
 		except Exception as e:
-			logger.error(f'Error processing batch: {str(e)}')
+			logger.error(f'Error processing batch: {e}')
 			raise
 
 	async def collection_exists(self, unique_identifier: str) -> bool:

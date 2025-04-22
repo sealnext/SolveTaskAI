@@ -3,10 +3,11 @@ from contextlib import asynccontextmanager
 from logging import getLogger
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, FastAPI, HTTPException, Request, status
+from fastapi import APIRouter, FastAPI, Request, status
+from fastapi.responses import JSONResponse
 
+from app.misc.db_pool import db_pool
 from app.misc.exception import SessionNotFoundException
-from app.misc.pool import db_pool
 from app.misc.postgres import async_db_engine, init_db
 from app.route.agent import router as agent_router
 from app.route.apikey import router as api_keys_router
@@ -38,15 +39,25 @@ async def authorize(request: Request, call_next):
 
 	session_token = request.cookies.get('session_token')
 	if not session_token:
-		return HTTPException(status.HTTP_401_UNAUTHORIZED, 'Unauthorized')
+		return JSONResponse(
+			status_code=status.HTTP_401_UNAUTHORIZED, content={'detail': 'Unauthorized'}
+		)
 
 	try:
-		user_id: int = await AuthService.get_user_id(session_token)
+		session_id: str = AuthService.get_session_id(session_token)
+		user_id: str = await AuthService.get_user_id(session_id)
 	except SessionNotFoundException:
-		return HTTPException(status.HTTP_401_UNAUTHORIZED, 'Unauthorized')
+		return JSONResponse(
+			status_code=status.HTTP_401_UNAUTHORIZED, content={'detail': 'Unauthorized'}
+		)
 	except Exception as e:
-		raise e
+		logger.error(f'Error retrieving user ID: {e}')
+		return JSONResponse(
+			status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+			content={'detail': 'Internal Server Error'},
+		)
 
+	request.state.session_id = session_id
 	request.state.user_id = user_id
 
 	response = await call_next(request)

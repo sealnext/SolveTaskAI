@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 @router.get(
-	'/',
+	'',
 	summary='Performs health checks on the backend dependencies',
 	responses={
 		status.HTTP_200_OK: {'description': 'Dependencies are healthy'},
@@ -25,13 +25,13 @@ async def health(health_service: HealthServiceDep):
 
 	if is_db_healthy and is_redis_healthy:
 		return {'status': 'ok'}
-	else:
-		details = {}
-		if not is_db_healthy:
-			details['database'] = 'unhealthy'
-		if not is_redis_healthy:
-			details['redis'] = 'unhealthy'
 
-		raise HTTPException(
-			status.HTTP_503_SERVICE_UNAVAILABLE, {'status': 'unhealthy', 'dependencies': details}
-		)
+	details = {}
+	if not is_db_healthy:
+		details['database'] = 'unhealthy'
+	if not is_redis_healthy:
+		details['redis'] = 'unhealthy'
+
+	raise HTTPException(
+		status.HTTP_503_SERVICE_UNAVAILABLE, {'status': 'unhealthy', 'dependencies': details}
+	)

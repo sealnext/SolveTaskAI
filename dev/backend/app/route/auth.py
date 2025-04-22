@@ -1,7 +1,6 @@
 from logging import getLogger
 
-from fastapi import APIRouter, Response
-from starlette.responses import RedirectResponse
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, status
 
 from app.dependency import AuthServiceDep
 from app.dto.user import UserCreateByPassword, UserLogin
@@ -24,18 +23,26 @@ def _set_session_cookie(response: Response, session_token: str) -> None:
 
 @router.post('/login')
 async def login(auth_service: AuthServiceDep, user_dto: UserLogin):
-	session_token: str = await auth_service.login(user_dto)
-	response = RedirectResponse('/')
+	try:
+		session_token: str = await auth_service.login(user_dto)
+	except Exception as e:
+		logger.exception(f'Login failed: {e}')
+		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Login failed')
+	response = Response()
 	_set_session_cookie(response, session_token)
 	return response
 
 
 @router.post('/signup')
-async def signup(auth_service: AuthServiceDep, user_dto: UserCreateByPassword):
-	session_token: str = await auth_service.register(user_dto)
-	response = RedirectResponse('/')
-	_set_session_cookie(response, session_token)
-	return response
+async def signup(
+	auth_service: AuthServiceDep, user_dto: UserCreateByPassword, background_tasks: BackgroundTasks
+):
+	try:
+		await auth_service.register(user_dto, background_tasks)
+	except Exception as e:
+		logger.exception(f'Sign up failed: {e}')
+		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Signup failed')
+	return Response(status_code=status.HTTP_201_CREATED)
 
 
 # @router.post('/login/google', response_class=RedirectResponse)

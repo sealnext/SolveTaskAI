@@ -18,6 +18,8 @@ class UserDB(Base):
 	id: Mapped[int] = mapped_column(init=False, primary_key=True)
 	name: Mapped[str] = mapped_column()
 	email: Mapped[str] = mapped_column(String(50), index=True, unique=True)
+	is_email_verified: Mapped[bool] = mapped_column(default=False)
+	is_banned: Mapped[bool] = mapped_column(default=False)
 	github_id: Mapped[str | None] = mapped_column(index=True, unique=True, default=None)
 	google_id: Mapped[str | None] = mapped_column(index=True, unique=True, default=None)
 	hashed_password: Mapped[str | None] = mapped_column(String(100), default=None)
@@ -25,7 +27,6 @@ class UserDB(Base):
 	updated_at: Mapped[datetime | None] = mapped_column(
 		TIMESTAMP(timezone=True), default=None, onupdate=utc_now
 	)
-	last_seen: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), default=None)
 
 	# One-to-many relationship to API keys
 	api_keys: Mapped[List['ApiKeyDB']] = relationship(

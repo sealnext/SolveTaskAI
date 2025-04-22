@@ -103,7 +103,7 @@ def create_ticket_agent(
 		except GraphInterrupt as i:
 			raise i
 		except Exception as e:
-			logger.error(f'Error in create_ticket: {str(e)}', exc_info=True)
+			logger.error(f'Error in create_ticket: {e}', exc_info=True)
 
 			error_message = str(e)
 			if '404: No metadata found for project' in error_message:
