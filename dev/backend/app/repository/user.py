@@ -15,13 +15,13 @@ class UserRepository:
 		return user
 
 	async def create_by_github(self, name: str, email: str, github_id: str) -> UserDB:
-		user = UserDB(name=name, email=email, google_id=github_id)
+		user = UserDB(name=name, email=email, is_email_verified=True, google_id=github_id)
 		self.async_db_session.add(user)
 		await self.async_db_session.flush()
 		return user
 
 	async def create_by_google(self, name: str, email: str, google_id: str) -> UserDB:
-		user = UserDB(name=name, email=email, google_id=google_id)
+		user = UserDB(name=name, email=email, is_email_verified=True, google_id=google_id)
 		self.async_db_session.add(user)
 		await self.async_db_session.flush()
 		return user

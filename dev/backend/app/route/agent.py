@@ -39,7 +39,7 @@ async def get_threads(request: Request, thread_service: ThreadServiceDep):
 		threads = await thread_service.get_user_threads(request.state.user_id)
 		return threads
 	except ValueError as e:
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+		raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
 
 
 @router.post('/stream')
@@ -76,4 +76,4 @@ async def delete_thread(
 		await thread_service.delete_thread(request.state.user_id, thread_id)
 		return {'status': 'success'}
 	except ValueError as e:
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+		raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))

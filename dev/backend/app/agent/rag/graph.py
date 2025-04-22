@@ -125,7 +125,7 @@ async def retrieve_documents(state: RAGState, client: BaseTicketingClient) -> RA
 		return state
 
 	except Exception as e:
-		logger.error(f'Document retrieval failed: {str(e)}')
+		logger.error(f'Document retrieval failed: {e}')
 		raise
 
 
@@ -191,7 +191,7 @@ async def retry_retrieve_documents(state: RAGState, client: BaseTicketingClient)
 		return state
 
 	except Exception as e:
-		logger.error(f'Document retrieval retry failed: {str(e)}')
+		logger.error(f'Document retrieval retry failed: {e}')
 		raise
 
 
@@ -250,11 +250,11 @@ async def grade_documents(
 					confidence = float(response['confidence'])
 					return doc, score * confidence
 				except (json.JSONDecodeError, ValueError, KeyError) as e:
-					logger.error(f'Invalid grade response for {doc.metadata["key"]}: {str(e)}')
+					logger.error(f'Invalid grade response for {doc.metadata["key"]}: {e}')
 					return doc, 0.0
 
 			except Exception as e:
-				logger.error(f'Failed to grade document {doc.metadata["key"]}: {str(e)}')
+				logger.error(f'Failed to grade document {doc.metadata["key"]}: {e}')
 				return doc, 0.0
 
 		# Grade all documents in parallel with timeout
@@ -288,7 +288,7 @@ async def grade_documents(
 		return state
 
 	except Exception as e:
-		logger.error(f'Document grading failed: {str(e)}')
+		logger.error(f'Document grading failed: {e}')
 		raise
 
 
@@ -333,7 +333,7 @@ async def fetch_documents(
 			except Exception as e:
 				if attempt < max_retries:
 					await asyncio.sleep(1 * (attempt + 1))  # Exponential backoff
-				logger.warning(f'Attempt {attempt + 1} failed for ticket {ticket_id}: {str(e)}')
+				logger.warning(f'Attempt {attempt + 1} failed for ticket {ticket_id}: {e}')
 		logger.error(f'Failed to fetch ticket {ticket_id} after {max_retries} retries')
 		return None
 
@@ -355,7 +355,7 @@ async def fetch_documents(
 
 		except Exception as e:
 			fetch_errors += 1
-			logger.error(f'Unexpected error processing ticket {ticket_id}: {str(e)}')
+			logger.error(f'Unexpected error processing ticket {ticket_id}: {e}')
 			continue
 
 	if fetch_errors:

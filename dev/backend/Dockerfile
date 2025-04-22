@@ -11,13 +11,16 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 ENV UV_PYTHON_DOWNLOADS=0
 
 WORKDIR /app
+
+RUN apt-get update && apt-get install -y g++
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev
+	--mount=type=bind,source=uv.lock,target=uv.lock \
+	--mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+	uv sync --frozen --no-install-project --no-dev
+
 ADD . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+	uv sync --frozen --no-dev
 
 # Then, use a final image without uv
 FROM python:3.13-slim-bookworm AS base
@@ -30,8 +33,9 @@ RUN apt-get update && apt-get install -y curl
 
 RUN groupadd -r app_group && useradd -r -g app_group app_user
 USER app_user
-COPY --from=builder --chown=app_user:app_group /app/.venv /app/.venv
-COPY --from=builder --chown=app_user:app_group /app/app /app/uv.lock /app/
+COPY --from=builder --chown=app_user:app_group /app/email_template/ /app/email_template/
+COPY --from=builder --chown=app_user:app_group /app/.venv/ /app/.venv/
+COPY --from=builder --chown=app_user:app_group /app/app/ /app/uv.lock /app/
 
 FROM base AS final-development
 CMD ["fastapi", "dev", "--host", "0.0.0.0", "--port", "8000"]
