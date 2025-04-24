@@ -21,7 +21,7 @@ class ApiKeyService:
 		if existing_key:
 			raise HTTPException(
 				status.HTTP_409_CONFLICT,
-				detail='An API key with this value already exists.',
+				'An API key with this value already exists.',
 			)
 
 		try:
@@ -30,10 +30,10 @@ class ApiKeyService:
 				user_id, api_key_data
 			)
 		except Exception as e:
-			logger.error(f'Failed to create API key: {str(e)}')
+			logger.error(f'Failed to create API key: {e}')
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				detail='Failed to create API key due to an internal error.',
+				'Failed to create API key due to an internal error.',
 			)
 
 		return ApiKeyResponse.model_validate(created_key)
@@ -49,12 +49,12 @@ class ApiKeyService:
 		key_to_delete: ApiKeyDB | None = await self.apikey_repository.get_by_id(api_key_id)
 
 		if not key_to_delete:
-			raise HTTPException(status.HTTP_404_NOT_FOUND, detail='API Key not found.')
+			raise HTTPException(status.HTTP_404_NOT_FOUND, 'API Key not found.')
 
 		if not hasattr(key_to_delete, 'user_id') or key_to_delete.user_id != user_id:
 			raise HTTPException(
 				status.HTTP_403_FORBIDDEN,
-				detail='User does not have permission to delete this API Key.',
+				'User does not have permission to delete this API Key.',
 			)
 
 		deleted = await self.apikey_repository.delete_api_key(api_key_id)
@@ -65,7 +65,7 @@ class ApiKeyService:
 			)
 			raise HTTPException(
 				status.HTTP_404_NOT_FOUND,
-				detail='API Key could not be deleted or was already removed.',
+				'API Key could not be deleted or was already removed.',
 			)
 		logger.info(f'API key {api_key_id} deleted successfully by user {user_id}.')
 
@@ -75,7 +75,7 @@ class ApiKeyService:
 			api_key_id, user_id
 		)
 		if not api_key_data:
-			raise HTTPException(status.HTTP_404_NOT_FOUND, detail='API Key not found.')
+			raise HTTPException(status.HTTP_404_NOT_FOUND, 'API Key not found.')
 
 		api_key_data.api_key = decrypt(api_key_data.api_key)
 		return ApiKey.model_validate(api_key_data)
@@ -85,7 +85,7 @@ class ApiKeyService:
 			user_id, project_id
 		)
 		if not api_key_data:
-			raise HTTPException(status.HTTP_404_NOT_FOUND, detail='API Key not found.')
+			raise HTTPException(status.HTTP_404_NOT_FOUND, 'API Key not found.')
 
 		api_key_data.api_key = decrypt(api_key_data.api_key)
 		return ApiKey.model_validate(api_key_data)
