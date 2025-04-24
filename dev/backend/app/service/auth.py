@@ -1,5 +1,6 @@
 from hashlib import blake2b
 from secrets import token_urlsafe
+from urllib.parse import urljoin
 
 from brevo_python import SendSmtpEmailTo
 from fastapi import BackgroundTasks
@@ -58,7 +59,9 @@ class AuthService:
 			value=user.id,
 			ex=settings.email_verification_ttl,
 		)
-		url = f'{settings.origin_url}/auth/verify-email?token={email_verification_token}'
+		url = urljoin(
+			str(settings.origin_url), f'/auth/verify-email?token={email_verification_token}'
+		)
 
 		verification_email_html = email_verification_template_html.render(
 			email_verification_link=url
