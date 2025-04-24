@@ -69,7 +69,7 @@ class JiraClient(BaseTicketingClient):
 	def _validate_project_key(self, project_key: str) -> None:
 		"""Validate project key format."""
 		if not project_key or not isinstance(project_key, str):
-			raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Invalid project key')
+			raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Invalid project key')
 
 	def _get_auth_headers(self) -> dict:
 		"""Get authentication headers for Jira API."""
@@ -142,7 +142,7 @@ class JiraClient(BaseTicketingClient):
 					)
 					raise HTTPException(
 						status.HTTP_401_UNAUTHORIZED,
-						detail='Jira authentication failed. Check API key and email.',
+						'Jira authentication failed. Check API key and email.',
 					)
 				elif e.response.status_code == 403:
 					logger.error(
@@ -150,7 +150,7 @@ class JiraClient(BaseTicketingClient):
 					)
 					raise HTTPException(
 						status.HTTP_403_FORBIDDEN,
-						detail='Jira permission denied. The API key may lack project browsing permissions.',
+						'Jira permission denied. The API key may lack project browsing permissions.',
 					)
 				else:
 					logger.error(
@@ -159,13 +159,13 @@ class JiraClient(BaseTicketingClient):
 					)
 					raise HTTPException(
 						e.response.status_code,
-						detail=f'Failed to fetch projects: {e.response.text}',
+						f'Failed to fetch projects: {e.response.text}',
 					)
 			except Exception as e:
-				logger.error(f'Unexpected error fetching projects: {str(e)}', exc_info=True)
+				logger.error(f'Unexpected error fetching projects: {e}', exc_info=True)
 				raise HTTPException(
 					status.HTTP_500_INTERNAL_SERVER_ERROR,
-					detail=f'Failed to fetch projects due to an unexpected error: {str(e)}',
+					f'Failed to fetch projects due to an unexpected error: {e}',
 				)
 
 		if not all_projects:
@@ -173,7 +173,7 @@ class JiraClient(BaseTicketingClient):
 			# Consider if 404 is appropriate or just return empty list
 			# raise HTTPException(
 			#     status.HTTP_404_NOT_FOUND,
-			#     detail="No projects found in Jira. Please check your API key and permissions.",
+			#     "No projects found in Jira. Please check your API key and permissions.",
 			# )
 
 		return all_projects
@@ -221,7 +221,7 @@ class JiraClient(BaseTicketingClient):
 
 		except Exception as e:
 			logger.error(
-				f'Error fetching tickets batch at {start_at} for project {self.project.key}: {str(e)}'
+				f'Error fetching tickets batch at {start_at} for project {self.project.key}: {e}'
 			)
 			# Re-raise the exception to be handled by the caller (get_tickets)
 			raise
@@ -256,7 +256,7 @@ class JiraClient(BaseTicketingClient):
 		except Exception as e:
 			logger.error(f'Failed to get total ticket count for project {project_key}: {e}')
 			raise HTTPException(
-				status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Failed to get ticket count: {e}'
+				status.HTTP_500_INTERNAL_SERVER_ERROR, f'Failed to get ticket count: {e}'
 			)
 
 		if total_tickets == 0:
@@ -300,7 +300,7 @@ class JiraClient(BaseTicketingClient):
 		if not ticket_id or not isinstance(ticket_id, str):
 			raise HTTPException(
 				status.HTTP_400_BAD_REQUEST,
-				detail='Invalid ticket ID or key',
+				'Invalid ticket ID or key',
 			)
 
 		url = self._build_url('issue', ticket_id)
@@ -339,7 +339,7 @@ class JiraClient(BaseTicketingClient):
 		    HTTPException: If deletion fails or specific conditions are met (e.g., subtasks exist).
 		"""
 		if not ticket_id or not isinstance(ticket_id, str):
-			raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Invalid ticket ID')
+			raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Invalid ticket ID')
 
 		url = self._build_url('issue', ticket_id)
 		params = {'deleteSubtasks': str(delete_subtasks).lower()}
@@ -364,7 +364,7 @@ class JiraClient(BaseTicketingClient):
 			)
 			raise HTTPException(
 				response.status_code,
-				detail=f'Unexpected status code {response.status_code} during deletion.',
+				f'Unexpected status code {response.status_code} during deletion.',
 			)
 
 		except httpx.HTTPStatusError as e:
@@ -398,12 +398,12 @@ class JiraClient(BaseTicketingClient):
 			logger.error(
 				f'Error deleting ticket {ticket_id} (Status {status_code}): {user_message}'
 			)
-			raise HTTPException(status_code, detail=user_message)
+			raise HTTPException(status_code, user_message)
 		except Exception as e:
-			logger.error(f'Unexpected error deleting ticket {ticket_id}: {str(e)}')
+			logger.error(f'Unexpected error deleting ticket {ticket_id}: {e}')
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				detail=f'Failed to delete ticket due to an unexpected error: {str(e)}',
+				f'Failed to delete ticket due to an unexpected error: {e}',
 			)
 
 	async def get_ticket_edit_issue_metadata(self, ticket_id: str) -> dict:
@@ -422,7 +422,7 @@ class JiraClient(BaseTicketingClient):
 		    HTTPException: If the request fails or the ticket is not found.
 		"""
 		if not ticket_id or not isinstance(ticket_id, str):
-			raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Invalid ticket ID')
+			raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Invalid ticket ID')
 
 		url = self._build_url('issue', ticket_id, 'editmeta')
 
@@ -444,18 +444,18 @@ class JiraClient(BaseTicketingClient):
 			logger.error(
 				f'Error fetching edit metadata for {ticket_id} (Status {status_code}): {detail}'
 			)
-			raise HTTPException(status_code, detail=detail)
+			raise HTTPException(status_code, detail)
 		except Exception as e:
-			logger.error(f'Unexpected error fetching edit metadata for {ticket_id}: {str(e)}')
+			logger.error(f'Unexpected error fetching edit metadata for {ticket_id}: {e}')
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				detail=f'Unexpected error fetching edit metadata: {str(e)}',
+				f'Unexpected error fetching edit metadata: {e}',
 			)
 
 	async def get_ticket_fields(self, ticket_id: str, fields: List[str]) -> Dict[str, Any]:
 		"""Get specific fields for a ticket by ID or key."""
 		if not ticket_id or not isinstance(ticket_id, str):
-			raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Invalid ticket ID')
+			raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Invalid ticket ID')
 		if not fields:
 			return {}  # Return empty if no fields requested
 
@@ -488,12 +488,12 @@ class JiraClient(BaseTicketingClient):
 				detail = 'Jira authentication failed.'
 
 			logger.error(f'Error fetching fields for {ticket_id} (Status {status_code}): {detail}')
-			raise HTTPException(status_code, detail=detail)
+			raise HTTPException(status_code, detail)
 		except Exception as e:
-			logger.error(f'Unexpected error fetching fields for {ticket_id}: {str(e)}')
+			logger.error(f'Unexpected error fetching fields for {ticket_id}: {e}')
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				detail=f'Unexpected error fetching ticket fields: {str(e)}',
+				f'Unexpected error fetching ticket fields: {e}',
 			)
 
 	async def search_user(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
@@ -510,7 +510,7 @@ class JiraClient(BaseTicketingClient):
 		    HTTPException: If the request fails or invalid parameters are provided.
 		"""
 		if not query or not isinstance(query, str):
-			raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Invalid search query')
+			raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Invalid search query')
 
 		# Use the findUsers endpoint for broader search capabilities
 		url = self._build_url('user', 'search')
@@ -534,12 +534,12 @@ class JiraClient(BaseTicketingClient):
 				detail = f'Invalid user search request: {e.response.text}'
 
 			logger.error(f'Error searching users (Status {status_code}): {detail}')
-			raise HTTPException(status_code, detail=detail)
+			raise HTTPException(status_code, detail)
 		except Exception as e:
-			logger.error(f'Unexpected error searching users: {str(e)}')
+			logger.error(f'Unexpected error searching users: {e}')
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				detail=f'Unexpected error searching users: {str(e)}',
+				f'Unexpected error searching users: {e}',
 			)
 
 	async def get_project_boards(self, project_key_or_id: str) -> List[Dict[str, Any]]:
@@ -557,7 +557,7 @@ class JiraClient(BaseTicketingClient):
 		if not project_key_or_id:
 			raise HTTPException(
 				status.HTTP_400_BAD_REQUEST,
-				detail='Project key or ID is required',
+				'Project key or ID is required',
 			)
 
 		# Agile API uses a different base path
@@ -603,14 +603,14 @@ class JiraClient(BaseTicketingClient):
 					detail = 'Jira authentication failed.'
 
 				logger.error(f'Error fetching project boards (Status {status_code}): {detail}')
-				raise HTTPException(status_code, detail=detail)
+				raise HTTPException(status_code, detail)
 			except Exception as e:
 				logger.error(
-					f'Unexpected error fetching project boards for {project_key_or_id}: {str(e)}'
+					f'Unexpected error fetching project boards for {project_key_or_id}: {e}'
 				)
 				raise HTTPException(
 					status.HTTP_500_INTERNAL_SERVER_ERROR,
-					detail=f'Unexpected error fetching project boards: {str(e)}',
+					f'Unexpected error fetching project boards: {e}',
 				)
 		return all_boards
 
@@ -670,12 +670,12 @@ class JiraClient(BaseTicketingClient):
 					detail = 'Jira authentication failed.'
 
 				logger.error(f'Error fetching board sprints (Status {status_code}): {detail}')
-				raise HTTPException(status_code, detail=detail)
+				raise HTTPException(status_code, detail)
 			except Exception as e:
-				logger.error(f'Unexpected error fetching sprints for board {board_id}: {str(e)}')
+				logger.error(f'Unexpected error fetching sprints for board {board_id}: {e}')
 				raise HTTPException(
 					status.HTTP_500_INTERNAL_SERVER_ERROR,
-					detail=f'Unexpected error fetching board sprints: {str(e)}',
+					f'Unexpected error fetching board sprints: {e}',
 				)
 		return all_sprints
 
@@ -720,12 +720,12 @@ class JiraClient(BaseTicketingClient):
 		except Exception as e:
 			# Catch exceptions from get_project_boards or other unexpected issues
 			logger.error(
-				f"Error searching for sprint '{sprint_name}' in project {project_key}: {str(e)}"
+				f"Error searching for sprint '{sprint_name}' in project {project_key}: {e}"
 			)
 			# Re-raise as a generic server error or specific exception if needed
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				detail=f'Failed to search for sprint: {str(e)}',
+				f'Failed to search for sprint: {e}',
 			)
 
 	async def search_issue_by_name(
@@ -742,7 +742,7 @@ class JiraClient(BaseTicketingClient):
 		if not issue_name or not isinstance(issue_name, str):
 			raise HTTPException(
 				status.HTTP_400_BAD_REQUEST,
-				detail='Invalid issue name or key provided for search',
+				'Invalid issue name or key provided for search',
 			)
 
 		# Escape special JQL characters: ", \, etc.
@@ -806,12 +806,12 @@ class JiraClient(BaseTicketingClient):
 				detail = f'Permission denied to search issues in project {project_key}.'
 
 			logger.error(f'Error searching issues (Status {status_code}): {detail}')
-			raise HTTPException(status_code, detail=detail)
+			raise HTTPException(status_code, detail)
 		except Exception as e:
-			logger.error(f'Unexpected error searching issues in project {project_key}: {str(e)}')
+			logger.error(f'Unexpected error searching issues in project {project_key}: {e}')
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				detail=f'Unexpected error searching issues: {str(e)}',
+				f'Unexpected error searching issues: {e}',
 			)
 
 	async def update_ticket(self, ticket_id: str, payload: Dict[str, Any]) -> str:
@@ -839,11 +839,11 @@ class JiraClient(BaseTicketingClient):
 			# )
 
 		if not ticket_id or not isinstance(ticket_id, str):
-			raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Invalid ticket ID')
+			raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Invalid ticket ID')
 		if not payload or not isinstance(payload, dict):
 			raise HTTPException(
 				status.HTTP_400_BAD_REQUEST,
-				detail='Invalid payload for update',
+				'Invalid payload for update',
 			)
 
 		url = self._build_url('issue', ticket_id)
@@ -865,7 +865,7 @@ class JiraClient(BaseTicketingClient):
 			)
 			raise HTTPException(
 				status.response.status_code,
-				detail=f'Unexpected status code {response.status_code} during update.',
+				f'Unexpected status code {response.status_code} during update.',
 			)
 
 		except httpx.HTTPStatusError as e:
@@ -896,12 +896,12 @@ class JiraClient(BaseTicketingClient):
 			logger.error(
 				f'Error updating ticket {ticket_id} (Status {status_code}): {user_message}'
 			)
-			raise HTTPException(status_code, detail=user_message)
+			raise HTTPException(status_code, user_message)
 		except Exception as e:
-			logger.error(f'Unexpected error updating ticket {ticket_id}: {str(e)}')
+			logger.error(f'Unexpected error updating ticket {ticket_id}: {e}')
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				detail=f'Failed to update ticket due to an unexpected error: {str(e)}',
+				f'Failed to update ticket due to an unexpected error: {e}',
 			)
 
 	async def revert_ticket_changes(self, ticket_id: str, version_id: str) -> Dict[str, Any]:
@@ -964,7 +964,7 @@ class JiraClient(BaseTicketingClient):
 		self._validate_project_key(project_key)
 		if not issue_type_name:
 			raise HTTPException(
-				status.HTTP_400_BAD_REQUEST, detail='Issue type name is required for createmeta.'
+				status.HTTP_400_BAD_REQUEST, 'Issue type name is required for createmeta.'
 			)
 
 		url = self._build_url('issue', 'createmeta')
@@ -988,7 +988,7 @@ class JiraClient(BaseTicketingClient):
 				else:
 					raise HTTPException(
 						status.HTTP_404_NOT_FOUND,
-						detail=f"Issue type '{issue_type_name}' not found or available in project '{project_key}' for creation.",
+						f"Issue type '{issue_type_name}' not found or available in project '{project_key}' for creation.",
 					)
 			else:
 				logger.error(
@@ -996,7 +996,7 @@ class JiraClient(BaseTicketingClient):
 				)
 				raise HTTPException(
 					status.HTTP_500_INTERNAL_SERVER_ERROR,
-					detail='Unexpected response format from Jira createmeta.',
+					'Unexpected response format from Jira createmeta.',
 				)
 
 		except httpx.HTTPStatusError as e:
@@ -1012,14 +1012,14 @@ class JiraClient(BaseTicketingClient):
 				detail = f'Permission denied to fetch createmeta for project {project_key}.'
 
 			logger.error(f'Error fetching createmeta (Status {status_code}): {detail}')
-			raise HTTPException(status_code, detail=detail)
+			raise HTTPException(status_code, detail)
 		except Exception as e:
 			logger.error(
-				f'Unexpected error fetching createmeta for {project_key}/{issue_type_name}: {str(e)}'
+				f'Unexpected error fetching createmeta for {project_key}/{issue_type_name}: {e}'
 			)
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				detail=f'Unexpected error fetching createmeta: {str(e)}',
+				f'Unexpected error fetching createmeta: {e}',
 			)
 
 	async def create_ticket(self, payload: dict) -> dict:
@@ -1096,7 +1096,7 @@ class JiraClient(BaseTicketingClient):
 				)
 				raise HTTPException(
 					status.HTTP_500_INTERNAL_SERVER_ERROR,
-					detail='Unexpected response format when fetching issue types.',
+					'Unexpected response format when fetching issue types.',
 				)
 
 			if names_only:
@@ -1118,13 +1118,13 @@ class JiraClient(BaseTicketingClient):
 				detail = f'Project with ID {target_project_id} not found.'
 
 			logger.error(f'Error fetching issue types (Status {status_code}): {detail}')
-			raise HTTPException(status_code, detail=detail)
+			raise HTTPException(status_code, detail)
 		except Exception as e:
 			project_context = f' for project {target_project_id}' if target_project_id else ''
-			logger.error(f'Unexpected error fetching issue types{project_context}: {str(e)}')
+			logger.error(f'Unexpected error fetching issue types{project_context}: {e}')
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				detail=f'Unexpected error fetching issue types: {str(e)}',
+				f'Unexpected error fetching issue types: {e}',
 			)
 
 	def _parse_create_errors(self, e: httpx.HTTPStatusError) -> str:

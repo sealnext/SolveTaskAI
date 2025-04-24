@@ -42,9 +42,7 @@ class ProjectService:
 					user_id, existing_project.id
 				)
 				if already_linked:
-					raise HTTPException(
-						HTTP_400_BAD_REQUEST, detail='User already has this project.'
-					)
+					raise HTTPException(HTTP_400_BAD_REQUEST, 'User already has this project.')
 
 				final_project_db = await self.project_repository.link_user_to_existing_project(
 					existing_project, user_id, api_key
@@ -58,7 +56,7 @@ class ProjectService:
 			return ProjectResponse.model_validate(final_project_db), is_new_project
 
 		except IntegrityError:
-			raise HTTPException(HTTP_409_CONFLICT, detail='Project already exists.')
+			raise HTTPException(HTTP_409_CONFLICT, 'Project already exists.')
 
 	async def get_project_by_id(self, user_id: int, project_id: int) -> Project:
 		project_db = await self.project_repository.get_by_id(user_id, project_id)

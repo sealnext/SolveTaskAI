@@ -187,6 +187,6 @@ class DocumentEmbeddingsService:
 
 			except Exception as e:
 				logger.error(
-					f'Error creating document for ticket {getattr(ticket, "key", "unknown")}: {str(e)}'
+					f'Error creating document for ticket {getattr(ticket, "key", "unknown")}: {e}'
 				)
 				continue
