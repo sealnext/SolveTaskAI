@@ -136,7 +136,7 @@ class JiraClient(BaseTicketingClient):
 				start_at += len(projects)  # More robust pagination using actual count
 
 			except httpx.HTTPStatusError as e:
-				if e.response.status_code == 401:
+				if e.response.status_code == status.HTTP_401_UNAUTHORIZED:
 					logger.error(
 						'Authentication failed when fetching projects. Check API key and email.'
 					)
@@ -144,7 +144,7 @@ class JiraClient(BaseTicketingClient):
 						status.HTTP_401_UNAUTHORIZED,
 						'Jira authentication failed. Check API key and email.',
 					)
-				elif e.response.status_code == 403:
+				elif e.response.status_code == status.HTTP_403_FORBIDDEN:
 					logger.error(
 						'Permission denied when fetching projects. Check API key permissions.'
 					)
@@ -308,11 +308,11 @@ class JiraClient(BaseTicketingClient):
 			data = await self._make_request('GET', url, headers=self._get_auth_headers())
 			return JiraIssueContentSchema.model_validate(data)  # Use model_validate
 		except httpx.HTTPStatusError as e:
-			if e.response.status_code == 404:
+			if e.response.status_code == status.HTTP_404_NOT_FOUND:
 				raise HTTPException(status.HTTP_404_NOT_FOUND, f"Ticket '{ticket_id}' not found.")
-			elif e.response.status_code == 401:
+			elif e.response.status_code == status.HTTP_401_UNAUTHORIZED:
 				raise HTTPException(status.HTTP_401_UNAUTHORIZED, 'Jira authentication failed.')
-			elif e.response.status_code == 403:
+			elif e.response.status_code == status.HTTP_403_FORBIDDEN:
 				raise HTTPException(status.HTTP_403_FORBIDDEN, 'Permission denied to view ticket.')
 			else:
 				raise HTTPException(
@@ -386,13 +386,13 @@ class JiraClient(BaseTicketingClient):
 			status_code = e.response.status_code
 			user_message = f'Failed to delete ticket {ticket_id}: {error_detail}'  # Default message
 
-			if status_code == 400:
+			if status_code == status.HTTP_400_BAD_REQUEST:
 				user_message = f'Cannot delete issue {ticket_id}. It might have subtasks. Try again with deleteSubtasks=true. Details: {error_detail}'
-			elif status_code == 403:
+			elif status_code == status.HTTP_403_FORBIDDEN:
 				user_message = f"Permission denied to delete ticket {ticket_id}. Check 'Delete issues' permission. Details: {error_detail}"
-			elif status_code == 404:
+			elif status_code == status.HTTP_404_NOT_FOUND:
 				user_message = f'Ticket {ticket_id} not found.'
-			elif status_code == 401:
+			elif status_code == status.HTTP_401_UNAUTHORIZED:
 				user_message = 'Jira authentication failed. Please check API credentials.'
 
 			logger.error(
@@ -434,11 +434,11 @@ class JiraClient(BaseTicketingClient):
 		except httpx.HTTPStatusError as e:
 			status_code = e.response.status_code
 			detail = f'Failed to fetch edit metadata for ticket {ticket_id}: {e.response.text}'
-			if status_code == 404:
+			if status_code == status.HTTP_404_NOT_FOUND:
 				detail = f'Ticket {ticket_id} not found.'
-			elif status_code == 403:
+			elif status_code == status.HTTP_403_FORBIDDEN:
 				detail = f'Permission denied to view edit metadata for ticket {ticket_id}.'
-			elif status_code == 401:
+			elif status_code == status.HTTP_401_UNAUTHORIZED:
 				detail = 'Jira authentication failed.'
 
 			logger.error(
@@ -480,11 +480,11 @@ class JiraClient(BaseTicketingClient):
 		except httpx.HTTPStatusError as e:
 			status_code = e.response.status_code
 			detail = f'Failed to fetch fields for ticket {ticket_id}: {e.response.text}'
-			if status_code == 404:
+			if status_code == status.HTTP_404_NOT_FOUND:
 				detail = f'Ticket {ticket_id} not found.'
-			elif status_code == 403:
+			elif status_code == status.HTTP_403_FORBIDDEN:
 				detail = f'Permission denied to view fields for ticket {ticket_id}.'
-			elif status_code == 401:
+			elif status_code == status.HTTP_401_UNAUTHORIZED:
 				detail = 'Jira authentication failed.'
 
 			logger.error(f'Error fetching fields for {ticket_id} (Status {status_code}): {detail}')
@@ -526,11 +526,11 @@ class JiraClient(BaseTicketingClient):
 		except httpx.HTTPStatusError as e:
 			status_code = e.response.status_code
 			detail = f'Failed to search users: {e.response.text}'
-			if status_code == 403:
+			if status_code == status.HTTP_403_FORBIDDEN:
 				detail = 'Permission denied to search users.'
-			elif status_code == 401:
+			elif status_code == status.HTTP_401_UNAUTHORIZED:
 				detail = 'Jira authentication failed.'
-			elif status_code == 400:
+			elif status_code == status.HTTP_400_BAD_REQUEST:
 				detail = f'Invalid user search request: {e.response.text}'
 
 			logger.error(f'Error searching users (Status {status_code}): {detail}')
@@ -595,11 +595,11 @@ class JiraClient(BaseTicketingClient):
 				detail = (
 					f'Failed to fetch project boards for {project_key_or_id}: {e.response.text}'
 				)
-				if status_code == 404:
+				if status_code == status.HTTP_404_NOT_FOUND:
 					detail = f'Project {project_key_or_id} not found or no boards associated.'
-				elif status_code == 403:
+				elif status_code == status.HTTP_403_FORBIDDEN:
 					detail = f'Permission denied to access boards for project {project_key_or_id}.'
-				elif status_code == 401:
+				elif status_code == status.HTTP_401_UNAUTHORIZED:
 					detail = 'Jira authentication failed.'
 
 				logger.error(f'Error fetching project boards (Status {status_code}): {detail}')
@@ -662,11 +662,11 @@ class JiraClient(BaseTicketingClient):
 			except httpx.HTTPStatusError as e:
 				status_code = e.response.status_code
 				detail = f'Failed to fetch sprints for board {board_id}: {e.response.text}'
-				if status_code == 404:
+				if status_code == status.HTTP_404_NOT_FOUND:
 					detail = f'Board {board_id} not found.'
-				elif status_code == 403:
+				elif status_code == status.HTTP_403_FORBIDDEN:
 					detail = f'Permission denied to access sprints for board {board_id}.'
-				elif status_code == 401:
+				elif status_code == status.HTTP_401_UNAUTHORIZED:
 					detail = 'Jira authentication failed.'
 
 				logger.error(f'Error fetching board sprints (Status {status_code}): {detail}')
@@ -800,9 +800,9 @@ class JiraClient(BaseTicketingClient):
 				except Exception:
 					pass
 				detail = f'Invalid search request for project {project_key}: {e.response.text}'
-			elif status_code == 401:
+			elif status_code == status.HTTP_401_UNAUTHORIZED:
 				detail = 'Jira authentication failed.'
-			elif status_code == 403:
+			elif status_code == status.HTTP_403_FORBIDDEN:
 				detail = f'Permission denied to search issues in project {project_key}.'
 
 			logger.error(f'Error searching issues (Status {status_code}): {detail}')
@@ -884,13 +884,13 @@ class JiraClient(BaseTicketingClient):
 
 			user_message = f'Failed to update ticket {ticket_id}: {error_detail}'  # Default
 
-			if status_code == 400:
+			if status_code == status.HTTP_400_BAD_REQUEST:
 				user_message = f'Invalid update request for ticket {ticket_id}. Check payload format and field values. Details: {error_detail}'
-			elif status_code == 404:
+			elif status_code == status.HTTP_404_NOT_FOUND:
 				user_message = f'Ticket {ticket_id} not found.'
-			elif status_code == 403:
+			elif status_code == status.HTTP_403_FORBIDDEN:
 				user_message = f'Permission denied to update ticket {ticket_id}.'
-			elif status_code == 401:
+			elif status_code == status.HTTP_401_UNAUTHORIZED:
 				user_message = 'Jira authentication failed.'
 
 			logger.error(
@@ -1004,11 +1004,11 @@ class JiraClient(BaseTicketingClient):
 			detail = (
 				f'Failed to fetch createmeta for {project_key}/{issue_type_name}: {e.response.text}'
 			)
-			if status_code == 400:
+			if status_code == status.HTTP_400_BAD_REQUEST:
 				detail = f'Invalid request for createmeta (check project key/issue type name): {e.response.text}'
-			elif status_code == 401:
+			elif status_code == status.HTTP_401_UNAUTHORIZED:
 				detail = 'Jira authentication failed.'
-			elif status_code == 403:
+			elif status_code == status.HTTP_403_FORBIDDEN:
 				detail = f'Permission denied to fetch createmeta for project {project_key}.'
 
 			logger.error(f'Error fetching createmeta (Status {status_code}): {detail}')
@@ -1110,11 +1110,11 @@ class JiraClient(BaseTicketingClient):
 			status_code = e.response.status_code
 			project_context = f' for project {target_project_id}' if target_project_id else ''
 			detail = f'Failed to fetch issue types{project_context}: {e.response.text}'
-			if status_code == 401:
+			if status_code == status.HTTP_401_UNAUTHORIZED:
 				detail = 'Jira authentication failed.'
-			elif status_code == 403:
+			elif status_code == status.HTTP_403_FORBIDDEN:
 				detail = f'Permission denied to fetch issue types{project_context}.'
-			elif status_code == 404 and target_project_id:
+			elif status_code == status.HTTP_404_NOT_FOUND and target_project_id:
 				detail = f'Project with ID {target_project_id} not found.'
 
 			logger.error(f'Error fetching issue types (Status {status_code}): {detail}')

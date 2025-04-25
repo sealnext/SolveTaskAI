@@ -1,9 +1,12 @@
 from logging import getLogger
+from urllib.parse import urljoin
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, status
+from fastapi.responses import RedirectResponse
 
 from app.dependency import AuthServiceDep
 from app.dto.user import UserCreateByPassword, UserLogin
+from app.misc.exception import TokenNotFoundException
 from app.misc.settings import settings
 
 logger = getLogger(__name__)
@@ -26,10 +29,12 @@ async def login(auth_service: AuthServiceDep, user_dto: UserLogin):
 	try:
 		session_token: str = await auth_service.login(user_dto)
 	except Exception as e:
-		logger.exception(f'Login failed: {e}')
-		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Login failed')
+		logger.exception(f'Log in failed: {e}')
+		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Log in failed')
+
 	response = Response()
 	_set_session_cookie(response, session_token)
+
 	return response
 
 
@@ -38,11 +43,32 @@ async def signup(
 	auth_service: AuthServiceDep, user_dto: UserCreateByPassword, background_tasks: BackgroundTasks
 ):
 	try:
-		await auth_service.register(user_dto, background_tasks)
+		session_token: str = await auth_service.register(user_dto, background_tasks)
 	except Exception as e:
 		logger.exception(f'Sign up failed: {e}')
-		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Signup failed')
-	return Response(status_code=status.HTTP_201_CREATED)
+		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Sign up failed')
+
+	response = Response(status_code=status.HTTP_201_CREATED)
+	_set_session_cookie(response, session_token)
+
+	return response
+
+
+@router.get('/verify-email')
+async def verify_email(auth_service: AuthServiceDep, token: str):
+	try:
+		await auth_service.verify_email(token)
+
+	except TokenNotFoundException as e:
+		logger.error(f'Token not found: {e}')
+		raise HTTPException(status.HTTP_404_NOT_FOUND, 'Token not found')
+
+	except Exception as e:
+		logger.exception(f'Email verification failed: {e}')
+		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Email verification failed')
+
+	login_url: str = urljoin(str(settings.origin_url), '/login?email_verified=true')
+	return RedirectResponse(login_url)
 
 
 # @router.post('/login/google', response_class=RedirectResponse)
