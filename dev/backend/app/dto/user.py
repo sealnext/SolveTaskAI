@@ -45,6 +45,10 @@ class UserLogin(Email, Password):
 	pass
 
 
+class UserCreateByPassword(Email, Password):
+	pass
+
+
 class _UserCreateBase(Email):
 	name: str
 
@@ -55,7 +59,3 @@ class UserCreateByGitHub(_UserCreateBase):
 
 class UserCreateByGoogle(_UserCreateBase):
 	google_id: str
-
-
-class UserCreateByPassword(_UserCreateBase, Password):
-	pass

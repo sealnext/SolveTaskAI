@@ -12,7 +12,7 @@ from app.misc.email import (
 	email_verification_template_html,
 	email_verification_template_text,
 )
-from app.misc.exception import SessionNotFoundException
+from app.misc.exception import SessionNotFoundException, TokenNotFoundException
 from app.misc.redis import redis
 from app.misc.settings import settings
 from app.service.user import UserService
@@ -59,8 +59,9 @@ class AuthService:
 			value=user.id,
 			ex=settings.email_verification_ttl,
 		)
-		url = urljoin(
-			str(settings.origin_url), f'/auth/verify-email?token={email_verification_token}'
+
+		url: str = urljoin(
+			str(settings.origin_url), f'/api/auth/verify-email?token={email_verification_token}'
 		)
 
 		verification_email_html = email_verification_template_html.render(
@@ -76,3 +77,16 @@ class AuthService:
 			text_content=verification_email_text,
 		)
 		background_tasks.add_task(email.send)
+
+		session_token: str = await AuthService._create_session(user.id)
+		return session_token
+
+	async def verify_email(self, token: str) -> None:
+		user_id_str: str | None = await redis.get(f'email_verification:{token}')
+		if user_id_str is None:
+			raise TokenNotFoundException('Email verification token not found')
+
+		await redis.delete(f'email_verification:{token}')
+
+		user_id = int(user_id_str)
+		await self.user_service.verify_email(user_id)

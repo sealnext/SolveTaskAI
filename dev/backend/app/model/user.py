@@ -16,8 +16,8 @@ class UserDB(Base):
 	__tablename__ = 'users'
 
 	id: Mapped[int] = mapped_column(init=False, primary_key=True)
-	name: Mapped[str] = mapped_column()
 	email: Mapped[str] = mapped_column(String(50), index=True, unique=True)
+	name: Mapped[str | None] = mapped_column(default=None)
 	is_email_verified: Mapped[bool] = mapped_column(default=False)
 	is_banned: Mapped[bool] = mapped_column(default=False)
 	github_id: Mapped[str | None] = mapped_column(index=True, unique=True, default=None)

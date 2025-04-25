@@ -2,9 +2,13 @@ class BaseCustomException(Exception):
 	pass
 
 
-class UserAlreadyExistsException(BaseCustomException):
+class UserNotFoundException(BaseCustomException):
 	pass
 
 
 class SessionNotFoundException(BaseCustomException):
+	pass
+
+
+class TokenNotFoundException(BaseCustomException):
 	pass
