@@ -1,18 +1,64 @@
-name: Docker Image CI
+name: Build & Push Docker Image CI
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    tags:
+      - '*'
+
+env:
+  COMMIT_HASH: ${{ github.sha }}
+  TAG_OR_BRANCH: ${{ github.ref_name }} # If there's no tag, this will be the branch name
 
 jobs:
-
-  build:
-
+  build_backend:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+
+    - name: Log in to GitLab Container Registry
+      run: |
+        echo "${{ secrets.GITLAB_REGISTRY_TOKEN }}" | \
+          docker login registry.gitlab.com \
+            --username "${{ secrets.GITLAB_USERNAME }}" \
+            --password-stdin
+
+    - name: Build backend Docker image
+      run: |
+        docker build ./dev/backend \
+          --file ./dev/backend/Dockerfile \
+          --tag registry.gitlab.com/andy.blake/sealnext/backend:latest \
+          --tag registry.gitlab.com/andy.blake/sealnext/backend:${COMMIT_HASH} \
+          --tag registry.gitlab.com/andy.blake/sealnext/backend:${TAG_OR_BRANCH}
+
+    - name: Upload backend Docker image
+      run: |
+        docker push registry.gitlab.com/andy.blake/sealnext/backend:latest
+        docker push registry.gitlab.com/andy.blake/sealnext/backend:${COMMIT_HASH}
+        docker push registry.gitlab.com/andy.blake/sealnext/backend:${TAG_OR_BRANCH}
+
+  build_frontend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Log in to GitLab Container Registry
+      run: |
+        echo "${{ secrets.GITLAB_REGISTRY_TOKEN }}" | \
+          docker login registry.gitlab.com \
+            --username "${{ secrets.GITLAB_USERNAME }}" \
+            --password-stdin
+
+    - name: Build the frontend Docker image
+      run: |
+        docker build ./dev/frontend \
+          --file ./dev/frontend/Dockerfile \
+          --tag registry.gitlab.com/andy.blake/sealnext/frontend:latest \
+          --tag registry.gitlab.com/andy.blake/sealnext/frontend:${COMMIT_HASH} \
+          --tag registry.gitlab.com/andy.blake/sealnext/frontend:${TAG_OR_BRANCH}
+
+    - name: Upload frontend Docker image
+      run: |
+        docker push registry.gitlab.com/andy.blake/sealnext/frontend:latest
+        docker push registry.gitlab.com/andy.blake/sealnext/frontend:${COMMIT_HASH}
+        docker push registry.gitlab.com/andy.blake/sealnext/frontend:${TAG_OR_BRANCH}
