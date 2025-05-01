@@ -1,0 +1,13 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: backend-route
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`sealnext.com`) && PathPrefix(`/api`)
+      kind: Rule
+      services:
+        - name: backend-service
+          port: 8000

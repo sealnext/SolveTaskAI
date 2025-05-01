@@ -1,0 +1,24 @@
+ports:
+  web:
+    redirectTo: websecure
+  websecure:
+    tls:
+      enabled: true
+
+tls:
+  stores:
+    default:
+      # Configure the ACME client
+      acme:
+        enabled: true
+        # Use the HTTP-01 challenge for validation
+        # This requires Traefik to be accessible on port 80
+        challenge:
+          http01:
+            # The entrypoint to use for the HTTP-01 challenge
+            entryPoint: web
+        # Specify the email address for ACME registration
+        email: your-email@example.com # <--- REPLACE WITH YOUR EMAIL
+        # Specify where Traefik should store ACME data (certificates, etc.)
+        # This requires a PersistentVolumeClaim (PVC)
+        storage: traefik-acme.json # <--- You might need to configure a PVC for this

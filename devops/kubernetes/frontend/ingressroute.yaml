@@ -1,0 +1,13 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: frontend-route
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`sealnext.com`)
+      kind: Rule
+      services:
+        - name: frontend-service
+          port: 5173

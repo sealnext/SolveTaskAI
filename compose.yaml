@@ -34,8 +34,13 @@ services:
     tty: true
     environment:
       PYTHONUNBUFFERED: 1
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
+    labels:
+    - "traefik.enable=true"
+    - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
+    - "traefik.http.routers.backend.entrypoints=web"
+    - "traefik.http.services.backend.loadbalancer.server.port=8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,8 +65,14 @@ services:
 
   frontend:
     build: ./dev/frontend
-    ports:
-      - "5173:5173"
+    expose:
+    - "5173"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.priority=1" # Lower priority than backend
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=5173"
     depends_on:
       backend:
         condition: service_healthy
@@ -78,6 +89,25 @@ services:
           target: /app/app
         - action: rebuild
           path: ./dev/frontend/pnpm-lock.yaml
+
+  traefik:
+    image: traefik:latest
+    command:
+      # - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"      # The main port for your applications
+      - "8080:8080"  # Traefik dashboard (optional)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
 
 volumes:
   postgres_data:
