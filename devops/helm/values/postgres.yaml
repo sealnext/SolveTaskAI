@@ -1,0 +1,7 @@
+auth:
+  postgresPassword: "parola1234"
+  username: "admin"
+  password: "app-password"
+  database: "database"
+
+resourcesPreset: "medium"
