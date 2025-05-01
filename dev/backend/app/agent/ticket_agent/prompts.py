@@ -215,7 +215,8 @@ First, review the following information:
 
 ## CRITICAL REQUIREMENTS
 
-• REPORTER IS MANDATORY: Always provide a valid reporter value with proper accountId, NEVER just a name
+• If an required field is missing, abort the operation and ask the user for the missing information!
+• REPORTER IS MANDATORY: Always provide a valid reporter value with proper accountId, NEVER just a name. If not specified, please abort and ask for the reporter!
 • ASSIGNEE FORMAT: If an accountId is available for assignee, use the SAME accountId for reporter unless explicitly specified otherwise
 • USER REFERENCES: Always use {{"accountId": "XXX"}} format for users, NEVER {{"name": "XXX"}} which will cause validation failures
 • REQUIRED FIELDS: Always validate that ALL required fields have proper values before submission

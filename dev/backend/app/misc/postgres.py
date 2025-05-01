@@ -14,6 +14,10 @@ async_db_engine = create_async_engine(
 	url=str(settings.postgres_url), echo=True, pool_size=10, max_overflow=10, pool_pre_ping=True
 )
 
+connection_string_psycopg = str(settings.postgres_url).replace(
+	'postgresql+asyncpg://', 'postgresql+psycopg://', 1
+)
+
 async_db_session_factory = async_sessionmaker(
 	bind=async_db_engine, autoflush=True, expire_on_commit=False
 )
@@ -33,10 +37,8 @@ async def init_db():
 	logger.info('Initializing database...')
 
 	async with async_db_engine.begin() as conn:
-		await conn.run_sync(Base.metadata.drop_all)
+		# await conn.run_sync(Base.metadata.drop_all)
 		await conn.run_sync(Base.metadata.create_all)
-
-		await conn.execute(text('CREATE EXTENSION IF NOT EXISTS vector'))
 
 		# Create langchain_pg_collection table if not exists
 		await conn.execute(

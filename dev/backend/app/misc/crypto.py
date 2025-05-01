@@ -1,4 +1,5 @@
 import os
+from base64 import b64decode, b64encode
 
 from argon2 import PasswordHasher
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -22,7 +23,7 @@ def encrypt_raw(data: bytes) -> bytes:
 
 
 def encrypt(data: str) -> str:
-	return encrypt_raw(data.encode()).decode()
+	return b64encode(encrypt_raw(data.encode())).decode('ascii')
 
 
 def decrypt_raw(encrypted_data: bytes) -> bytes:
@@ -33,4 +34,4 @@ def decrypt_raw(encrypted_data: bytes) -> bytes:
 
 
 def decrypt(encrypted_data: str) -> str:
-	return decrypt_raw(encrypted_data.encode()).decode()
+	return decrypt_raw(b64decode(encrypted_data.encode('ascii'))).decode()

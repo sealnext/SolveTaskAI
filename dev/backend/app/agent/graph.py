@@ -2,6 +2,7 @@
 from logging import getLogger
 
 # Third-party imports
+from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import StateGraph
@@ -10,6 +11,7 @@ from langgraph.prebuilt import ToolNode
 
 # Local application imports
 from app.agent.configuration import AgentConfiguration
+from app.agent.prompts import AGENT_SYSTEM_PROMPT
 from app.agent.utils import (
 	create_error_response,
 	fix_tool_call_sequence,
@@ -30,11 +32,11 @@ def create_agent_graph(
 	ticketing_client: BaseTicketingClient | None = None,
 ) -> CompiledStateGraph:
 	"""Create a new agent graph instance."""
+	if ticketing_client is None:
+		raise ValueError('Ticketing client is required for agent graph')
 
-	# Create ticket subgraph with client
-	ticket_graph = create_ticket_agent(checkpointer=checkpointer, client=ticketing_client)
-
-	rag_graph = create_rag_graph(checkpointer=checkpointer, client=ticketing_client)
+	ticket_graph = create_ticket_agent(checkpointer, ticketing_client)
+	rag_graph = create_rag_graph(checkpointer, ticketing_client)
 
 	builder = StateGraph(AgentState)
 
@@ -61,7 +63,6 @@ def create_agent_graph(
 	builder.add_edge('rag_agent', 'agent')
 
 	graph = builder.compile(checkpointer=checkpointer)
-	logger.info(f'Graph created successfully: {graph}')
 	return graph
 
 
@@ -76,12 +77,15 @@ async def call_model(state: AgentState, config: RunnableConfig):
 	prepared_messages = sequence_info['prepared_messages']
 	state_corrections = sequence_info['state_corrections']
 
-	# Prepare LLM with tools
+	# Add system prompt to the beginning of the messages
+	system_message = SystemMessage(content=AGENT_SYSTEM_PROMPT)
+	messages_with_system = [system_message] + prepared_messages
+
+	# Bind tools to the LLM
 	llm_with_tools = llm.bind_tools([ticket_tool, rag_tool])
 
 	try:
-		# Call LLM and format response
-		model_response = await llm_with_tools.ainvoke(prepared_messages)
+		model_response = await llm_with_tools.ainvoke(messages_with_system)
 		return format_llm_response(model_response, state_corrections, config)
 	except Exception as e:
 		return create_error_response(e, state_corrections)

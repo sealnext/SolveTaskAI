@@ -5,16 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.requests import Request
 
 from app.dependency import (
-	get_api_key_repository,
-	get_apikey_service,
+	ApiKeyServiceDep,
 	get_document_embeddings_service,
 	get_project_service,
 	get_ticketing_client_factory,
 )
 from app.dto.api_key import ApiKey
 from app.dto.project import ExternalProject, ProjectCreate, ProjectResponse
-from app.repository.api_key import ApiKeyRepository
-from app.service.apikey import ApiKeyService
 from app.service.document_embeddings import DocumentEmbeddingsService
 from app.service.project import ProjectService
 from app.service.ticketing.client import BaseTicketingClient
@@ -31,7 +28,7 @@ router = APIRouter()
 async def get_external_project_by_api_key(
 	request: Request,
 	api_key_id: int,
-	api_key_service: ApiKeyService = Depends(get_apikey_service),
+	api_key_service: ApiKeyServiceDep,
 	factory: TicketingClientFactory = Depends(get_ticketing_client_factory),
 ) -> List[ExternalProject]:
 	"""
@@ -45,36 +42,39 @@ async def get_external_project_by_api_key(
 	return projects
 
 
-@router.post('/add', status_code=status.HTTP_201_CREATED, response_model=ProjectResponse)
+@router.post('/add', status_code=status.HTTP_201_CREATED)
 async def add_internal_project(
 	request: Request,
 	project: ProjectCreate,
+	api_key_service: ApiKeyServiceDep,
 	project_service: ProjectService = Depends(get_project_service),
-	api_key_repository: ApiKeyRepository = Depends(get_api_key_repository),
 	embeddings_service: DocumentEmbeddingsService = Depends(get_document_embeddings_service),
 ) -> ProjectResponse:
 	"""
 	Add and embed documents for a new project.
 	"""
-	user_id = request.state.user_id
+	try:
+		user_id = request.state.user_id
 
-	api_key: ApiKey | None = await api_key_repository.get_by_id_and_user(
-		project.api_key_id, user_id
-	)
-	if api_key is None:
-		raise HTTPException(status.HTTP_404_NOT_FOUND, 'API key not found')
+		api_key: ApiKey = await api_key_service.get_api_key_unmasked(project.api_key_id, user_id)
 
-	new_project, is_new_project = await project_service.save_project(project, user_id, api_key)
+		new_project, is_new_project = await project_service.save_project(project, user_id, api_key)
 
-	if is_new_project:
-		await embeddings_service.add_documents(
-			domain=project.domain,
-			project_key=project.key,
-			external_id=project.external_id,
-			api_key=api_key,
+		if is_new_project:
+			await embeddings_service.add_documents(
+				domain=project.domain,
+				project_key=project.key,
+				external_id=project.external_id,
+				api_key=api_key,
+			)
+
+		return new_project
+	except ValueError as e:
+		logger.error(f'Failed to add internal project: {str(e)}')
+		raise HTTPException(
+			status.HTTP_400_BAD_REQUEST,
+			detail=str(e),
 		)
-
-	return new_project
 
 
 @router.get('/internal', status_code=status.HTTP_200_OK, response_model=List[ProjectResponse])

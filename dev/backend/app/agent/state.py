@@ -17,11 +17,31 @@ def add_unique_documents(
 	current_documents: Sequence[Document],
 	new_documents: Sequence[Document],
 ) -> list[Document]:
-	"""Custom reducer that adds documents using set operations."""
-	return list(set(current_documents) | set(new_documents))
+	"""Custom reducer that adds documents without duplicates.
+
+	Since Document objects are not hashable, we use a dictionary with document IDs
+	or metadata keys to track uniqueness.
+	"""
+	# Create a dictionary to track unique documents by their metadata key or ID
+	unique_docs = {}
+
+	# Add current documents to the dictionary
+	for doc in current_documents:
+		# Use a unique identifier from metadata if available, otherwise use object id
+		doc_id = doc.metadata.get('key', id(doc))
+		unique_docs[doc_id] = doc
+
+	# Add new documents, overwriting any with the same key
+	for doc in new_documents:
+		doc_id = doc.metadata.get('key', id(doc))
+		unique_docs[doc_id] = doc
+
+	# Return the values as a list
+	return list(unique_docs.values())
 
 
 class AgentState(BaseModel):
+	question: str | None = None
 	messages: Annotated[Sequence[AnyMessage], add_messages] = []
 	documents: Annotated[Sequence[Document], add_unique_documents] = []
 	project_data: Dict[str, Any] | None = None

@@ -17,8 +17,8 @@ def _validate_url_https(url: HttpUrl) -> HttpUrl:
 	str_url = str(url)
 	if (
 		str_url.startswith('https://')
-		or str_url == 'http://localhost:8000/'
-		or str_url == 'http://127.0.0.1:8000/'
+		or str_url.startswith('http://localhost:')
+		or str_url.startswith('http://127.0.0.1:')
 	):
 		return url
 	raise ValueError(f'Invalid URL {str_url} (must start with https:// or be http://localhost/)')

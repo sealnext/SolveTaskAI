@@ -7,15 +7,13 @@ streaming responses, and handling various conversation-related operations for th
 
 import json
 from logging import getLogger
-from typing import AsyncGenerator, Optional, Tuple
-from uuid import UUID, uuid4
+from typing import Any, AsyncGenerator, Optional
+from uuid import uuid4
 
 from fastapi import HTTPException, Request, status
 from langchain_core.messages import (
-	BaseMessage,
 	HumanMessage,
 )
-from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.types import Command
 
@@ -55,7 +53,7 @@ async def parse_input(
 	user_input: AgentStreamInput,
 	user_id: str,
 	thread_repo: ThreadRepository,
-) -> Tuple[list[BaseMessage], RunnableConfig, UUID, str]:
+) -> tuple[list[Any], str]:
 	"""
 	Parse user input, handle thread creation/update, and prepare messages/config.
 
