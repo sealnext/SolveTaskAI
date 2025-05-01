@@ -55,13 +55,13 @@ services:
     develop:
       watch:
         - action: sync
-          path: ./backend/app
+          path: ./dev/backend/app
           target: /app
           ignore:
             - .venv/
             - __pycache__/
         - action: rebuild
-          path: ./backend/uv.lock
+          path: ./dev/backend/uv.lock
 
   frontend:
     build: ./dev/frontend
