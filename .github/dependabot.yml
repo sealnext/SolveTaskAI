@@ -1,0 +1,43 @@
+# To get started with Dependabot version updates, you'll need to specify which
+# package ecosystems to update and where the package manifests are located.
+# Please see the documentation for all configuration options:
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  - package-ecosystem: "pnpm"
+    directory: "dev/frontend" # Location of package.json and pnpm-lock.yaml
+    schedule:
+      interval: "weekly"
+    labels:
+      - "frontend"
+
+  - package-ecosystem: "uv"
+    directory: "dev/backend" # Location of your requirements.txt or pyproject.toml
+    schedule:
+      interval: "weekly"
+    labels:
+      - "backend"
+
+  - package-ecosystem: "docker-compose" # Use "docker-compose" for compose.yaml
+    directory: "/" # Location of compose.yaml
+    schedule:
+      interval: "weekly"
+    labels:
+      - "docker-compose"
+
+  - package-ecosystem: "docker" # Use "docker" for Dockerfiles
+    directory: "dev/frontend" # Location of the Dockerfile
+    schedule:
+      interval: "weekly"
+    labels:
+      - "frontend"
+      - "docker"
+
+  - package-ecosystem: "docker" # Use "docker" for Dockerfiles
+    directory: "dev/backend" # Location of the Dockerfile
+    schedule:
+      interval: "weekly"
+    labels:
+      - "backend"
+      - "docker"
