@@ -41,9 +41,12 @@ class ApiKeyService:
 	async def get_api_keys(self, user_id: int) -> List[ApiKeyResponse]:
 		"""Get all API keys for a user with masked key values."""
 		api_keys: List[ApiKeyDB] = await self.apikey_repository.get_api_keys_by_user(user_id)
+		result = []
 		for key in api_keys:
-			key.api_key = decrypt(key.api_key)
-		return [ApiKeyResponse.model_validate(key) for key in api_keys]
+			key_dto = ApiKeyResponse.model_validate(key)
+			key_dto.api_key = decrypt(key.api_key)
+			result.append(key_dto)
+		return result
 
 	async def delete_api_key(self, user_id: int, api_key_id: int) -> None:
 		key_to_delete: ApiKeyDB | None = await self.apikey_repository.get_by_id(api_key_id)
@@ -77,8 +80,9 @@ class ApiKeyService:
 		if not api_key_data:
 			raise HTTPException(status.HTTP_404_NOT_FOUND, 'API Key not found.')
 
-		api_key_data.api_key = decrypt(api_key_data.api_key)
-		return ApiKey.model_validate(api_key_data)
+		api_key_dto = ApiKey.model_validate(api_key_data)
+		api_key_dto.api_key = decrypt(api_key_data.api_key)
+		return api_key_dto
 
 	async def get_api_key_by_project_unmasked(self, user_id: int, project_id: int) -> ApiKey:
 		api_key_data: ApiKeyDB | None = await self.apikey_repository.get_api_key_by_project(
@@ -87,5 +91,6 @@ class ApiKeyService:
 		if not api_key_data:
 			raise HTTPException(status.HTTP_404_NOT_FOUND, 'API Key not found.')
 
-		api_key_data.api_key = decrypt(api_key_data.api_key)
-		return ApiKey.model_validate(api_key_data)
+		api_key_dto = ApiKey.model_validate(api_key_data)
+		api_key_dto.api_key = decrypt(api_key_data.api_key)
+		return api_key_dto

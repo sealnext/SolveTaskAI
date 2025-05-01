@@ -28,8 +28,8 @@ from app.service.user import UserService
 AsyncDbSessionDep = Annotated[AsyncSession, Depends(get_async_db_session)]
 
 
-def get_db_checkpointer() -> AsyncPostgresSaver:
-	return db_pool.get_checkpointer()
+async def get_db_checkpointer() -> AsyncPostgresSaver:
+	return await db_pool.get_checkpointer()
 
 
 DbCheckpointerDep = Annotated[AsyncPostgresSaver, Depends(get_db_checkpointer)]

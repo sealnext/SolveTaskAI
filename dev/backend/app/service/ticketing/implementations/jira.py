@@ -11,11 +11,7 @@ from fastapi import HTTPException, status
 
 from app.dto.api_key import ApiKey
 from app.dto.project import ExternalProject, Project
-from app.dto.ticket import (
-	JiraIssueContentSchema,
-	JiraIssueSchema,
-	JiraSearchResponse,
-)
+from app.dto.ticket import JiraIssueContentSchema, JiraIssueSchema
 from app.misc.settings import settings
 from app.service.ticketing.client import BaseTicketingClient
 
@@ -198,7 +194,6 @@ class JiraClient(BaseTicketingClient):
 				self._build_url('search'),
 				headers=self._get_auth_headers(),
 				params=params,
-				response_model=JiraSearchResponse,  # Expecting this model
 			)
 			# Ensure response_data is treated as a dictionary
 			issues = response_data.get('issues', []) if isinstance(response_data, dict) else []
@@ -248,7 +243,6 @@ class JiraClient(BaseTicketingClient):
 				url,
 				headers=self._get_auth_headers(),
 				params=params_total,
-				response_model=JiraSearchResponse,
 			)
 			total_tickets = data_total.get('total', 0) if isinstance(data_total, dict) else 0
 			logger.info(f'Total tickets found for project {project_key}: {total_tickets}')
@@ -306,7 +300,7 @@ class JiraClient(BaseTicketingClient):
 		url = self._build_url('issue', ticket_id)
 		try:
 			data = await self._make_request('GET', url, headers=self._get_auth_headers())
-			return JiraIssueContentSchema.model_validate(data)  # Use model_validate
+			return JiraIssueContentSchema.model_validate(data)
 		except httpx.HTTPStatusError as e:
 			if e.response.status_code == status.HTTP_404_NOT_FOUND:
 				raise HTTPException(status.HTTP_404_NOT_FOUND, f"Ticket '{ticket_id}' not found.")
@@ -777,7 +771,6 @@ class JiraClient(BaseTicketingClient):
 				self._build_url('search'),
 				headers=self._get_auth_headers(),
 				params=params,
-				response_model=JiraSearchResponse,
 			)
 			issues = response.get('issues', []) if isinstance(response, dict) else []
 			logger.info(

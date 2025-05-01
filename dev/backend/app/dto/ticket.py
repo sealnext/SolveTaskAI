@@ -44,47 +44,6 @@ class JiraSearchResponse(BaseModel):
 		frozen = True
 
 
-class EditableTicketSchema(BaseModel):
-	ticket_url: str
-	ticket_api: str
-	modifiable_fields: Dict[str, Any] = {}
-	comments: List[str] = []
-
-	@model_validator(mode='before')
-	@classmethod
-	def extract_fields(cls, values):
-		# Extract base URLs and identifiers
-		api_self_url = values.get('self', '')
-		base_url = '/'.join(api_self_url.split('/')[:3])
-		ticket_key = values.get('key', '')
-
-		values['ticket_url'] = f'{base_url}/browse/{ticket_key}'
-		values['ticket_api'] = api_self_url
-
-		# Extract editable fields from editmeta
-		editmeta_fields = values.get('editmeta', {}).get('fields', {})
-		modifiable_fields = {}
-		for field_key, field_data in editmeta_fields.items():
-			if 'operations' in field_data:
-				# Include only modifiable fields
-				modifiable_fields[field_key] = {
-					'key': field_data.get('key'),
-					'operations': field_data.get('operations'),
-					'value': values.get('fields', {}).get(field_key),
-				}
-
-		comments_data = values.get('fields', {}).get('comment', {}).get('comments', [])
-		comments_list = [
-			f'[{comment.get("id", "Unknown ID")}] {comment.get("author", {}).get("displayName", "Unknown")}: {comment.get("body", "")}'
-			for comment in comments_data
-		]
-
-		values['modifiable_fields'] = modifiable_fields
-		values['comments'] = comments_list
-
-		return values
-
-
 class Ticket(BaseModel):
 	ticket_api: str
 	ticket_url: str
@@ -149,8 +108,8 @@ Comments: {' '.join(content_dict.get('comments', []))}"""
 
 
 class TicketContent(BaseModel):
-	summary: str = 'No title provided'
-	description: str = 'No description provided'
+	summary: str = ''
+	description: str = ''
 	comments: List[str] = []
 
 	def __str__(self):
@@ -212,46 +171,31 @@ class JiraIssueContentSchema(BaseModel):
 
 		return values
 
-	def to_document_wrapper(self) -> DocumentWrapper:
-		"""Convert ticket to document wrapper format with safe field access"""
-		fields = self.fields or {}
-
-		def safe_get(d: Dict, *keys, default=None):
-			current = d
-			for key in keys:
-				if not isinstance(current, dict):
-					return default
-				current = current.get(key, default)
-				if current is None:
-					return default
-			return current
-
-		metadata = {
+	def __str__(self) -> str:
+		"""Convert to minimal string representation with only non-empty fields."""
+		result = {
 			'ticket_url': self.ticket_url,
-			'ticket_api': self.ticket_api,
-			'key': self.ticket_api,
-			'labels': fields.get('labels', []),
-			'parent': safe_get(fields, 'parent', 'fields', 'summary'),
-			'sprint': safe_get(fields, 'customfield_10020', 0, 'name')
-			if fields.get('customfield_10020')
-			else None,
-			'status': safe_get(fields, 'status', 'name'),
-			'assignee': safe_get(fields, 'assignee', 'displayName'),
-			'priority': safe_get(fields, 'priority', 'name'),
-			'reporter': safe_get(fields, 'reporter', 'displayName'),
-			'issue_type': safe_get(fields, 'issuetype', 'name'),
-			'resolution': safe_get(fields, 'resolution', 'name'),
-			'resolutiondate': fields.get('resolutiondate'),
-			'created_at': fields.get('created'),
-			'updated_at': fields.get('updated'),
+			'content': {
+				k: v
+				for k, v in self.content.__dict__.items()
+				if v and (isinstance(v, str) and v.strip() or not isinstance(v, str))
+			},
 		}
 
-		return DocumentWrapper(metadata=metadata, page_content=self.content.to_page_content())
+		metadata = {}
+		for field in ['status', 'priority', 'issue_type', 'assignee', 'reporter']:
+			value = (
+				self.fields.get(field, {}).get('name')
+				if isinstance(self.fields.get(field), dict)
+				else None
+			)
+			if value:
+				metadata[field] = value
 
-	@staticmethod
-	def from_langchain_doc(doc: Document) -> DocumentWrapper:
-		"""Create a document wrapper from a langchain Document"""
-		return DocumentWrapper(metadata=doc.metadata, page_content=doc.page_content)
+		if metadata:
+			result['metadata'] = metadata
+
+		return json.dumps(result, indent=2)
 
 
 class JiraIssueSchema(BaseModel):

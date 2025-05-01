@@ -1,22 +1,19 @@
-import asyncio
-import json
 import re
 from functools import partial
 from logging import getLogger
-from typing import List
+from typing import Annotated, List, Sequence
 
-from langchain.schema import HumanMessage, SystemMessage
 from langchain_core.documents import Document
+from langchain_core.messages import AnyMessage
 from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, StateGraph, add_messages
 from pydantic import BaseModel, Field
 
 from app.agent.configuration import AgentConfiguration
-from app.agent.rag.prompts import doc_grader_instructions, doc_grader_prompt
 from app.dto.project import Project
-from app.misc.postgres import async_db_engine
+from app.misc.postgres import connection_string_psycopg
 from app.misc.settings import settings
 from app.service.ticketing.client import BaseTicketingClient
 
@@ -26,9 +23,11 @@ logger = getLogger(__name__)
 embeddings_model = OpenAIEmbeddings(model=settings.openai_embedding_model)
 
 agent_config = AgentConfiguration()
-llm = agent_config.get_llm()
 
-llm_json_mode = llm.bind(response_format={'type': 'json_object'})
+llm = agent_config.get_llm()
+llm_json_mode = agent_config.get_json_llm()
+
+number_of_docs_to_retrieve = 5
 
 
 class RAGState(BaseModel):
@@ -38,11 +37,10 @@ class RAGState(BaseModel):
 	including the question, retrieved documents, and intermediate results.
 	"""
 
-	question: str = Field(..., description="The user's question/query to answer")
-	documents: List[Document] = Field(
-		default_factory=list, description='List of retrieved documents'
-	)
-	project: Project = Field(..., description='The current project context')
+	messages: Annotated[Sequence[AnyMessage], add_messages] = []
+	question: str | None = Field(None, description="The user's question/query to answer")
+	documents: List[Document] = Field(default_factory=list, description='List of documents')
+	project: Project | None = Field(None, description='The current project context')
 	retry_retrieve_count: int = Field(0, description='Number of document retrieval attempts')
 	ignore_tickets: List[str] = Field(
 		default_factory=list, description='List of ticket IDs to ignore in retrieval'
@@ -57,340 +55,63 @@ async def create_vector_store(unique_identifier_project: str):
 	return PGVector(
 		embeddings=embeddings_model,
 		collection_name=unique_identifier_project,
-		connection=async_db_engine,
+		connection=connection_string_psycopg,
 		pre_delete_collection=False,
 		async_mode=True,
 	)
 
 
 async def retrieve_documents(state: RAGState, client: BaseTicketingClient) -> RAGState:
-	"""Retrieve relevant documents for the given question.
-
-	Args:
-	    state: Current RAG state containing question and context
-	    client: Ticketing client for fetching document content
-
-	Returns:
-	    Updated RAG state with retrieved documents
-
-	Raises:
-	    ValueError: If required state fields are missing
-	"""
-	logger.info('--- Starting document retrieval ---')
-
+	"""Retrieve relevant documents for the given question."""
 	try:
-		# Validate required state fields
-		if not state.question or not state.project:
-			raise ValueError('State must contain question and project')
+		# Extract question from last message
+		query = state.messages[1].tool_calls[0]['args']['query']
 
-		logger.info(
-			f'Retrieving documents for question: {state.question[:50]}..., '
-			f'Retry attempt: {state.retry_retrieve_count}'
-		)
+		state.question = query
+		state.project = client.project
 
-		# Generate query embedding
-		query_embedding = await embeddings_model.aembed_query(state.question)
-
-		# Create project-specific vector store
-		project_id = (
-			f'{re.sub(r"^https?://|/$", "", state.project.domain)}/'
-			f'{state.project.key}/{state.project.external_id}'
-		)
+		project_id = f'{re.sub(r"^https?://|/$", "", state.project.domain)}/{state.project.key}/{state.project.external_id}'
 		vector_store = await create_vector_store(project_id)
 
-		# Calculate number of documents to retrieve
-		k = settings.number_of_docs_to_retrieve * (state.retry_retrieve_count + 1)
-
-		# Retrieve documents with similarity scores
+		k = number_of_docs_to_retrieve * (state.retry_retrieve_count + 1)
 		documents_with_scores = await vector_store.asimilarity_search_with_score_by_vector(
-			query_embedding,
+			await embeddings_model.aembed_query(state.question),
 			k=k,
 		)
 
-		# Filter out ignored tickets
-		filtered_docs = [
-			(doc, score)
-			for doc, score in documents_with_scores
-			if doc.metadata['key'] not in state.ignore_tickets
-		][: settings.number_of_docs_to_retrieve]
+		docs = [doc.metadata['key'] for doc, _ in documents_with_scores]
+		documents = await fetch_documents(docs, client)
 
-		# Fetch full document content
-		documents = await fetch_documents(state, filtered_docs, client)
-
-		logger.info(f'Successfully retrieved {len(documents)} documents')
-
-		# Update and return state
-		state.documents = documents
+		state.messages = str(documents)
 		state.retry_retrieve_count += 1
 		return state
 
 	except Exception as e:
-		logger.error(f'Document retrieval failed: {e}')
-		raise
-
-
-async def retry_retrieve_documents(state: RAGState, client: BaseTicketingClient) -> RAGState:
-	"""Retry document retrieval with expanded parameters when initial retrieval fails.
-
-	Args:
-	    state: Current RAG state containing question and context
-	    client: Ticketing client for fetching document content
-
-	Returns:
-	    Updated RAG state with retrieved documents
-
-	Raises:
-	    ValueError: If required state fields are missing
-	"""
-	logger.info('--- Starting retry document retrieval ---')
-
-	try:
-		# Validate required state fields
-		if not state.question or not state.project:
-			raise ValueError('State must contain question and project')
-
-		logger.info(
-			f'Retrying document retrieval for question: {state.question[:50]}..., '
-			f'Previous attempts: {state.retry_retrieve_count}'
-		)
-
-		# Generate query embedding
-		query_embedding = await embeddings_model.aembed_query(state.question)
-
-		# Create project-specific vector store
-		project_id = (
-			f'{re.sub(r"^https?://|/$", "", state.project.domain)}/'
-			f'{state.project.key}/{state.project.external_id}'
-		)
-		vector_store = await create_vector_store(project_id)
-
-		# Retrieve more documents on retry
-		k = settings.number_of_docs_to_retrieve * 2
-
-		# Retrieve documents with similarity scores
-		documents_with_scores = await vector_store.asimilarity_search_with_score_by_vector(
-			query_embedding,
-			k=k,
-		)
-
-		# Filter out ignored tickets
-		filtered_docs = [
-			(doc, score)
-			for doc, score in documents_with_scores
-			if doc.metadata['key'] not in state.ignore_tickets
-		][: settings.number_of_docs_to_retrieve]
-
-		# Fetch full document content
-		documents = await fetch_documents(state, filtered_docs, client)
-
-		logger.info(f'Retrieved {len(documents)} documents on retry')
-
-		# Update and return state
-		state.documents = documents
-		state.retry_retrieve_count += 1
+		state.messages = str(e)
 		return state
-
-	except Exception as e:
-		logger.error(f'Document retrieval retry failed: {e}')
-		raise
-
-
-async def grade_documents(
-	state: RAGState,
-	client: BaseTicketingClient,
-	min_relevance_score: float = 0.7,
-	max_ignore_tickets: int = 100,
-) -> RAGState:
-	"""Grade retrieved documents for relevance to the question.
-
-	Args:
-	    state: Current RAG state containing documents to grade
-	    client: Ticketing client (unused in grading but kept for consistency)
-	    min_relevance_score: Minimum score to consider document relevant (0-1)
-	    max_ignore_tickets: Maximum number of tickets to ignore
-
-	Returns:
-	    Updated RAG state with filtered documents and updated ignore list
-
-	Raises:
-	    ValueError: If required state fields are missing or invalid
-	"""
-	logger.info('--- Starting document grading ---')
-
-	try:
-		# Validate inputs
-		if not state.question or not state.documents:
-			raise ValueError('State must contain question and documents')
-		if not 0 <= min_relevance_score <= 1:
-			raise ValueError('min_relevance_score must be between 0 and 1')
-
-		logger.info(f'Grading {len(state.documents)} documents for relevance')
-
-		async def grade_single_document(doc: Document) -> tuple[Document, float]:
-			"""Grade a single document and return relevance score (0-1)."""
-			logger.debug(f'Grading document: {doc.metadata["key"]}')
-
-			try:
-				# Format and send grading prompt to LLM
-				prompt = doc_grader_prompt.format(document=doc, question=state.question)
-
-				result = await llm_json_mode.ainvoke(
-					[
-						SystemMessage(content=doc_grader_instructions),
-						HumanMessage(content=prompt),
-					]
-				)
-
-				# Validate and parse LLM response
-				try:
-					response = json.loads(result.content)
-					if 'binary_score' not in response or 'confidence' not in response:
-						raise ValueError('Invalid LLM response format')
-					score = 1.0 if response['binary_score'].lower() == 'yes' else 0.0
-					confidence = float(response['confidence'])
-					return doc, score * confidence
-				except (json.JSONDecodeError, ValueError, KeyError) as e:
-					logger.error(f'Invalid grade response for {doc.metadata["key"]}: {e}')
-					return doc, 0.0
-
-			except Exception as e:
-				logger.error(f'Failed to grade document {doc.metadata["key"]}: {e}')
-				return doc, 0.0
-
-		# Grade all documents in parallel with timeout
-		try:
-			grading_results = await asyncio.wait_for(
-				asyncio.gather(*[grade_single_document(doc) for doc in state.documents]),
-				timeout=len(state.documents) * 5,  # 5 seconds per doc
-			)
-		except asyncio.TimeoutError:
-			logger.error('Document grading timed out')
-			raise ValueError('Grading operation timed out')
-
-		# Filter documents based on scores
-		filtered_docs = []
-		new_ignored = []
-
-		for doc, score in grading_results:
-			if score >= min_relevance_score:
-				logger.debug(f'Document {doc.metadata["key"]} scored {score:.2f} (relevant)')
-				filtered_docs.append(doc)
-			else:
-				logger.debug(f'Document {doc.metadata["key"]} scored {score:.2f} (ignored)')
-				new_ignored.append(doc.metadata['key'])
-
-		# Update state with size-limited ignore list
-		state.documents = filtered_docs
-		updated_ignore = list(set(state.ignore_tickets + new_ignored))[:max_ignore_tickets]
-		state.ignore_tickets = updated_ignore
-
-		logger.info(f'Kept {len(filtered_docs)}/{len(state.documents)} relevant documents')
-		return state
-
-	except Exception as e:
-		logger.error(f'Document grading failed: {e}')
-		raise
 
 
 async def fetch_documents(
-	state: RAGState,
-	documents_with_scores: list[tuple[Document, float]],
+	docs: list[str],
 	client: BaseTicketingClient,
-	max_retries: int = 2,
-	timeout: float = 10.0,
 ) -> list[Document]:
-	"""Fetch full content for documents from the ticketing system.
-
-	Args:
-	    state: Current RAG state (unused but kept for consistency)
-	    documents_with_scores: List of (document, score) tuples
-	    client: Ticketing client for fetching document content
-	    max_retries: Maximum number of retry attempts per document
-	    timeout: Timeout in seconds for each fetch attempt
-
-	Returns:
-	    List of documents with populated content
-
-	Raises:
-	    ValueError: If input documents are invalid
-	"""
-	if not documents_with_scores:
-		logger.warning('No documents to fetch')
+	"""Fetch full content for documents from the ticketing system."""
+	if not docs:
 		return []
 
 	documents = []
-	fetch_errors = 0
 
-	async def fetch_with_retry(ticket_id: str) -> str | None:
-		"""Helper function to fetch ticket content with retries"""
-		for attempt in range(max_retries + 1):
-			try:
-				async with asyncio.timeout(timeout):
-					ticket = await client.get_ticket(ticket_id)
-					if not ticket.content or not isinstance(ticket.content, str):
-						raise ValueError('Invalid ticket content')
-					return ticket.content
-			except Exception as e:
-				if attempt < max_retries:
-					await asyncio.sleep(1 * (attempt + 1))  # Exponential backoff
-				logger.warning(f'Attempt {attempt + 1} failed for ticket {ticket_id}: {e}')
-		logger.error(f'Failed to fetch ticket {ticket_id} after {max_retries} retries')
-		return None
-
-	for doc, score in documents_with_scores:
-		if not doc.metadata or 'key' not in doc.metadata:
-			logger.error('Document missing required metadata')
-			continue
-
-		ticket_id = doc.metadata['key']
-		try:
-			logger.debug(f'Fetching ticket {ticket_id}')
-			content = await fetch_with_retry(ticket_id)
-			if content is None:
-				fetch_errors += 1
-				continue
-
-			doc.page_content = content
-			documents.append(doc)
-
-		except Exception as e:
-			fetch_errors += 1
-			logger.error(f'Unexpected error processing ticket {ticket_id}: {e}')
-			continue
-
-	if fetch_errors:
-		logger.warning(f'Failed to fetch {fetch_errors} documents')
+	for ticket_id in docs:
+		ticket = await client.get_ticket(ticket_id)
+		documents.append(str(ticket))
 
 	return documents
-
-
-def decide_after_grading(state: RAGState) -> str:
-	"""Determine next step after document grading.
-
-	Args:
-	    state: Current RAG state after document grading
-
-	Returns:
-	    "generate" if ready to generate answer
-	    "retry" if should retry document retrieval
-	"""
-	logger.debug(
-		f'Deciding next step - Retries: {state.retry_retrieve_count}, '
-		f'Documents: {len(state.documents)}'
-	)
-
-	if state.retry_retrieve_count >= 2 or len(state.documents) > 0:
-		logger.info('Proceeding to answer generation')
-		return 'generate'
-
-	logger.info('Retrying document retrieval')
-	return 'retry'
 
 
 def create_rag_graph(
 	checkpointer: AsyncPostgresSaver | None = None,
 	client: BaseTicketingClient | None = None,
-) -> StateGraph:
+):
 	"""Create and configure a RAG (Retrieval-Augmented Generation) agent graph.
 
 	Args:
@@ -413,23 +134,11 @@ def create_rag_graph(
 
 	# Add all workflow nodes
 	builder.add_node('retrieve', partial(retrieve_documents, client=client))
-	builder.add_node('retry_retrieval', partial(retry_retrieve_documents, client=client))
-	builder.add_node('grade_documents', partial(grade_documents, client=client))
-	builder.add_node('agent', lambda state: state)  # Placeholder for answer generation
+	builder.add_node('agent', lambda state: state)
 
 	# Configure workflow edges
 	builder.set_entry_point('retrieve')
-	builder.add_edge('retrieve', 'grade_documents')
-	builder.add_edge('retry_retrieval', 'grade_documents')
-
-	# Add conditional routing after grading
-	builder.add_conditional_edges(
-		'grade_documents',
-		decide_after_grading,
-		{'retry': 'retry_retrieval', 'generate': 'agent'},
-	)
-
-	builder.add_edge('agent', END)
+	builder.add_edge('retrieve', END)
 
 	# Compile and return the graph
 	graph = builder.compile(checkpointer=checkpointer)
