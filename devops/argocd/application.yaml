@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sealnext
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/andyblak3/sealnext.git
+    targetRevision: HEAD
+    path: devops/kubernetes
+
+  destination:
+    server: https://kubernetes.default.svc # The Kubernetes API server URL (this is the default for in-cluster deployments)
+    namespace: default # The namespace where you want to deploy your applications (can be different from argocd namespace)
+
+  syncPolicy:
+    automated:
+      prune: true # Delete resources that are no longer defined in Git
+      selfHeal: true # Automatically sync if the live state drifts from the desired state
+    syncOptions:
+    - CreateNamespace=true # Automatically create the destination namespace if it doesn't exist
