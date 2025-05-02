@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from app.agent.configuration import AgentConfiguration
 from app.dto.project import Project
-from app.misc.postgres import connection_string_psycopg
+from app.misc.postgres import async_db_engine
 from app.misc.settings import settings
 from app.service.ticketing.client import BaseTicketingClient
 
@@ -55,7 +55,7 @@ async def create_vector_store(unique_identifier_project: str):
 	return PGVector(
 		embeddings=embeddings_model,
 		collection_name=unique_identifier_project,
-		connection=connection_string_psycopg,
+		connection=async_db_engine,
 		pre_delete_collection=False,
 		async_mode=True,
 	)
