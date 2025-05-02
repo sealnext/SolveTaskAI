@@ -15,9 +15,9 @@ from pydantic_settings import BaseSettings
 
 def _validate_url_https(url: HttpUrl) -> HttpUrl:
 	s_url = str(url)
-	if s_url.startswith('https://') or s_url == 'http://localhost/':
+	if s_url.startswith('https://') or s_url.startswith('http://localhost'):
 		return url
-	raise ValueError(f'Invalid URL {s_url} (must start with https:// or be http://localhost/)')
+	raise ValueError(f'Invalid URL {s_url} (must start with https:// or be http://localhost)')
 
 
 HttpsUrl = Annotated[HttpUrl, AfterValidator(_validate_url_https)]
