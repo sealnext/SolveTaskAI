@@ -22,14 +22,14 @@ export async function clientAction({
     },
     body: JSON.stringify({ email, password }),
   });
-  
+
   if (response.status === 500) {
-    return { 
-      error: true, 
+    return {
+      error: true,
       message: "Authentication failed. Please check your credentials."
     };
   }
-  
+
   const responseData = await response.json();
   return responseData as LoginActionData;
 }

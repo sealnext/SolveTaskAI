@@ -10,7 +10,7 @@ import {
 } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { Form } from "react-router";
+import { Form, Link } from "react-router";
 
 interface LoginFormProps extends React.ComponentPropsWithoutRef<"div"> {
   error?: boolean;
@@ -21,10 +21,9 @@ export function LoginForm({
   className,
   error,
   errorMessage,
-  ...props
 }: LoginFormProps) {
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn("flex flex-col gap-6", className)}>
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Welcome back</CardTitle>
@@ -72,7 +71,7 @@ export function LoginForm({
                     id="email"
                     name="email"
                     type="email"
-                    placeholder="m@example.com"
+                    placeholder="john@example.com"
                     required
                     className={cn(error && "border-destructive")}
                   />
@@ -96,14 +95,14 @@ export function LoginForm({
                   />
                 </div>
                 <Button type="submit" className="w-full">
-                  Login
+                  Log in
                 </Button>
               </div>
               <div className="text-center text-sm">
                 Don&apos;t have an account?{" "}
-                <a href="#" className="underline underline-offset-4">
+                <Link to="/signup" className="underline underline-offset-4">
                   Sign up
-                </a>
+                </Link>
               </div>
             </div>
           </Form>
