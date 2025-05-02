@@ -14,10 +14,6 @@ async_db_engine = create_async_engine(
 	url=str(settings.postgres_url), echo=True, pool_size=10, max_overflow=10, pool_pre_ping=True
 )
 
-connection_string_psycopg = str(settings.postgres_url).replace(
-	'postgresql+asyncpg://', 'postgresql+psycopg://', 1
-)
-
 async_db_session_factory = async_sessionmaker(
 	bind=async_db_engine, autoflush=True, expire_on_commit=False
 )

@@ -6,7 +6,7 @@ from typing import AsyncGenerator
 from fastapi import APIRouter, FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
-from app.misc.db_pool import db_pool
+from app.misc.db_pool import langgraph_db_pool
 from app.misc.exception import SessionNotFoundException
 from app.misc.postgres import async_db_engine, init_db
 from app.route.agent import router as agent_router
@@ -23,9 +23,9 @@ logger = getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 	await init_db()
-	await db_pool.initialize()
+	await langgraph_db_pool.initialize()
 	yield
-	await db_pool.close()
+	await langgraph_db_pool.close()
 	await shield(async_db_engine.dispose())
 
 

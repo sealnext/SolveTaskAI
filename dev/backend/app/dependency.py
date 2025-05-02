@@ -6,7 +6,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dto.api_key import ApiKey
-from app.misc.db_pool import db_pool
+from app.misc.db_pool import langgraph_db_pool
 from app.misc.postgres import get_async_db_session
 from app.repository.api_key import ApiKeyRepository
 from app.repository.document_embeddings import DocumentEmbeddingsRepository
@@ -29,7 +29,7 @@ AsyncDbSessionDep = Annotated[AsyncSession, Depends(get_async_db_session)]
 
 
 async def get_db_checkpointer() -> AsyncPostgresSaver:
-	return await db_pool.get_checkpointer()
+	return await langgraph_db_pool.get_checkpointer()
 
 
 DbCheckpointerDep = Annotated[AsyncPostgresSaver, Depends(get_db_checkpointer)]
