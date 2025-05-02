@@ -1,0 +1,44 @@
+# Add 'root' label to any root file changes
+root:
+- changed-files:
+  - any-glob-to-any-file: '*'
+
+Documentation:
+- changed-files:
+  - any-glob-to-any-file: ['docs/**', '**/*.md']
+
+frontend:
+  - changed-files:
+    - any-glob-to-any-file: 'dev/frontend/**'
+
+backend:
+  - changed-files:
+    - any-glob-to-any-file: 'dev/backend/**'
+
+argocd:
+  - changed-files:
+    - any-glob-to-any-file: 'devops/argocd/**'
+
+helm:
+  - changed-files:
+    - any-glob-to-any-file: 'devops/helm/**'
+
+k8s:
+  - changed-files:
+    - any-glob-to-any-file: 'devops/k8s/**'
+
+scripts:
+  - changed-files:
+    - any-glob-to-any-file: 'scripts/**'
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file: '.github/**'
+
+# Add 'feature' label to any PR where the head branch name starts with `feature` or has a `feature` section in the name
+# feature:
+#  - head-branch: ['^feature', 'feature']
+
+# # Add 'release' label to any PR that is opened against the `main` branch
+# release:
+#  - base-branch: 'main'
