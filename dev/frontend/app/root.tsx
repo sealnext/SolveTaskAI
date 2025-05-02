@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   isRouteErrorResponse,
   Links,
@@ -20,7 +21,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" media="(prefers-color-scheme: light)" />
         <link rel="icon" type="image/svg+xml" href="/favicon-white.svg" media="(prefers-color-scheme: dark)" />
-        
+
         <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" media="(prefers-color-scheme: light)" />
         <link rel="icon" type="image/png" href="/favicon-white-96x96.png" sizes="96x96" media="(prefers-color-scheme: dark)" />
 
