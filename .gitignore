@@ -1,9 +1,10 @@
 # Ignore all hidden directories (starting with .)
 .*/
+!.github/
 
 # macOS
 .DS_Store
 
 # Environment variables
-.env
+.env*
 !.env.example
