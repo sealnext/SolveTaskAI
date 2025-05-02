@@ -1,2 +1,5 @@
 onlyBuiltDependencies:
   - esbuild
+
+packages:
+- '.' # This indicates that the current directory (frontend) is a package
