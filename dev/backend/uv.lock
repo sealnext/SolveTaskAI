@@ -666,7 +666,7 @@ wheels = [
 
 [[package]]
 name = "langchain-core"
-version = "0.3.55"
+version = "0.3.57"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jsonpatch" },
@@ -677,9 +677,9 @@ dependencies = [
     { name = "tenacity" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d2/8e/73de0e8cf1015c2a1b4cf3944c84678e8cdf83b8074f959cbf03ce466c76/langchain_core-0.3.55.tar.gz", hash = "sha256:0f2b3e311621116a83510c70b0ac9d959030a0a457a69483535cff18501fedc9", size = 553841, upload-time = "2025-04-21T18:23:48.842Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1a/e1/d97e57d4dcdd61db843549e3bb967e1b49c9495f748bcb554bce84fdff46/langchain_core-0.3.57.tar.gz", hash = "sha256:6fa247071d722188ba9f97c0c22bb4e7d9d8bafc40f70670423a16a660db4b04", size = 556821, upload-time = "2025-05-02T06:50:48.852Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/75/fcfc1a545ad0e889c4201a133ed68772c20190037670c82ac35fce1aabec/langchain_core-0.3.55-py3-none-any.whl", hash = "sha256:b3cb36bf37755a616158a79866657c6697b43a2f7c69dd723ce425f1c76c1baa", size = 434116, upload-time = "2025-04-21T18:23:47.183Z" },
+    { url = "https://files.pythonhosted.org/packages/69/21/e1a65e08f2e0332917c8bb9bdcf749b0c16d732b5aad39da1ad7dbdbd5a4/langchain_core-0.3.57-py3-none-any.whl", hash = "sha256:d461ff7d036050176cf01ef56b3377ab0c9dee365ad64ce1143f9359640b0720", size = 437384, upload-time = "2025-05-02T06:50:47.343Z" },
 ]
 
 [[package]]
@@ -699,16 +699,16 @@ wheels = [
 
 [[package]]
 name = "langchain-openai"
-version = "0.3.14"
+version = "0.3.15"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "langchain-core" },
     { name = "openai" },
     { name = "tiktoken" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7f/ec/8042fd9b8cfb8e295eaf673c79fc8139aca0dd75506241b69e77efe2b850/langchain_openai-0.3.14.tar.gz", hash = "sha256:0662db78620c2e5c3ccfc1c36dc959c0ddc80e6bdf7ef81632cbf4b2cc9b9461", size = 270517, upload-time = "2025-04-17T15:03:21.797Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/34/af/ed8776d088f82fb5fbc69382f712d785097f75c5d8e7cfda4add95632561/langchain_openai-0.3.15.tar.gz", hash = "sha256:f20612af08d715540922f72729e626a3f360ac4affac46863639680443b48fb4", size = 270871, upload-time = "2025-05-01T13:29:57.362Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6f/34/d7af3c272fbdd214aa74d7bb23ef36eb6c3463fd557f2f0cd5126ea41536/langchain_openai-0.3.14-py3-none-any.whl", hash = "sha256:b8e648d2d7678a5540818199d141ff727c6f1514294b3e1e999a95357c9d66a0", size = 62380, upload-time = "2025-04-17T15:03:20.267Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/1b/323d4980c01a3e9bc4c5c7aac05388797d67696b1c6421172c66d21a4886/langchain_openai-0.3.15-py3-none-any.whl", hash = "sha256:3a21b264c82eb9e14c28f8c79a7129fc857d44563082e639709351091edffd92", size = 62831, upload-time = "2025-05-01T13:29:55.832Z" },
 ]
 
 [[package]]
