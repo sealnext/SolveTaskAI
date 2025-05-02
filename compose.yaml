@@ -2,9 +2,9 @@ services:
   postgres:
     image: pgvector/pgvector:pg17
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: uzyO776eNVLjVY8SkGEZ
-      POSTGRES_DB: database
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: "uzyO776eNVLjVY8SkGEZ"
+      POSTGRES_DB: "database"
     ports:
       - "5432:5432"
     volumes:
@@ -30,10 +30,11 @@ services:
 
   backend:
     build: ./dev/backend
-    env_file: ./dev/backend/.env
     tty: true
+    env_file: ./dev/backend/.env
     environment:
       PYTHONUNBUFFERED: 1
+      ORIGIN_URL: "http://localhost"
     expose:
       - "8000"
     labels:

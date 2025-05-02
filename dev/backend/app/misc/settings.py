@@ -14,21 +14,17 @@ from pydantic_settings import BaseSettings
 
 
 def _validate_url_https(url: HttpUrl) -> HttpUrl:
-	str_url = str(url)
-	if (
-		str_url.startswith('https://')
-		or str_url.startswith('http://localhost:')
-		or str_url.startswith('http://127.0.0.1:')
-	):
+	s_url = str(url)
+	if s_url.startswith('https://') or s_url == 'http://localhost/':
 		return url
-	raise ValueError(f'Invalid URL {str_url} (must start with https:// or be http://localhost/)')
+	raise ValueError(f'Invalid URL {s_url} (must start with https:// or be http://localhost/)')
 
 
 HttpsUrl = Annotated[HttpUrl, AfterValidator(_validate_url_https)]
 
 
 class Settings(BaseSettings):
-	origin_url: HttpsUrl
+	origin_url: HttpsUrl = 'https://sealnext.com'
 
 	email_verification_token_length: int = 32
 	email_verification_ttl: int = 24 * 60 * 60  # 24 hours
