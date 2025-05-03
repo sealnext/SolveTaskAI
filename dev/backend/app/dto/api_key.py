@@ -39,14 +39,6 @@ class ApiKeyResponse(BaseModel):
 	service_type: TicketingSystemType
 	domain: str
 	domain_email: EmailStr
-	api_key: str = Field(..., description='Masked API key')
-
-	@field_validator('api_key', mode='before')
-	@classmethod
-	def mask_api_key(cls, value: str) -> str:
-		if value:
-			return f'{value[:3]}{"*" * 5}'
-		return value
 
 	model_config = ConfigDict(from_attributes=True)
 

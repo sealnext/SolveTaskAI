@@ -46,6 +46,7 @@ async def get_threads(request: Request, thread_service: ThreadServiceDep):
 async def stream(
 	request: Request,
 	user_input: AgentStreamInput,
+	thread_service: ThreadServiceDep,
 	checkpointer: AsyncPostgresSaver = Depends(get_db_checkpointer),
 	factory: TicketingClientFactory = Depends(get_ticketing_client_factory),
 	thread_repo: ThreadRepository = Depends(get_thread_repository),
@@ -53,16 +54,25 @@ async def stream(
 	api_key_service: ApiKeyService = Depends(get_apikey_service),
 ) -> StreamingResponse:
 	"""Stream responses from the agent."""
-	user_id = request.state.user_id
+	try:
+		user_id = request.state.user_id
 
-	project: Project = await project_service.get_project_by_id(user_id, user_input.project_id)
-	api_key: ApiKey = await api_key_service.get_api_key_by_project_unmasked(user_id, project.id)
-	client = factory.get_client(api_key, project)
+		if user_input.project_id is None:
+			user_input.project_id = await thread_service.get_project_id(user_input.thread_id)
 
-	return StreamingResponse(
-		message_generator(user_input, user_id, project, api_key, checkpointer, thread_repo, client),
-		media_type='text/event-stream',
-	)
+		project: Project = await project_service.get_project_by_id(user_id, user_input.project_id)
+		api_key: ApiKey = await api_key_service.get_api_key_by_project_unmasked(user_id, project.id)
+		client = factory.get_client(api_key, project)
+
+		return StreamingResponse(
+			message_generator(
+				user_input, user_id, project, api_key, checkpointer, thread_repo, client
+			),
+			media_type='text/event-stream',
+		)
+	except ValueError as e:
+		logger.error(f'Error in stream: {e}')
+		raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
 
 
 @router.delete('/thread/{thread_id}')
