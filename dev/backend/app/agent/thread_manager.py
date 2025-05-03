@@ -14,6 +14,8 @@ from fastapi import HTTPException, status
 from langchain_core.messages import (
 	HumanMessage,
 )
+from langchain_core.runnables import RunnableConfig
+from langchain_core.runnables.schema import CustomStreamEvent, StandardStreamEvent
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.types import Command
 
@@ -39,7 +41,7 @@ NODE_AGENT = 'agent'
 KEY_INTERRUPT = '__interrupt__'
 
 
-async def parse_input(
+async def prepare_conversation_context(
 	user_input: AgentStreamInput,
 	user_id: int,
 	thread_repo: ThreadRepository,
@@ -50,7 +52,6 @@ async def parse_input(
 	Args:
 	    user_input: Input from the user (AgentStreamInput model)
 	    user_id: User ID
-	    checkpointer: AsyncPostgresSaver instance
 	    thread_repo: Thread repository instance
 
 	Returns:
@@ -58,16 +59,12 @@ async def parse_input(
 	"""
 	thread_id = user_input.thread_id
 
+	# if thread_id is None, create a new thread else update the existing one
 	if thread_id is None:
 		thread_id = str(uuid4())
-
 		logger.info(f'Creating new thread: {thread_id}')
-		if user_input.project_id is None:
-			raise ValueError('Project ID cannot be None when thread_id is None')
-
 		await thread_repo.create(thread_id, user_id, user_input.project_id)
 	else:
-		# Validate the provided thread ID and update its timestamp
 		thread = await thread_repo.get(thread_id)
 		if not thread:
 			raise HTTPException(
@@ -89,7 +86,9 @@ def _format_sse(data: dict) -> str:
 	return f'data: {json.dumps(data)}\n\n'
 
 
-def _handle_final_message(event: dict, thread_id: str) -> Optional[str]:
+def _handle_final_message(
+	event: StandardStreamEvent | CustomStreamEvent, thread_id: str
+) -> Optional[str]:
 	"""Handles 'on_chat_model_end' events from the agent node."""
 	metadata = event.get('metadata', {})
 	if metadata.get(META_LANGGRAPH_NODE) == NODE_AGENT and metadata.get(
@@ -103,7 +102,9 @@ def _handle_final_message(event: dict, thread_id: str) -> Optional[str]:
 	return None
 
 
-def _handle_progress_event(event: dict, thread_id: str) -> Optional[str]:
+def _handle_progress_event(
+	event: StandardStreamEvent | CustomStreamEvent, thread_id: str
+) -> Optional[str]:
 	"""Handles 'agent_progress' custom events."""
 	data = event.get('data', {})
 	if message := data.get('message'):
@@ -111,7 +112,9 @@ def _handle_progress_event(event: dict, thread_id: str) -> Optional[str]:
 	return None
 
 
-def _handle_interrupt_event(event: dict, thread_id: str) -> Optional[str]:
+def _handle_interrupt_event(
+	event: StandardStreamEvent | CustomStreamEvent, thread_id: str
+) -> Optional[str]:
 	"""
 	Handles interrupt events within 'on_chain_stream'.
 	Langgraph interrupts are often nested within the 'chunk' tuple: (..., {'__interrupt__': (InterruptObject, ...)})
@@ -136,7 +139,7 @@ def _handle_interrupt_event(event: dict, thread_id: str) -> Optional[str]:
 	return None
 
 
-def _handle_stream_event(event: dict, thread_id: str) -> Optional[str]:
+def _handle_stream_event(event: StandardStreamEvent | CustomStreamEvent) -> Optional[str]:
 	"""Handles 'on_chat_model_stream' events from the agent node."""
 	metadata = event.get('metadata', {})
 	if metadata.get(META_LANGGRAPH_NODE) == NODE_AGENT and metadata.get(
@@ -160,18 +163,17 @@ async def message_generator(
 	"""Generates Server-Sent Events for the agent's response stream."""
 	thread_id = None
 	try:
-		messages, thread_id = await parse_input(user_input, user_id, thread_repo)
+		messages, thread_id = await prepare_conversation_context(user_input, user_id, thread_repo)
 
 		graph = create_agent_graph(checkpointer, ticketing_client)
 
 		# Determine initial state
 		if user_input.action == 'confirm':
-			ticket_data = user_input.ticket
 			initial_state = Command(
 				resume={
 					'action': 'confirm',
 					'payload': user_input.payload,
-					'ticket': ticket_data,
+					'ticket': user_input.ticket,
 				}
 			)
 		elif user_input.action == 'cancel':
@@ -183,7 +185,7 @@ async def message_generator(
 				api_key=api_key,
 			)
 
-		thread_config = {'configurable': {'thread_id': thread_id}}
+		thread_config: RunnableConfig = {'configurable': {'thread_id': thread_id}}
 
 		async for event in graph.astream_events(
 			initial_state, thread_config, version='v2', subgraphs=True
@@ -202,7 +204,7 @@ async def message_generator(
 			elif event_type == EV_CHAIN_STREAM:
 				sse_message = _handle_interrupt_event(event, thread_id)
 			elif event_type == EV_CHAT_MODEL_STREAM:
-				sse_message = _handle_stream_event(event, thread_id)
+				sse_message = _handle_stream_event(event)
 
 			if sse_message:
 				yield sse_message

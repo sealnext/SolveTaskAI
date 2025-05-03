@@ -12,6 +12,8 @@ class TicketAgentState(BaseModel):
 	messages: Annotated[Sequence[AnyMessage], add_messages]
 	internal_messages: Annotated[Sequence[AnyMessage], add_messages]
 
+	context_metadata: Dict[str, Any] = {}
+
 	review_config: Dict[str, Any] | None = None
 	needs_review: bool = False
 	done: bool = False

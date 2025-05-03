@@ -45,7 +45,7 @@ class Settings(BaseSettings):
 	openai_embedding_model: str = 'text-embedding-3-small'
 
 	google_api_key: SecretStr
-	google_model: str = 'gemini-2.0-flash'
+	google_model: str = 'gemini-2.5-flash-preview-04-17'
 
 	oauth_github_client_id: str
 	oauth_github_client_secret: SecretStr

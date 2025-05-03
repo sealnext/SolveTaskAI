@@ -41,7 +41,6 @@ class BaseTicketingClient(ABC):
 		Raises:
 		    httpx.HTTPStatusError: For 4xx/5xx responses.
 		    httpx.RequestError: For connection errors, timeouts, etc.
-		    json.JSONDecodeError: If the response is not valid JSON.
 		    Exception: Any other unexpected error during the request.
 		"""
 		timeout = timeout or self.DEFAULT_TIMEOUT
@@ -49,9 +48,10 @@ class BaseTicketingClient(ABC):
 
 		response = await self.http_client.request(method, url, timeout=timeout, **kwargs)
 
-		data = response.json()
-
-		return data
+		try:
+			return response.json()
+		except Exception:
+			return response
 
 	@abstractmethod
 	async def get_projects(self) -> List[ExternalProject]:
@@ -115,4 +115,9 @@ class BaseTicketingClient(ABC):
 
 	@abstractmethod
 	async def get_issue_types(self) -> List[Dict[str, Any]]:
+		raise NotImplementedError
+
+	@abstractmethod
+	async def get_project_context(self) -> Dict[str, Any]:
+		"""Retrieves comprehensive project context for LLM processing."""
 		raise NotImplementedError

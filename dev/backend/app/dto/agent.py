@@ -58,8 +58,8 @@ class AgentStreamInput(BaseModel):
 		"""
 		When performing 'confirm' action, payload and ticket must be provided.
 		"""
-		if self.action == 'confirm' and (self.payload is None or self.ticket is None):
+		if self.action == 'confirm' and (self.payload is None and self.ticket is None):
 			raise ValueError(
-				'When performing "confirm" action, payload and ticket must be provided.'
+				'When performing "confirm" action, payload or ticket must be provided.'
 			)
 		return self
