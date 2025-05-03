@@ -2,7 +2,7 @@ import React from 'react';
 import type { Route } from "./+types/signup";
 
 import { GalleryVerticalEnd } from 'lucide-react';
-import { SignUpForm } from '~/components/singup-form';
+import { SignUpForm } from '~/components/signup-form';
 
 export type SignUpActionData = {
   error?: boolean;
