@@ -18,17 +18,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-        <link rel="icon" type="image/svg+xml" href="https://cdn.sealnext.com/favicon.svg" media="(prefers-color-scheme: light)" />
-        <link rel="icon" type="image/svg+xml" href="https://cdn.sealnext.com/favicon-white.svg" media="(prefers-color-scheme: dark)" />
+        <link rel="icon" type="image/svg+xml" href="http://cdn.sealnext.com/favicon.svg" media="(prefers-color-scheme: light)" />
+        <link rel="icon" type="image/svg+xml" href="http://cdn.sealnext.com/favicon-white.svg" media="(prefers-color-scheme: dark)" />
 
-        <link rel="icon" type="image/png" href="https://cdn.sealnext.com/favicon-96x96.png" sizes="96x96" media="(prefers-color-scheme: light)" />
-        <link rel="icon" type="image/png" href="https://cdn.sealnext.com/favicon-white-96x96.png" sizes="96x96" media="(prefers-color-scheme: dark)" />
+        <link rel="icon" type="image/png" href="http://cdn.sealnext.com/favicon-96x96.png" sizes="96x96" media="(prefers-color-scheme: light)" />
+        <link rel="icon" type="image/png" href="http://cdn.sealnext.com/favicon-white-96x96.png" sizes="96x96" media="(prefers-color-scheme: dark)" />
 
-        <link rel="icon" href="https://cdn.sealnext.com/favicon.ico" media="(prefers-color-scheme: light)" />
-        <link rel="icon" href="https://cdn.sealnext.com/favicon-white.ico" media="(prefers-color-scheme: dark)" />
+        <link rel="icon" href="http://cdn.sealnext.com/favicon.ico" media="(prefers-color-scheme: light)" />
+        <link rel="icon" href="http://cdn.sealnext.com/favicon-white.ico" media="(prefers-color-scheme: dark)" />
 
         <meta name="apple-mobile-web-app-title" content="SEALNEXT" />
-        <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.sealnext.com/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="http://cdn.sealnext.com/apple-touch-icon.png" />
 
         <link rel="manifest" href="/manifest.json" />
 

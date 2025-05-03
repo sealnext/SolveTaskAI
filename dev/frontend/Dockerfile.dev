@@ -19,5 +19,6 @@ COPY --from=build --chown=app_user:app_group /app/node_modules /app/node_modules
 
 USER app_user
 
-CMD ["pnpm", "dev", "--host", "--port", "5173"]
-EXPOSE 5173
+CMD ["pnpm", "dev", "--host"]
+# vite.config.ts specifies the port
+EXPOSE 80
