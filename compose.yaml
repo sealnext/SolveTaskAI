@@ -12,9 +12,9 @@ services:
     restart: on-failure
     healthcheck:
       test: ["CMD-SHELL", "pg_isready --username=$$POSTGRES_USER --dbname=$$POSTGRES_DB"]
-      interval: 5s
+      interval: 1s
       timeout: 2s
-      retries: 2
+      retries: 10
 
   redis:
     image: cgr.dev/chainguard/redis:latest
@@ -24,12 +24,14 @@ services:
     restart: on-failure
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 1s
       timeout: 2s
-      retries: 2
+      retries: 10
 
   backend:
-    build: ./dev/backend
+    build:
+      context: ./dev/backend
+      dockerfile: Dockerfile.dev
     tty: true
     env_file: ./dev/backend/.env
     environment:
@@ -48,24 +50,24 @@ services:
       redis:
         condition: service_healthy
     restart: on-failure
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
-      interval: 30s
-      timeout: 2s
-      retries: 2
+    # Commented out for faster startup
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+    #   interval: 30s
+    #   timeout: 2s
+    #   retries: 2
     develop:
       watch:
         - action: sync
           path: ./dev/backend/app
           target: /app
-          ignore:
-            - .venv/
-            - __pycache__/
         - action: rebuild
           path: ./dev/backend/uv.lock
 
   frontend:
-    build: ./dev/frontend
+    build:
+      context: ./dev/frontend
+      dockerfile: Dockerfile.dev
     expose:
     - "5173"
     labels:
@@ -76,13 +78,16 @@ services:
       - "traefik.http.services.frontend.loadbalancer.server.port=5173"
     depends_on:
       backend:
-        condition: service_healthy
+        # Commented out for faster startup
+        # condition: service_healthy
+        condition: service_started
     restart: on-failure
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5173/"]
-      interval: 30s
-      timeout: 2s
-      retries: 2
+    # Commented out for faster startup
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:5173/"]
+    #   interval: 30s
+    #   timeout: 2s
+    #   retries: 2
     develop:
       watch:
         - action: sync
@@ -106,9 +111,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       backend:
-        condition: service_healthy
+        # Commented out for faster startup
+        # condition: service_healthy
+        condition: service_started
       frontend:
-        condition: service_healthy
-
+        # Commented out for faster startup
+        # condition: service_healthy
+        condition: service_started
 volumes:
   postgres_data:

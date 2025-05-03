@@ -1,5 +1,3 @@
-# A multi-stage image build to create a final image without uv.
-ARG NODE_ENV=development
 # First, build the application in the `/app` directory.
 # See `Dockerfile` for details.
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
@@ -23,7 +21,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 	uv sync --frozen --no-dev
 
 # Then, use a final image without uv
-FROM python:3.13-slim-bookworm AS base
+FROM python:3.13-slim-bookworm
 # It is important to use the image that matches the builder, as the path to the
 # Python executable must be the same, e.g., using `python:3.11-slim-bookworm`
 # will fail.
@@ -37,14 +35,9 @@ COPY --from=builder --chown=app_user:app_group /app/email_template/ /app/email_t
 COPY --from=builder --chown=app_user:app_group /app/.venv/ /app/.venv/
 COPY --from=builder --chown=app_user:app_group /app/app/ /app/uv.lock /app/
 
-FROM base AS final-development
-CMD ["fastapi", "dev", "--host", "0.0.0.0", "--port", "8000"]
-
-FROM base AS final-production
-CMD ["fastapi", "run", "--host", "0.0.0.0", "--port", "8000"]
-
-FROM final-${NODE_ENV} AS final
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
 WORKDIR /app
+
+CMD ["fastapi", "run", "--host", "0.0.0.0", "--port", "8000"]
 EXPOSE 8000
