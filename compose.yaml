@@ -9,22 +9,12 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready --username=$$POSTGRES_USER --dbname=$$POSTGRES_DB"]
-      interval: 1s
-      timeout: 2s
-      retries: 10
 
   redis:
     image: cgr.dev/chainguard/redis:latest
     ports:
       - "6379:6379"
     command: ["--requirepass", "JKaGOI0JO9zU4BPv5xID"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 1s
-      timeout: 2s
-      retries: 10
 
   backend:
     build:
@@ -39,15 +29,9 @@ services:
       - "8000:8000"
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
-    # Commented out for faster startup
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
-    #   interval: 30s
-    #   timeout: 2s
-    #   retries: 2
+        condition: service_started
     develop:
       watch:
         - action: sync
