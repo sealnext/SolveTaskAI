@@ -9,7 +9,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: on-failure
     healthcheck:
       test: ["CMD-SHELL", "pg_isready --username=$$POSTGRES_USER --dbname=$$POSTGRES_DB"]
       interval: 1s
@@ -21,7 +20,6 @@ services:
     ports:
       - "6379:6379"
     command: ["--requirepass", "JKaGOI0JO9zU4BPv5xID"]
-    restart: on-failure
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 1s
@@ -37,19 +35,13 @@ services:
     environment:
       PYTHONUNBUFFERED: 1
       ORIGIN_URL: "http://localhost"
-    expose:
-      - "8000"
-    labels:
-    - "traefik.enable=true"
-    - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
-    - "traefik.http.routers.backend.entrypoints=web"
-    - "traefik.http.services.backend.loadbalancer.server.port=8000"
+    ports:
+      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: on-failure
     # Commented out for faster startup
     # healthcheck:
     #   test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
@@ -68,26 +60,14 @@ services:
     build:
       context: ./dev/frontend
       dockerfile: Dockerfile.dev
-    expose:
-    - "5173"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.frontend.priority=1" # Lower priority than backend
-      - "traefik.http.routers.frontend.entrypoints=web"
-      - "traefik.http.services.frontend.loadbalancer.server.port=5173"
+    environment:
+      BACKEND_CONTAINER_URL: "http://backend:8000"
+    ports:
+      - "80:80"
     depends_on:
       backend:
-        # Commented out for faster startup
-        # condition: service_healthy
         condition: service_started
     restart: on-failure
-    # Commented out for faster startup
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:5173/"]
-    #   interval: 30s
-    #   timeout: 2s
-    #   retries: 2
     develop:
       watch:
         - action: sync
@@ -96,27 +76,5 @@ services:
         - action: rebuild
           path: ./dev/frontend/pnpm-lock.yaml
 
-  traefik:
-    image: traefik:latest
-    command:
-      # - "--log.level=DEBUG"
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-    ports:
-      - "80:80"      # The main port for your applications
-      - "8080:8080"  # Traefik dashboard (optional)
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    depends_on:
-      backend:
-        # Commented out for faster startup
-        # condition: service_healthy
-        condition: service_started
-      frontend:
-        # Commented out for faster startup
-        # condition: service_healthy
-        condition: service_started
 volumes:
   postgres_data:
