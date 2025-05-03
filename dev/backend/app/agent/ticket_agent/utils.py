@@ -1,13 +1,10 @@
-import asyncio
 import json
 import re
 from logging import getLogger
-from typing import Any, Dict, Literal, Union
+from typing import Any, Dict, Literal
 
 from langchain_core.messages import ToolMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_openai import ChatOpenAI
 from langgraph.errors import GraphInterrupt
 from langgraph.types import Command, interrupt
 
@@ -592,38 +589,28 @@ async def prepare_creation_fields(
 	return processed_fields
 
 
-async def retry_llm_creation(
-	llm: Union[ChatOpenAI, ChatGoogleGenerativeAI],
+async def generate_creation_fields(
 	detailed_query: str,
 	available_fields: Dict,
-	required_fields: Dict,
-	previous_attempt: Dict | None = None,
-	max_retries: int = 3,
-	retry_count: int = 0,
 ) -> Dict:
-	"""Retry LLM ticket creation with structured feedback and validation."""
-	# Build error feedback from previous attempt
-	error_feedback = ''
-	if previous_attempt:
-		if 'fields' not in previous_attempt:
-			error_feedback = "The previous response was invalid. Please provide a response with a 'fields' object."
-		else:
-			missing_fields = [
-				f'{field_id} ({field["name"]})'
-				for field_id, field in required_fields.items()
-				if field_id not in previous_attempt['fields']
-			]
-			if missing_fields:
-				error_feedback = f'Missing required fields: {", ".join(missing_fields)}'
+	"""Generate ticket fields using LLM for ticket creation.
 
-	# Construct retry prompt with error context only if there was a previous attempt
-	retry_prompt = ''
-	if error_feedback:
-		retry_prompt = f"""Previous attempt failed. {error_feedback}
-Please try again with the original query: {detailed_query}
-Ensure ALL required fields are included in your response."""
+	Args:
+		detailed_query: User's detailed request for ticket creation
+		available_fields: Dictionary of available Jira fields with metadata
 
-	# Build message chain with error feedback if available
+	Returns:
+		Dictionary containing fields and update sections for ticket creation
+	"""
+	agent_config = AgentConfiguration()
+	llm = agent_config.get_llm()
+
+	# Extract required fields for prompt context
+	required_fields = {
+		field_id: field for field_id, field in available_fields.items() if field['required']
+	}
+
+	# Build message for LLM
 	messages = [
 		{'role': 'system', 'content': CREATE_TICKET_SYSTEM_PROMPT},
 		{
@@ -636,88 +623,9 @@ Ensure ALL required fields are included in your response."""
 			),
 		},
 	]
-	if retry_prompt:
-		messages.extend(
-			[
-				{
-					'role': 'assistant',
-					'content': (json.dumps(previous_attempt, indent=2) if previous_attempt else ''),
-				},
-				{
-					'role': 'user',
-					'content': f"""Your last response is missing:
-{error_feedback}
 
-Required fields reference:
-{json.dumps(required_fields, indent=2)}
-
-Please try again with the original query: {detailed_query}""",
-				},
-			]
-		)
-
-	# Get and validate LLM response
+	# Get LLM response
 	response = await llm.ainvoke(messages)
 	creation_fields = clean_json_response(response.content)
 
-	# Validate response structure
-	if not isinstance(creation_fields, dict) or 'fields' not in creation_fields:
-		if retry_count >= max_retries:
-			raise ValueError('Max retries exceeded: Failed to get valid LLM response structure')
-		await asyncio.sleep(1)
-		return await retry_llm_creation(
-			llm=llm,
-			detailed_query=detailed_query,
-			available_fields=available_fields,
-			required_fields=required_fields,
-			previous_attempt=creation_fields,
-			max_retries=max_retries,
-			retry_count=retry_count + 1,
-		)
-
-	# Ensure update section exists
-	if 'update' not in creation_fields:
-		creation_fields['update'] = {}
-
-	# Validate required fields
-	missing_required = [
-		field_id for field_id in required_fields if field_id not in creation_fields['fields']
-	]
-	if missing_required:
-		if retry_count >= max_retries:
-			raise ValueError(
-				f'Max retries exceeded: Missing required fields - {", ".join(missing_required)}'
-			)
-		await asyncio.sleep(1)
-		return await retry_llm_creation(
-			llm=llm,
-			detailed_query=detailed_query,
-			available_fields=available_fields,
-			required_fields=required_fields,
-			previous_attempt=creation_fields,
-			max_retries=max_retries,
-			retry_count=retry_count + 1,
-		)
-
 	return creation_fields
-
-
-async def generate_creation_fields(
-	detailed_query: str,
-	available_fields: Dict,
-) -> Dict:
-	"""Generate validated ticket fields using LLM with retry logic."""
-	agent_config = AgentConfiguration()
-
-	llm = agent_config.get_llm()
-
-	required_fields = {
-		field_id: field for field_id, field in available_fields.items() if field['required']
-	}
-
-	return await retry_llm_creation(
-		llm=llm,
-		detailed_query=detailed_query,
-		available_fields=available_fields,
-		required_fields=required_fields,
-	)

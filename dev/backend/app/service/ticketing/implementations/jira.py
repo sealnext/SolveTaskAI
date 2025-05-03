@@ -1043,16 +1043,22 @@ class JiraClient(BaseTicketingClient):
 			timeout=30.0,
 		)
 
+		# Add a user-friendly link to the response, as Jira's response doesn't include it FFS
+		if response_data and 'key' in response_data:
+			base_url = str(self._get_base_url()).rstrip('/')
+			response_data['link'] = f'{base_url}/browse/{response_data["key"]}'
+
 		return response_data
 
 	async def get_issue_types(
-		self, project_id: str | None = None, names_only: bool = False
+		self, project_key: str | None = None, names_only: bool = False, simplified: bool = True
 	) -> Union[List[Dict[str, Any]], List[str]]:
 		"""Get available issue types, optionally filtered by project.
 
 		Args:
-		    project_id: Optional project ID to filter issue types for. If None, uses client's project context.
+		    project_key: Optional project key to filter issue types for. If None, uses client's project context.
 		    names_only: If True, returns only a list of issue type names. Otherwise, returns full objects.
+		    simplified: If True, returns only a subset of fields for each issue type ('self', 'description', 'name', 'subtask', 'hierarchyLevel').
 
 		Returns:
 		    List of issue type dictionaries or list of issue type names.
@@ -1061,64 +1067,30 @@ class JiraClient(BaseTicketingClient):
 		    ValueError: If project context is needed but not available.
 		    HTTPException: If fetching issue types fails.
 		"""
-		target_project_id = project_id
-		if not target_project_id:
-			if self.project and self.project.id:
-				target_project_id = self.project.id
-			# else: # If no project_id argument and no project context, fetch all accessible types
-			#     logger.info("Fetching all accessible issue types (no project specified).")
-			#     pass # Allow fetching all if no project context
+		project_url = self._build_url('project', project_key)
+		project_data = await self._make_request(
+			'GET', project_url, headers=self._get_auth_headers()
+		)
 
-		url = self._build_url('issuetype')
-		params = {}
-		if target_project_id:
-			url = self._build_url('issuetype', 'project')
-			params = {'projectId': target_project_id}
-			logger.info(f'Fetching issue types for project ID: {target_project_id}')
+		issue_types = project_data.get('issueTypes', [])
+
+		if names_only:
+			return [it.get('name', 'Unknown') for it in issue_types if isinstance(it, dict)]
+		elif simplified:
+			simplified_types = []
+			for issue_type in issue_types:
+				if isinstance(issue_type, dict):
+					simplified_type = {
+						'self': issue_type.get('self'),
+						'description': issue_type.get('description'),
+						'name': issue_type.get('name'),
+						'subtask': issue_type.get('subtask'),
+						'hierarchyLevel': issue_type.get('hierarchyLevel'),
+					}
+					simplified_types.append(simplified_type)
+			return simplified_types
 		else:
-			logger.info('Fetching all accessible issue types instance-wide.')
-
-		try:
-			issue_types_list = await self._make_request(
-				'GET', url, headers=self._get_auth_headers(), params=params
-			)
-
-			if not isinstance(issue_types_list, list):
-				logger.error(
-					f'Unexpected response format for issue types: {type(issue_types_list)}'
-				)
-				raise HTTPException(
-					status.HTTP_500_INTERNAL_SERVER_ERROR,
-					'Unexpected response format when fetching issue types.',
-				)
-
-			if names_only:
-				return [
-					it.get('name', 'Unknown') for it in issue_types_list if isinstance(it, dict)
-				]
-			else:
-				return issue_types_list
-
-		except httpx.HTTPStatusError as e:
-			status_code = e.response.status_code
-			project_context = f' for project {target_project_id}' if target_project_id else ''
-			detail = f'Failed to fetch issue types{project_context}: {e.response.text}'
-			if status_code == status.HTTP_401_UNAUTHORIZED:
-				detail = 'Jira authentication failed.'
-			elif status_code == status.HTTP_403_FORBIDDEN:
-				detail = f'Permission denied to fetch issue types{project_context}.'
-			elif status_code == status.HTTP_404_NOT_FOUND and target_project_id:
-				detail = f'Project with ID {target_project_id} not found.'
-
-			logger.error(f'Error fetching issue types (Status {status_code}): {detail}')
-			raise HTTPException(status_code, detail)
-		except Exception as e:
-			project_context = f' for project {target_project_id}' if target_project_id else ''
-			logger.error(f'Unexpected error fetching issue types{project_context}: {e}')
-			raise HTTPException(
-				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				f'Unexpected error fetching issue types: {e}',
-			)
+			return issue_types
 
 	def _parse_create_errors(self, e: httpx.HTTPStatusError) -> str:
 		"""Parse specific Jira errors for ticket creation for better user feedback."""
@@ -1143,3 +1115,82 @@ class JiraClient(BaseTicketingClient):
 		except Exception:
 			# If response is not JSON or parsing fails
 			return e.response.text
+
+	async def get_user_by_email(self, email: str) -> str | None:
+		"""Get a user's accountId by their email address.
+
+		Args:
+			email: The email address of the user to find.
+
+		Returns:
+			The user's accountId if found, None otherwise.
+		"""
+		if not email or not isinstance(email, str):
+			logger.warning('Invalid email provided for user lookup')
+			return None
+
+		try:
+			# Use the user search endpoint with the email as query
+			url = self._build_url('user', 'search')
+			params = {'query': email}
+
+			users = await self._make_request(
+				'GET', url, headers=self._get_auth_headers(), params=params
+			)
+
+			if not users or not isinstance(users, list):
+				logger.warning(f'No users found for email: {email}')
+				return None
+
+			# Find the user with matching email
+			for user in users:
+				if isinstance(user, dict) and user.get('emailAddress') == email:
+					return user.get('accountId')
+
+			logger.warning(f'No exact email match found for: {email}')
+			return None
+
+		except Exception as e:
+			logger.warning(f'Error finding user by email {email}: {e}')
+			return None
+
+	async def get_project_context(self) -> Dict[str, Any]:
+		"""Get comprehensive project context for LLM processing.
+
+		Returns a dictionary containing:
+		- project_metadata: Basic project information
+		- available_issue_types: Supported ticket types in this project
+		- user_context: Current user permissions and roles
+		"""
+		if not self.project:
+			return {'error': 'No project context available', 'available_issue_types': []}
+
+		# Get available issue types for this project
+		try:
+			issue_types = await self.get_issue_types(self.project.key)
+		except Exception as e:
+			logger.warning(f'Failed to fetch issue types for context: {e}')
+			issue_types = []
+
+		# Get user account ID from email
+		user_email = self.api_key.domain_email
+		user_account_id = None
+
+		try:
+			user_account_id = await self.get_user_by_email(user_email)
+		except Exception as e:
+			logger.warning(f'Failed to fetch user accountId for {user_email}: {e}')
+
+		if not user_account_id:
+			user_account_id = user_email
+			logger.info(f'Using email as fallback for accountId: {user_email}')
+
+		return {
+			'project_metadata': {
+				'key': self.project.key,
+				'name': self.project.name,
+				'id': self.project.id,
+			},
+			'available_issue_types': issue_types,
+			'user_context': {'account_id': user_account_id},
+		}

@@ -1,5 +1,6 @@
+import json
 from logging import getLogger
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from langchain_core.callbacks import dispatch_custom_event
 from langchain_core.messages import HumanMessage, ToolMessage
@@ -43,7 +44,7 @@ def create_ticket_agent(
 		issue_type: str,
 		config: RunnableConfig,
 		tool_call_id: Annotated[str, InjectedToolCallId],
-	) -> Command | str:
+	) -> str | Command | dict[str, bool | None | Any]:
 		"""Tool for creating tickets with Jira metadata validation.
 
 		Args:
@@ -79,8 +80,23 @@ def create_ticket_agent(
 			creation_fields = await prepare_creation_fields(project_key, issue_type, client)
 
 			# Generate field values using LLM with createmeta constraints
-			detailed_query = detailed_query + f'\nProject key: {project_key}'
+			detailed_query = (
+				detailed_query + f'\nProject key: {project_key} \nIssue type: {issue_type}'
+			)
 			field_values = await generate_creation_fields(detailed_query, creation_fields)
+
+			if field_values.get('error'):
+				return Command(
+					goto='agent',
+					update={
+						'internal_messages': [
+							ToolMessage(
+								content=field_values.get('error'), tool_call_id=tool_call_id
+							)
+						],
+						'done': True,
+					},
+				)
 
 			# Prepare review configuration with createmeta data
 			review_config = create_review_config(
@@ -103,24 +119,8 @@ def create_ticket_agent(
 		except GraphInterrupt as i:
 			raise i
 		except Exception as e:
-			logger.error(f'Error in create_ticket: {e}', exc_info=True)
-
-			error_message = str(e)
-			if '404: No metadata found for project' in error_message:
-				issue_types_data = await client.get_issue_types()
-				# Extract unique issue type names with IDs from the response
-				available_types = sorted(
-					set(
-						f'{issue_type.get("name", "Unknown")} ({issue_type.get("id", "Unknown")})'
-						for issue_type in issue_types_data
-					)
-				)
-				return (
-					f'{error_message} - Please check issue type and try again.\n\n'
-					f'Available issue types: {", ".join(available_types)}'
-				)
-
-			return f'Failure - {error_message}'
+			logger.warning(f'Error in create_ticket: {e}')
+			return f'Failure - {e}'
 
 	async def edit_ticket(
 		detailed_query: str,
@@ -249,44 +249,16 @@ def create_ticket_agent(
 	async def call_model_with_tools(state: TicketAgentState):
 		"""Node that calls the LLM with internal message history."""
 		agent_config = AgentConfiguration()
-
 		llm = agent_config.get_llm()
-
 		llm_with_tools = llm.bind_tools(
 			[create_ticket, edit_ticket, delete_ticket, search_jira_entity]
 		)
 
 		if state.done:
-			return {
-				'messages': [
-					ToolMessage(
-						content=state.internal_messages[-1].content,
-						tool_call_id=state.messages[-1].tool_calls[-1]['id'],
-					)
-				]
-			}
+			return _create_final_response(state)
 
-		if not state.internal_messages and state.messages[-1].tool_calls:
-			args = state.messages[-1].tool_calls[0]['args']
-
-			# Format the ticket_id section
-			ticket_id_section = f'- Ticket ID: {args["ticket_id"]}' if args.get('ticket_id') else ''
-
-			# Create the structured prompt using the template
-			structured_prompt = TICKET_AGENT_PROMPT.format(
-				action=args.get('action', 'Not specified'),
-				query=args.get('detailed_query', 'Not specified'),
-				ticket_id_section=ticket_id_section,
-			)
-
-			# Always ensure we have at least one valid message with content
-			state.internal_messages = [HumanMessage(content=structured_prompt)]
-
-		# Make sure we have at least one message with content for Gemini
 		if not state.internal_messages:
-			state.internal_messages = [
-				HumanMessage(content='Please provide information about the ticket operation.')
-			]
+			await _prepare_initial_messages(state)
 
 		response = await llm_with_tools.ainvoke(state.internal_messages)
 		state.internal_messages.append(response)
@@ -294,10 +266,47 @@ def create_ticket_agent(
 		if len(response.tool_calls) > 0:
 			return Command(goto='tools', update={'internal_messages': state.internal_messages})
 
+		return _create_tool_message_response(state)
+
+	def _create_final_response(state: TicketAgentState):
+		"""Create the final response when state is done."""
 		return {
 			'messages': [
 				ToolMessage(
-					content=response.content,
+					content=state.internal_messages[-1].content,
+					tool_call_id=state.messages[-1].tool_calls[-1]['id'],
+				)
+			]
+		}
+
+	async def _prepare_initial_messages(state: TicketAgentState):
+		"""Prepare initial messages if none exist."""
+		if state.context_metadata.__len__() == 0:
+			state.context_metadata = await client.get_project_context()
+
+		if state.messages[-1].tool_calls:
+			args = state.messages[-1].tool_calls[0]['args']
+			ticket_id_section = f'- Ticket ID: {args["ticket_id"]}' if args.get('ticket_id') else ''
+
+			structured_prompt = TICKET_AGENT_PROMPT.format(
+				action=args.get('action', 'Not specified'),
+				query=args.get('detailed_query', 'Not specified'),
+				ticket_id_section=ticket_id_section,
+				context=json.dumps(state.context_metadata, indent=1),
+			)
+
+			state.internal_messages = [HumanMessage(content=structured_prompt)]
+		else:
+			state.internal_messages = [
+				HumanMessage(content='Please provide information about the ticket operation.')
+			]
+
+	def _create_tool_message_response(state: TicketAgentState):
+		"""Create a tool message response from the current state."""
+		return {
+			'messages': [
+				ToolMessage(
+					content=state.internal_messages[-1].content,
 					tool_call_id=state.messages[-1].tool_calls[0]['id'],
 				)
 			]
