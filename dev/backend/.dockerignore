@@ -8,5 +8,5 @@ __pycache__/
 *.md
 
 ruff.toml
-Dockerfile
+Dockerfile*
 .dockerignore

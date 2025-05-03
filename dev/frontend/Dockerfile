@@ -1,5 +1,3 @@
-ARG NODE_ENV=development
-
 FROM node:23-bookworm-slim AS base
 
 ENV PNPM_HOME="/pnpm"
@@ -19,17 +17,10 @@ FROM base AS build
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm run build
 
-FROM base AS pre-final
+FROM base
 COPY --from=build --chown=app_user:app_group /app/build /app/build
-
-FROM pre-final AS final-development
-COPY --from=build --chown=app_user:app_group /app/node_modules /app/node_modules
-CMD [ "pnpm", "dev", "--host", "--port", "5173" ]
-
-FROM pre-final AS final-production
-COPY --from=prod-deps /app/node_modules /app/node_modules
-CMD [ "pnpm", "start", "--host", "--port", "5173" ]
-
-FROM final-${NODE_ENV} AS final
+COPY --from=prod-deps --chown=app_user:app_group /app/node_modules /app/node_modules
 USER app_user
+
+CMD [ "pnpm", "start", "--host", "--port", "5173" ]
 EXPOSE 5173

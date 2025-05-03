@@ -1,0 +1,23 @@
+FROM node:alpine AS base
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+
+RUN apk add --no-cache pnpm
+
+RUN addgroup -S app_group && adduser -S -G app_group app_user
+COPY --chown=app_user:app_group . /app
+WORKDIR /app
+
+FROM base AS build
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+RUN pnpm run build
+
+FROM base
+COPY --from=build --chown=app_user:app_group /app/build /app/build
+COPY --from=build --chown=app_user:app_group /app/node_modules /app/node_modules
+
+USER app_user
+
+CMD ["pnpm", "dev", "--host", "--port", "5173"]
+EXPOSE 5173

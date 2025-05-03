@@ -1,0 +1,28 @@
+FROM python:alpine
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Install build dependencies
+RUN apk add --no-cache build-base rust cargo
+
+# Copy the application into the container
+COPY --chown=app_user:app_group ./app/ /app/
+COPY --chown=app_user:app_group ./pyproject.toml ./uv.lock /app/
+COPY --chown=app_user:app_group ./email_template/ /app/email_template/
+
+# Install the application dependencies
+WORKDIR /app
+RUN uv sync --frozen --no-cache
+
+# Create a non-root group and user
+# -S: Create a system user/group
+# -G: Specify the primary group for the user
+RUN addgroup -S app_group && adduser -S -G app_group app_user
+
+# Switch to the non-root user
+USER app_user
+
+# Run the application.
+CMD ["/app/.venv/bin/fastapi", "dev", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 8000
