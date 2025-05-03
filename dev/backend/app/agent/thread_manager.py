@@ -10,7 +10,7 @@ from logging import getLogger
 from typing import Any, AsyncGenerator, Optional
 from uuid import uuid4
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, status
 from langchain_core.messages import (
 	HumanMessage,
 )
@@ -39,19 +39,9 @@ NODE_AGENT = 'agent'
 KEY_INTERRUPT = '__interrupt__'
 
 
-def get_user_id(request: Request) -> str:
-	"""Temporary function to get user ID from request. Just for testing purposes."""
-	# TODO: Remove this once we have a proper authentication system
-	return (
-		request.state.user.id
-		if hasattr(request.state, 'user') and hasattr(request.state.user, 'id')
-		else 1
-	)
-
-
 async def parse_input(
 	user_input: AgentStreamInput,
-	user_id: str,
+	user_id: int,
 	thread_repo: ThreadRepository,
 ) -> tuple[list[Any], str]:
 	"""
@@ -69,10 +59,13 @@ async def parse_input(
 	thread_id = user_input.thread_id
 
 	if thread_id is None:
-		# Generate a new thread ID and create the thread record
 		thread_id = str(uuid4())
-		logger.info(f'No thread_id provided, creating new thread: {thread_id}')
-		await thread_repo.create(thread_id, user_id)
+
+		logger.info(f'Creating new thread: {thread_id}')
+		if user_input.project_id is None:
+			raise ValueError('Project ID cannot be None when thread_id is None')
+
+		await thread_repo.create(thread_id, user_id, user_input.project_id)
 	else:
 		# Validate the provided thread ID and update its timestamp
 		thread = await thread_repo.get(thread_id)
@@ -157,7 +150,7 @@ def _handle_stream_event(event: dict, thread_id: str) -> Optional[str]:
 
 async def message_generator(
 	user_input: AgentStreamInput,
-	user_id: str,
+	user_id: int,
 	project: Project,
 	api_key: ApiKey,
 	checkpointer: AsyncPostgresSaver,

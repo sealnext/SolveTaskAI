@@ -8,6 +8,19 @@ class ThreadService:
 	def __init__(self, thread_repo: ThreadRepository):
 		self.thread_repo = thread_repo
 
+	async def get_project_id(self, thread_id: str) -> int:
+		"""Get project ID from thread ID."""
+		if not thread_id:
+			raise ValueError('Thread ID is required')
+
+		thread = await self.thread_repo.get(thread_id)
+		if not thread:
+			raise ValueError('Thread not found')
+
+		if not thread['project_id']:
+			raise ValueError('Project ID not found')
+		return thread['project_id']
+
 	async def get_user_threads(self, user_id: int) -> Sequence[Thread]:
 		"""Get all threads for a user."""
 		if not user_id:

@@ -17,14 +17,15 @@ class ThreadRepository:
 	def __init__(self, db_session: AsyncSession):
 		self.session = db_session
 
-	async def create(self, thread_id: str, user_id: str) -> None:
+	async def create(self, thread_id: str, user_id: int, project_id: int) -> None:
 		"""Create a new thread-user association."""
 		logger.info(f'Creating thread-user association for thread {thread_id} and user {user_id}')
 		try:
 			await self.session.execute(
 				insert(thread_user_association).values(
 					thread_id=thread_id,
-					user_id=int(user_id),
+					user_id=user_id,
+					project_id=project_id,
 					created_at=datetime.now(timezone.utc),
 					updated_at=datetime.now(timezone.utc),
 				)
@@ -45,6 +46,8 @@ class ThreadRepository:
 				select(
 					thread_user_association.c.thread_id,
 					thread_user_association.c.user_id,
+					thread_user_association.c.project_id,
+					thread_user_association.c.created_at,
 					thread_user_association.c.updated_at,
 				).where(thread_user_association.c.thread_id == thread_id)
 			)
@@ -53,6 +56,8 @@ class ThreadRepository:
 				{
 					'thread_id': row.thread_id,
 					'user_id': row.user_id,
+					'project_id': row.project_id,
+					'created_at': row.created_at,
 					'updated_at': row.updated_at,
 				}
 				if row
@@ -192,4 +197,17 @@ class ThreadRepository:
 		except SQLAlchemyError as e:
 			await self.session.rollback()
 			logger.error(f'Failed to remove thread {thread_id}: {e}')
+			raise
+
+	async def get_project_id(self, thread_id: str) -> int | None:
+		"""Get project ID for a thread."""
+		try:
+			result = await self.session.execute(
+				select(thread_user_association.c.project_id).where(
+					thread_user_association.c.thread_id == thread_id
+				)
+			)
+			return result.scalar_one_or_none()
+		except SQLAlchemyError as e:
+			logger.error(f'Failed to get project ID for thread {thread_id}: {e}')
 			raise
