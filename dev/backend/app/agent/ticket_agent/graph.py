@@ -2,7 +2,7 @@ import json
 from logging import getLogger
 from typing import Annotated, Any, Literal
 
-from langchain_core.callbacks import dispatch_custom_event
+from langchain_core.callbacks import adispatch_custom_event
 from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
@@ -32,6 +32,23 @@ from app.service.ticketing.client import BaseTicketingClient
 logger = getLogger(__name__)
 
 
+async def dispatch_tool_progress_event(tool_name: str, config: RunnableConfig):
+	"""Dispatch appropriate progress event based on tool name."""
+	message_map = {
+		'create_ticket': 'Handling your creation request...',
+		'edit_ticket': 'Handling your edit request...',
+		'delete_ticket': 'Handling your deletion request...',
+		'search_jira_entity': 'Searching for the relevant data...',
+	}
+
+	message = message_map.get(tool_name, 'Processing your request...')
+	await adispatch_custom_event(
+		'agent_progress',
+		{'message': message},
+		config=config,
+	)
+
+
 def create_ticket_agent(
 	checkpointer: AsyncPostgresSaver | None = None,
 	client: BaseTicketingClient = None,
@@ -55,7 +72,9 @@ def create_ticket_agent(
 			is_resuming = config.get('configurable', {}).get('__pregel_resuming', False)
 
 			if is_resuming:
-				message = await handle_review_process(ReviewConfig(operation_type='create'), client)
+				message = await handle_review_process(
+					ReviewConfig(operation_type='create'), client, config
+				)
 				# todo don't set done , maybe there is an error
 				return Command(
 					goto='agent',
@@ -66,13 +85,6 @@ def create_ticket_agent(
 						'done': True,
 					},
 				)
-
-			dispatch_custom_event(
-				'agent_progress',
-				{'message': 'Trying to create a new ticket...'},
-				config=config,
-			)
-
 			# Get project_key from the client's project object
 			project_key = client.project.key
 
@@ -83,7 +95,7 @@ def create_ticket_agent(
 			detailed_query = (
 				detailed_query + f'\nProject key: {project_key} \nIssue type: {issue_type}'
 			)
-			field_values = await generate_creation_fields(detailed_query, creation_fields)
+			field_values = await generate_creation_fields(detailed_query, creation_fields, config)
 
 			if field_values.get('error'):
 				return Command(
@@ -106,7 +118,7 @@ def create_ticket_agent(
 				field_values=field_values,
 			)
 
-			message = await handle_review_process(review_config, client)
+			message = await handle_review_process(review_config, client, config)
 
 			return Command(
 				goto='agent',
@@ -138,7 +150,9 @@ def create_ticket_agent(
 			is_resuming = config.get('configurable')['__pregel_resuming']
 
 			if is_resuming:
-				message = await handle_review_process(ReviewConfig(operation_type='edit'), client)
+				message = await handle_review_process(
+					ReviewConfig(operation_type='edit'), client, config
+				)
 				return Command(
 					goto='agent',
 					update={
@@ -148,16 +162,6 @@ def create_ticket_agent(
 						'done': True,
 					},
 				)
-
-			dispatch_custom_event(
-				'agent_progress',
-				{
-					'message': f'Mapping changes for ticket {ticket_id}...',
-					'ticket_id': ticket_id,
-				},
-				config=config,
-			)
-
 			# Get metadata and prepare fields
 			available_fields = await prepare_ticket_fields(ticket_id, client)
 
@@ -169,7 +173,7 @@ def create_ticket_agent(
 				ticket_id=ticket_id, field_updates=field_updates, operation_type='edit'
 			)
 
-			message = await handle_review_process(review_config, client)
+			message = await handle_review_process(review_config, client, config)
 
 		except GraphInterrupt as i:
 			raise i
@@ -187,7 +191,9 @@ def create_ticket_agent(
 			is_resuming = config.get('configurable', {}).get('__pregel_resuming', False)
 
 			if is_resuming:
-				message = await handle_review_process(ReviewConfig(operation_type='delete'), client)
+				message = await handle_review_process(
+					ReviewConfig(operation_type='delete'), client, config
+				)
 				return Command(
 					goto='agent',
 					update={
@@ -206,7 +212,7 @@ def create_ticket_agent(
 				available_actions=[ReviewAction.CONFIRM, ReviewAction.CANCEL],
 			)
 
-			message = await handle_review_process(review_config, client)
+			message = await handle_review_process(review_config, client, config)
 			return ToolMessage(content=message, tool_call_id=tool_call_id)
 
 		except GraphInterrupt as i:
@@ -246,10 +252,11 @@ def create_ticket_agent(
 		messages_key='internal_messages',
 	)
 
-	async def call_model_with_tools(state: TicketAgentState):
+	async def call_model_with_tools(state: TicketAgentState, config: RunnableConfig):
 		"""Node that calls the LLM with internal message history."""
 		agent_config = AgentConfiguration()
-		llm = agent_config.get_llm()
+		checkpointer = config['configurable']['__pregel_checkpointer']
+		llm = agent_config.get_llm(checkpointer=checkpointer)
 		llm_with_tools = llm.bind_tools(
 			[create_ticket, edit_ticket, delete_ticket, search_jira_entity]
 		)
@@ -264,6 +271,9 @@ def create_ticket_agent(
 		state.internal_messages.append(response)
 
 		if len(response.tool_calls) > 0:
+			tool_name = response.tool_calls[0]['name']
+			await dispatch_tool_progress_event(tool_name, config)
+
 			return Command(goto='tools', update={'internal_messages': state.internal_messages})
 
 		return _create_tool_message_response(state)
