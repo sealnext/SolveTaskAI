@@ -648,7 +648,7 @@ wheels = [
 
 [[package]]
 name = "langchain"
-version = "0.3.24"
+version = "0.3.25"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "langchain-core" },
@@ -659,14 +659,14 @@ dependencies = [
     { name = "requests" },
     { name = "sqlalchemy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a3/8f/db961066a65e678036886c73234827c56547fed2e06fd1b425767e4dc059/langchain-0.3.24.tar.gz", hash = "sha256:caf1bacdabbea429bc79b58b118c06c3386107d92812e15922072b91745f070f", size = 10224882, upload-time = "2025-04-22T15:27:30.834Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fc/f9/a256609096a9fc7a1b3a6300a97000091efabdf21555a97988f93d4d9258/langchain-0.3.25.tar.gz", hash = "sha256:a1d72aa39546a23db08492d7228464af35c9ee83379945535ceef877340d2a3a", size = 10225045, upload-time = "2025-05-02T18:39:04.353Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ba/83/77392f0a6a560e471075b125656b392d3b889be65ee8e93a5c31aa7a62bb/langchain-0.3.24-py3-none-any.whl", hash = "sha256:596c5444716644ddd0cd819fb2bc9d0fd4221503b219fdfb5016edcfaa7da8ef", size = 1010778, upload-time = "2025-04-22T15:27:28.631Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/5c/5c0be747261e1f8129b875fa3bfea736bc5fe17652f9d5e15ca118571b6f/langchain-0.3.25-py3-none-any.whl", hash = "sha256:931f7d2d1eaf182f9f41c5e3272859cfe7f94fc1f7cef6b3e5a46024b4884c21", size = 1011008, upload-time = "2025-05-02T18:39:02.21Z" },
 ]
 
 [[package]]
 name = "langchain-core"
-version = "0.3.57"
+version = "0.3.58"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jsonpatch" },
@@ -677,9 +677,9 @@ dependencies = [
     { name = "tenacity" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1a/e1/d97e57d4dcdd61db843549e3bb967e1b49c9495f748bcb554bce84fdff46/langchain_core-0.3.57.tar.gz", hash = "sha256:6fa247071d722188ba9f97c0c22bb4e7d9d8bafc40f70670423a16a660db4b04", size = 556821, upload-time = "2025-05-02T06:50:48.852Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7e/9c/b430593bf98d55b966fb2f38fdd5f23e77ce07a63c84923ba6de1b2ffe76/langchain_core-0.3.58.tar.gz", hash = "sha256:6ee2282b02fa65bf4ee1afa869d431505536757ff2f1f9f0b432d8ca755d66c6", size = 557004, upload-time = "2025-05-02T16:54:48.305Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/69/21/e1a65e08f2e0332917c8bb9bdcf749b0c16d732b5aad39da1ad7dbdbd5a4/langchain_core-0.3.57-py3-none-any.whl", hash = "sha256:d461ff7d036050176cf01ef56b3377ab0c9dee365ad64ce1143f9359640b0720", size = 437384, upload-time = "2025-05-02T06:50:47.343Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/91/454a94275d323c0969e1f17a293cc87cb1398ab2d73f7db0a5de7883f2a9/langchain_core-0.3.58-py3-none-any.whl", hash = "sha256:266f90d2a079fe9510190ad3be88bd993baad43e6cee0f822a883767a4bfdd5b", size = 437550, upload-time = "2025-05-02T16:54:46.545Z" },
 ]
 
 [[package]]
