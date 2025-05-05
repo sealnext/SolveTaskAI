@@ -1,14 +1,12 @@
 from asyncio import shield
-from logging import getLogger
 from typing import AsyncGenerator
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.misc.logger import logger
 from app.misc.settings import settings
 from app.model.base import Base
-
-logger = getLogger(__name__)
 
 async_db_engine = create_async_engine(
 	url=str(settings.postgres_url), echo=True, pool_size=10, max_overflow=10, pool_pre_ping=True

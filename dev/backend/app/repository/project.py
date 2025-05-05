@@ -1,4 +1,3 @@
-from logging import getLogger
 from typing import List
 
 from sqlalchemy import String, and_, cast, exists, func, select
@@ -12,8 +11,6 @@ from app.model.associations import user_project_association
 from app.model.project import ProjectDB
 from app.model.user import UserDB
 from app.service.ticketing.enums import TicketingSystemType
-
-logger = getLogger(__name__)
 
 
 class ProjectRepository:

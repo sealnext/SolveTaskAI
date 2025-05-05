@@ -1,16 +1,14 @@
 """Repository for managing thread-user associations."""
 
 from datetime import datetime, timezone
-from logging import getLogger
 from typing import List, Sequence
 
 from sqlalchemy import delete, insert, select, text, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.misc.logger import logger
 from app.model.associations import thread_user_association
-
-logger = getLogger(__name__)
 
 
 class ThreadRepository:

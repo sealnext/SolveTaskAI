@@ -1,6 +1,5 @@
 import json
 import re
-from logging import getLogger
 from typing import Dict, Literal
 
 from langchain_core.runnables import RunnableConfig
@@ -8,6 +7,7 @@ from langgraph.errors import GraphInterrupt
 from langgraph.types import interrupt
 
 from app.agent.configuration import AgentConfiguration
+from app.misc.logger import logger
 from app.service.ticketing.client import BaseTicketingClient
 
 from .models import (
@@ -23,8 +23,6 @@ from .prompts import (
 	EDIT_TICKET_USER_PROMPT_TEMPLATE,
 	JSON_EXAMPLE,
 )
-
-logger = getLogger(__name__)
 
 
 def clean_json_response(raw_response: str) -> dict:

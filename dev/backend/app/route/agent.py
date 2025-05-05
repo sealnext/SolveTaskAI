@@ -2,7 +2,6 @@
 Agent router that handles graph operations.
 """
 
-from logging import getLogger
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -22,12 +21,11 @@ from app.dto.agent import AgentStreamInput
 from app.dto.api_key import ApiKey
 from app.dto.project import Project
 from app.dto.thread import Thread
+from app.misc.logger import logger
 from app.repository.thread import ThreadRepository
 from app.service.apikey import ApiKeyService
 from app.service.project import ProjectService
 from app.service.ticketing.factory import TicketingClientFactory
-
-logger = getLogger(__name__)
 
 router = APIRouter()
 

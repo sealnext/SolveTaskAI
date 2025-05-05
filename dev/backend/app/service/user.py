@@ -1,12 +1,9 @@
-from logging import getLogger
-
 from app.dto.user import Email, UserCreateByPassword
 from app.misc.crypto import password_hasher
 from app.misc.exception import UserNotFoundException
+from app.misc.logger import logger
 from app.model.user import UserDB
 from app.repository.user import UserRepository
-
-logger = getLogger(__name__)
 
 
 class UserService:

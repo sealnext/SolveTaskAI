@@ -1,27 +1,23 @@
-from logging import getLogger
 from urllib.parse import urljoin
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 
 from app.dependency import AuthServiceDep
 from app.dto.user import UserCreateByPassword, UserLogin
+from app.misc.cookie import delete_session_cookie, set_session_cookie
 from app.misc.exception import TokenNotFoundException
+from app.misc.logger import logger
 from app.misc.settings import settings
 
-logger = getLogger(__name__)
 router = APIRouter()
 
 
-def _set_session_cookie(response: Response, session_token: str) -> None:
-	response.set_cookie(
-		key='session_token',
-		value=session_token,
-		max_age=settings.session_ttl,
-		secure=True,
-		httponly=True,
-		samesite='lax',
-	)
+@router.get('/verify')
+async def verify_user_session():
+	# Route to verify if the user is authenticated
+	# *** This doesn't bypass the middleware (special case) ***
+	return Response()
 
 
 @router.post('/login')
@@ -32,8 +28,22 @@ async def login(auth_service: AuthServiceDep, user_dto: UserLogin):
 		logger.exception(f'Log in failed: {e}')
 		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Log in failed')
 
-	response = Response()
-	_set_session_cookie(response, session_token)
+	response = Response()  # http status 200
+	set_session_cookie(response, session_token)
+
+	return response
+
+
+@router.post('/logout')
+async def logout(auth_service: AuthServiceDep, request: Request):
+	try:
+		await auth_service.logout(request.state.session_id)
+	except Exception as e:
+		logger.exception(f'Log out failed: {e}')
+		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Log out failed')
+
+	response = Response()  # http status 200
+	delete_session_cookie(response)
 
 	return response
 
@@ -49,7 +59,7 @@ async def signup(
 		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Sign up failed')
 
 	response = Response(status_code=status.HTTP_201_CREATED)
-	_set_session_cookie(response, session_token)
+	set_session_cookie(response, session_token)
 
 	return response
 

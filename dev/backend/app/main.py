@@ -1,13 +1,14 @@
 from asyncio import shield
 from contextlib import asynccontextmanager
-from logging import getLogger
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
+from app.misc.cookie import delete_session_cookie
 from app.misc.db_pool import langgraph_db_pool
 from app.misc.exception import SessionNotFoundException
+from app.misc.logger import logger
 from app.misc.postgres import async_db_engine, init_db
 from app.route.agent import router as agent_router
 from app.route.apikey import router as api_keys_router
@@ -16,8 +17,6 @@ from app.route.health import router as health_router
 from app.route.projects import router as projects_router
 from app.route.ticketing import router as ticketing_router
 from app.service.auth import AuthService
-
-logger = getLogger(__name__)
 
 
 @asynccontextmanager
@@ -34,27 +33,37 @@ app = FastAPI(lifespan=lifespan)
 
 @app.middleware('http')
 async def authorize(request: Request, call_next):
-	if request.url.path.startswith('/api/auth') or request.url.path == '/api/health':
+	if (
+		request.url.path.startswith('/api/auth/')
+		and request.url.path != '/api/auth/verify'
+		and request.url.path != '/api/auth/logout'
+	) or request.url.path == '/api/health':
 		return await call_next(request)
 
 	session_token = request.cookies.get('session_token')
-	if not session_token:
+	if session_token is None:
 		return JSONResponse(
-			status_code=status.HTTP_401_UNAUTHORIZED, content={'detail': 'Unauthorized'}
+			{'detail': 'Unauthorized'},
+			status.HTTP_401_UNAUTHORIZED,
 		)
 
 	try:
 		session_id: str = AuthService.get_session_id(session_token)
 		user_id: str = await AuthService.get_user_id(session_id)
+
 	except SessionNotFoundException:
-		return JSONResponse(
-			status_code=status.HTTP_401_UNAUTHORIZED, content={'detail': 'Unauthorized'}
+		response = JSONResponse(
+			{'detail': 'Unauthorized'},
+			status.HTTP_401_UNAUTHORIZED,
 		)
+		delete_session_cookie(response)
+		return response
+
 	except Exception as e:
-		logger.error(f'Error retrieving user ID: {e}')
+		logger.exception(f'Error retrieving user ID: {e}')
 		return JSONResponse(
-			status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-			content={'detail': 'Internal Server Error'},
+			{'detail': 'Internal Server Error'},
+			status.HTTP_500_INTERNAL_SERVER_ERROR,
 		)
 
 	request.state.session_id = session_id

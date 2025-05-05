@@ -1,11 +1,8 @@
-from logging import getLogger
-
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg_pool import AsyncConnectionPool
 
+from app.misc.logger import logger
 from app.misc.settings import settings
-
-logger = getLogger(__name__)
 
 
 class DatabasePool:

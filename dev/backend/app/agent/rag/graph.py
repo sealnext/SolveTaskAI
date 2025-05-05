@@ -1,6 +1,5 @@
 import re
 from functools import partial
-from logging import getLogger
 from typing import Annotated, List, Sequence
 
 from langchain_core.documents import Document
@@ -12,12 +11,10 @@ from langgraph.graph import END, StateGraph, add_messages
 from pydantic import BaseModel, Field
 
 from app.dto.project import Project
+from app.misc.logger import logger
 from app.misc.postgres import async_db_engine
 from app.misc.settings import settings
 from app.service.ticketing.client import BaseTicketingClient
-
-logger = getLogger(__name__)
-
 
 embeddings_model = OpenAIEmbeddings(model=settings.openai_embedding_model)
 

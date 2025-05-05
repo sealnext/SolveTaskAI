@@ -1,4 +1,3 @@
-from logging import getLogger
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,12 +11,11 @@ from app.dependency import (
 )
 from app.dto.api_key import ApiKey
 from app.dto.project import ExternalProject, ProjectCreate, ProjectResponse
+from app.misc.logger import logger
 from app.service.document_embeddings import DocumentEmbeddingsService
 from app.service.project import ProjectService
 from app.service.ticketing.client import BaseTicketingClient
 from app.service.ticketing.factory import TicketingClientFactory
-
-logger = getLogger(__name__)
 
 router = APIRouter()
 
