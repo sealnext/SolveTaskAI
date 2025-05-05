@@ -11,7 +11,6 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, StateGraph, add_messages
 from pydantic import BaseModel, Field
 
-from app.agent.configuration import AgentConfiguration
 from app.dto.project import Project
 from app.misc.postgres import async_db_engine
 from app.misc.settings import settings
@@ -22,10 +21,6 @@ logger = getLogger(__name__)
 
 embeddings_model = OpenAIEmbeddings(model=settings.openai_embedding_model)
 
-agent_config = AgentConfiguration()
-
-llm = agent_config.get_llm()
-llm_json_mode = agent_config.get_json_llm()
 
 number_of_docs_to_retrieve = 5
 

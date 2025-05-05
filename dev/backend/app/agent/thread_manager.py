@@ -120,7 +120,12 @@ def _handle_interrupt_event(
 	Langgraph interrupts are often nested within the 'chunk' tuple: (..., {'__interrupt__': (InterruptObject, ...)})
 	"""
 	chunk = event.get('data', {}).get('chunk', {})
-	if isinstance(chunk, tuple) and len(chunk) == 2 and isinstance(chunk[1], dict):
+	if (
+		isinstance(chunk, tuple)
+		and len(chunk) == 2
+		and isinstance(chunk[1], dict)
+		and chunk[0] == ()
+	):
 		interrupt_data = chunk[1].get(KEY_INTERRUPT)
 		if (
 			isinstance(interrupt_data, tuple)

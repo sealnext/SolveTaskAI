@@ -1,12 +1,11 @@
 import json
 import re
 from logging import getLogger
-from typing import Any, Dict, Literal
+from typing import Dict, Literal
 
-from langchain_core.messages import ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.errors import GraphInterrupt
-from langgraph.types import Command, interrupt
+from langgraph.types import interrupt
 
 from app.agent.configuration import AgentConfiguration
 from app.service.ticketing.client import BaseTicketingClient
@@ -116,7 +115,9 @@ def clean_json_response(raw_response: str) -> dict:
 	return json.loads(cleaned)
 
 
-async def handle_review_process(review_config: ReviewConfig, client: BaseTicketingClient) -> str:
+async def handle_review_process(
+	review_config: ReviewConfig, client: BaseTicketingClient, config: RunnableConfig
+) -> str:
 	"""Unified review handler with operation-type specific logic."""
 	try:
 		# For resuming operations when no config is provided
@@ -133,7 +134,7 @@ async def handle_review_process(review_config: ReviewConfig, client: BaseTicketi
 		if not handler:
 			raise ValueError(f'Unsupported operation type: {review_config.get("operation_type")}')
 
-		return await handler(review_config, client)
+		return await handler(review_config, client, config)
 
 	except GraphInterrupt as i:
 		raise i
@@ -143,11 +144,11 @@ async def handle_review_process(review_config: ReviewConfig, client: BaseTicketi
 
 
 async def _handle_edit_confirmation(
-	review_config: ReviewConfig, client: BaseTicketingClient
+	review_config: ReviewConfig, client: BaseTicketingClient, config: RunnableConfig
 ) -> str:
 	"""Handle edit confirmation."""
 	preview_data = review_config.get('preview_data', {})
-	# Get final payload from review response
+
 	review_response = interrupt(
 		{
 			'question': review_config.get('question', ''),
@@ -170,7 +171,24 @@ async def _handle_edit_confirmation(
 			if not payload or not ticket:
 				return 'Missing required fields in review response: payload and ticket are required'
 
-			return await _handle_direct_confirmation(payload, ticket, client)
+			try:
+				await client.update_ticket(ticket, payload)
+
+				changed_fields = list(payload.get('update', {}).keys()) + list(
+					payload.get('fields', {}).keys()
+				)
+				message = f'Successfully applied changes to ticket {ticket}'
+
+				if changed_fields:
+					message += f': {", ".join(changed_fields)} were changed'
+					message += " (these fields were modified - for any unmentioned fields please tell the user that you DIDN'T change them!)"
+
+				return message
+
+			except Exception as e:
+				error = e.detail if hasattr(e, 'detail') else str(e)
+				return f'Failed to update ticket {ticket}: {error}'
+
 		except Exception as e:
 			return f'Failed to apply changes: {e}'
 	elif action == ReviewAction.CANCEL:
@@ -180,7 +198,7 @@ async def _handle_edit_confirmation(
 
 
 async def _handle_delete_confirmation(
-	review_config: ReviewConfig, client: BaseTicketingClient
+	review_config: ReviewConfig, client: BaseTicketingClient, config: RunnableConfig
 ) -> str:
 	"""Execute the actual ticket deletion after confirmation."""
 	# Get user confirmation through interrupt - don't catch GraphInterrupt
@@ -207,7 +225,7 @@ async def _handle_delete_confirmation(
 
 
 async def _handle_create_confirmation(
-	review_config: ReviewConfig, client: BaseTicketingClient
+	review_config: ReviewConfig, client: BaseTicketingClient, config: RunnableConfig
 ) -> str:
 	"""Handle create confirmation."""
 	preview_data = review_config.get('preview_data', {})
@@ -249,88 +267,6 @@ async def _handle_create_confirmation(
 		return f'Unsupported action: {action}'
 
 
-async def _handle_direct_confirmation(
-	jira_payload: Dict[str, Any], ticket_id: str, client: BaseTicketingClient
-) -> str:
-	"""Validează și aplică payload-ul direct în Jira cu retry logic incorporat."""
-	MAX_RETRIES = 2
-	current_payload = jira_payload
-
-	for attempt in range(MAX_RETRIES + 1):
-		try:
-			await client.update_ticket(ticket_id, current_payload)
-
-			# Get successfully changed fields
-			changed_fields = list(current_payload.get('update', {}).keys()) + list(
-				current_payload.get('fields', {}).keys()
-			)
-			message = f'Successfully applied changes to ticket {ticket_id}'
-
-			if changed_fields:
-				message += f": {', '.join(changed_fields)} we're changed"
-				message += " (these fields were modified - for any unmentioned fields please tell the user that you DIDN'T changed them!)"
-
-			return message
-
-		except Exception as e:
-			if attempt >= MAX_RETRIES:
-				raise
-
-			error = e.detail if hasattr(e, 'detail') else str(e)
-
-			# Get corrected payload AND track removed fields
-			current_payload = await self_correct_payload(
-				error=str(e),
-				payload=current_payload,
-				jira_response=error,
-				attempt=attempt,
-			)
-
-	# This should never be reached, but added for completeness
-	return f'Failed to update ticket {ticket_id} after {MAX_RETRIES} attempts'
-
-
-async def self_correct_payload(
-	error: str, payload: dict, jira_response: str | None, attempt: int
-) -> dict:
-	"""Returns corrected payload based on error analysis."""
-	agent_config = AgentConfiguration()
-
-	llm = agent_config.get_llm(custom_temperature=0.3)
-
-	try:
-		response = await llm.ainvoke(
-			f"""
-### JIRA Error Analysis (Attempt {attempt + 1}) ###
-Error: {error}
-API Response: {jira_response or 'N/A'}
-Current Payload: {json.dumps(payload, indent=2)}
-
-### Correction Rules ###
-1. Analyze error message and fix root cause
-2. For invalid fields:
-- Remove unsupported/invalid fields immediately
-- Keep only fields that are 100% valid
-- Never attempt to guess or fix field values
-- When in doubt, remove the field entirely
-3. For structure issues:
-- Fix JSON syntax errors only
-- Ensure proper nesting
-- Match JIRA field types exactly
-4. General rules:
-- Make absolute minimal changes
-- Never add new fields
-- Prefer removing fields over guessing fixes, but if you can resolve the error, DO IT!!!
-- If error is field-related, default to removal
-"""
-		)
-		return clean_json_response(response.content)
-
-	except json.JSONDecodeError:
-		logger.error('Failed to parse LLM correction, using original payload')
-		return payload
-
-
 async def prepare_ticket_fields(ticket_id: str, client: BaseTicketingClient) -> Dict:
 	"""Fetch and prepare available fields for a ticket."""
 	metadata = await client.get_ticket_edit_issue_metadata(ticket_id)
@@ -353,7 +289,8 @@ async def generate_field_updates(
 	"""Generate field updates using LLM."""
 	agent_config = AgentConfiguration()
 
-	llm = agent_config.get_llm()
+	checkpointer = config['configurable']['__pregel_checkpointer']
+	llm = agent_config.get_llm(checkpointer=checkpointer)
 
 	response = await llm.ainvoke(
 		[
@@ -455,60 +392,6 @@ def create_review_config(
 	return ReviewConfig(**base_config)
 
 
-async def handle_edit_error(e: Exception, tool_call_id: str, field_values: Dict) -> Command:
-	"""Handle errors during ticket editing."""
-	# Initialize retry_count to 0 since we don't have state
-	retry_count = 0
-
-	# Ensure field_values is a dictionary
-	if field_values is None:
-		field_values = {}
-
-	if retry_count >= 2:
-		return Command(
-			goto='agent',
-			update={
-				'internal_messages': [
-					ToolMessage(
-						content=f'Failed to apply changes after 3 attempts. Error: {e}. Please try a different approach.',
-						tool_call_id=tool_call_id,
-					)
-				],
-				'done': True,
-			},
-		)
-
-	try:
-		corrected_payload = await self_correct_payload(
-			error=str(e),
-			payload=field_values,
-			jira_response=getattr(e, 'response', None),
-			attempt=retry_count,
-		)
-	except Exception as e:
-		# If payload correction fails, return a simple error message
-		return Command(
-			goto='agent',
-			update={
-				'internal_messages': [
-					ToolMessage(
-						content=f'Failed to process the request: {e}. Please try a different approach.',
-						tool_call_id=tool_call_id,
-					)
-				],
-				'done': True,
-			},
-		)
-
-	return Command(
-		goto='create_ticket',
-		update={
-			'field_values': corrected_payload,
-			'retry_count': retry_count + 1,
-		},
-	)
-
-
 async def handle_account_search(client: BaseTicketingClient, value: str) -> str:
 	"""Handle Jira account search logic."""
 	users = await client.search_user(value)
@@ -590,8 +473,7 @@ async def prepare_creation_fields(
 
 
 async def generate_creation_fields(
-	detailed_query: str,
-	available_fields: Dict,
+	detailed_query: str, available_fields: Dict, config: RunnableConfig
 ) -> Dict:
 	"""Generate ticket fields using LLM for ticket creation.
 
@@ -603,7 +485,8 @@ async def generate_creation_fields(
 		Dictionary containing fields and update sections for ticket creation
 	"""
 	agent_config = AgentConfiguration()
-	llm = agent_config.get_llm()
+	checkpointer = config['configurable']['__pregel_checkpointer']
+	llm = agent_config.get_llm(checkpointer=checkpointer)
 
 	# Extract required fields for prompt context
 	required_fields = {

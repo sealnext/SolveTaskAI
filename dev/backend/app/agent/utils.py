@@ -9,7 +9,7 @@ It ensures proper conversation flow when tools are interrupted by human input.
 from logging import getLogger
 from typing import Any, Dict, List
 
-from langchain_core.callbacks import dispatch_custom_event
+from langchain_core.callbacks import adispatch_custom_event
 from langchain_core.messages import (
 	AIMessage,
 	BaseMessage,
@@ -106,7 +106,7 @@ def create_error_response(
 	return {'messages': [error_message]}
 
 
-def format_llm_response(
+async def format_llm_response(
 	response: BaseMessage,
 	state_corrections: List | None = None,
 	config: RunnableConfig | None = None,
@@ -126,9 +126,9 @@ def format_llm_response(
 	if hasattr(response, 'tool_calls') and response.tool_calls:
 		tool_name = response.tool_calls[0]['name']
 		if tool_name == 'ticket_tool' and config:
-			dispatch_custom_event(
+			await adispatch_custom_event(
 				'agent_progress',
-				{'message': 'We are handling your ticket request...'},
+				{'message': 'Processing your ticket operation...'},
 				config=config,
 			)
 

@@ -25,6 +25,8 @@ thread_user_association = Table(
 	Column('thread_id', String, primary_key=True),
 	Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
 	Column('project_id', Integer, ForeignKey('projects.id'), primary_key=True),
+	Column('input_tokens', Integer, default=0),
+	Column('output_tokens', Integer, default=0),
 	Column('created_at', DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
 	Column(
 		'updated_at',

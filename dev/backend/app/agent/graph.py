@@ -70,7 +70,9 @@ async def call_model(state: AgentState, config: RunnableConfig):
 	"""Node that calls the LLM with the current state."""
 	conversation_messages = list(state.messages)
 	agent_config = AgentConfiguration()
-	llm = agent_config.get_llm()
+
+	checkpointer = config['configurable']['__pregel_checkpointer']
+	llm = agent_config.get_llm(checkpointer=checkpointer)
 
 	# Fix message sequence if user breaks the tool call interrupt approval step by sending a new message instead of approving the tool call
 	sequence_info = fix_tool_call_sequence(conversation_messages)
@@ -86,6 +88,6 @@ async def call_model(state: AgentState, config: RunnableConfig):
 
 	try:
 		model_response = await llm_with_tools.ainvoke(messages_with_system)
-		return format_llm_response(model_response, state_corrections, config)
+		return await format_llm_response(model_response, state_corrections, config)
 	except Exception as e:
 		return create_error_response(e, state_corrections)
