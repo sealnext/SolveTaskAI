@@ -1,4 +1,3 @@
-from logging import getLogger
 from typing import List
 
 from fastapi import HTTPException, status
@@ -12,8 +11,6 @@ from starlette.status import (
 from app.dto.api_key import ApiKey
 from app.dto.project import Project, ProjectCreate, ProjectResponse
 from app.repository.project import ProjectRepository
-
-logger = getLogger(__name__)
 
 
 class ProjectService:

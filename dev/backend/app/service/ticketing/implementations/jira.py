@@ -2,7 +2,6 @@ import asyncio
 import base64
 import re
 from enum import Enum
-from logging import getLogger
 from typing import Any, AsyncGenerator, Dict, List, Union
 from urllib.parse import urljoin
 
@@ -12,10 +11,9 @@ from fastapi import HTTPException, status
 from app.dto.api_key import ApiKey
 from app.dto.project import ExternalProject, Project
 from app.dto.ticket import JiraIssueContentSchema, JiraIssueSchema
+from app.misc.logger import logger
 from app.misc.settings import settings
 from app.service.ticketing.client import BaseTicketingClient
-
-logger = getLogger(__name__)
 
 
 class TicketingSystemType(str, Enum):

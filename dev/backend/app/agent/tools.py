@@ -1,11 +1,8 @@
-from logging import getLogger
 from typing import Any, Literal, Union
 
 from langchain_core.messages import AnyMessage
 from langchain_core.tools import tool
 from pydantic import BaseModel
-
-logger = getLogger(__name__)
 
 # rag_tool & ticket_tool serves as a declarative interface for the ticket_tool subgraph.
 # While it appears as a standard tool to the LLM, it actually orchestrates

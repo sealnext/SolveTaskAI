@@ -1,4 +1,3 @@
-import logging
 from abc import ABC, abstractmethod
 from typing import Any, AsyncGenerator, Dict, List
 
@@ -7,8 +6,7 @@ import httpx
 from app.dto.api_key import ApiKey
 from app.dto.project import ExternalProject, Project
 from app.dto.ticket import JiraIssueSchema
-
-logger = logging.getLogger(__name__)
+from app.misc.logger import logger
 
 
 class BaseTicketingClient(ABC):

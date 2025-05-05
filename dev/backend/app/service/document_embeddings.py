@@ -1,13 +1,11 @@
-from logging import getLogger
 from typing import AsyncIterator
 
 from app.dto.api_key import ApiKey
 from app.dto.document_embeddings import DocumentEmbedding
 from app.dto.ticket import JiraIssueSchema
+from app.misc.logger import logger
 from app.repository.document_embeddings import DocumentEmbeddingsRepository
 from app.service.ticketing.factory import TicketingClientFactory
-
-logger = getLogger(__name__)
 
 
 class DocumentEmbeddingsService:

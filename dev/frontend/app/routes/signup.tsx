@@ -3,6 +3,21 @@ import type { Route } from "./+types/signup";
 
 import { GalleryVerticalEnd } from 'lucide-react';
 import { SignUpForm } from '~/components/signup-form';
+import { redirect } from 'react-router';
+
+export function meta() {
+	return [
+		{ title: "Sign up | Sealnext" },
+		{ name: "description", content: "Sign up to Sealnext to continue." },
+	];
+}
+
+export async function clientLoader(): Promise<void | Response> {
+	const response = await fetch("/api/auth/verify");
+	if (response.ok) {
+		return redirect("/");
+	}
+}
 
 export type SignUpActionData = {
   error?: boolean;
@@ -11,10 +26,12 @@ export type SignUpActionData = {
 
 export async function clientAction({
   request,
-}: Route.ClientActionArgs): Promise<SignUpActionData> {
+}: Route.ClientActionArgs): Promise<SignUpActionData | Response> {
+
 	const formData = await request.formData();
 	const email = formData.get("email") as string;
 	const password = formData.get("password") as string;
+
 	const response = await fetch("/api/auth/signup", {
 		method: "POST",
 		headers: {
@@ -36,9 +53,7 @@ export async function clientAction({
 		};
 	}
 
-	return {
-		error: false,
-	};
+	return redirect("/");
 }
 
 export default function SignUp({

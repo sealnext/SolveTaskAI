@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import {
@@ -11,6 +11,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Form, Link } from "react-router";
+import { Eye, EyeOff } from "lucide-react";
 
 interface LoginFormProps extends React.ComponentPropsWithoutRef<"div"> {
   error?: boolean;
@@ -22,13 +23,16 @@ export function LoginForm({
   error,
   errorMessage,
 }: LoginFormProps) {
+
+  const [showPassword, setShowPassword] = useState(false);
+
   return (
     <div className={cn("flex flex-col gap-6", className)}>
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Welcome back</CardTitle>
           <CardDescription>
-            Login with your Apple or Google account
+            Use your GitHub or Google account
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -42,7 +46,7 @@ export function LoginForm({
                       fill="currentColor"
                     />
                   </svg>
-                  Login with GitHub
+                  Log in with GitHub
                 </Button>
                 <Button variant="outline" className="w-full">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -51,11 +55,11 @@ export function LoginForm({
                       fill="currentColor"
                     />
                   </svg>
-                  Login with Google
+                  Log in with Google
                 </Button>
               </div>
               <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
-                <span className="relative z-10 bg-background px-2 text-muted-foreground">
+                <span className="relative z-10 bg-card px-2 text-muted-foreground">
                   Or continue with
                 </span>
               </div>
@@ -71,7 +75,7 @@ export function LoginForm({
                     id="email"
                     name="email"
                     type="email"
-                    placeholder="john@example.com"
+                    placeholder="andy@example.com"
                     required
                     className={cn(error && "border-destructive")}
                   />
@@ -81,18 +85,28 @@ export function LoginForm({
                     <Label htmlFor="password">Password</Label>
                     <a
                       href="#"
-                      className="ml-auto text-sm underline-offset-4 hover:underline"
+                      className="ml-auto text-sm underline-offset-4 hover:underline text-right"
                     >
                       Forgot your password?
                     </a>
                   </div>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    className={cn(error && "border-destructive")}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      className={cn(error && "border-destructive")}
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-0 top-0 h-full aspect-square flex items-center justify-center group"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      <span className="absolute inset-0 w-8 h-8 rounded-full bg-transparent group-hover:bg-black/5 m-auto"></span>
+                      {showPassword ? <EyeOff className="h-4 w-4 relative z-10" /> : <Eye className="h-4 w-4 relative z-10" />}
+                    </button>
+                  </div>
                 </div>
                 <Button type="submit" className="w-full">
                   Log in

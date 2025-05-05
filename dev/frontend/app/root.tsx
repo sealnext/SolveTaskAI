@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   isRouteErrorResponse,
   Links,
@@ -11,9 +11,29 @@ import {
 import type { Route } from "./+types/root";
 import "./app.css";
 
+import { useAtomValue } from 'jotai'
+import { themeAtom } from '~/lib/atom'
+
 export function Layout({ children }: { children: React.ReactNode }) {
+  const theme = useAtomValue(themeAtom);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      setIsDarkMode(mediaQuery.matches);
+
+      const handleChange = () => setIsDarkMode(mediaQuery.matches);
+      mediaQuery.addEventListener('change', handleChange);
+
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    } else {
+      setIsDarkMode(theme === 'dark');
+    }
+  }, [theme]);
+
   return (
-    <html lang="en">
+    <html lang="en" className={`w-full h-full ${isDarkMode ? 'dark' : ''}`}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -35,7 +55,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body>
+      <body className="w-full h-full">
         {children}
         <ScrollRestoration />
         <Scripts />
@@ -47,6 +67,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return <Outlet />;
 }
+
+// export function HydrateFallback() {
+// 	return (
+// 		<div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+// 			<div className="flex w-full max-w-sm flex-col gap-6">
+// 				<img src="https://cdn.sealnext.com/logo-full.svg" alt="Sealnext" className="w-full px-4" />
+// 			</div>
+// 		</div>
+// 	);
+// }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   let message = "Oops!";

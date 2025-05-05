@@ -6,7 +6,6 @@ handling errors in LLM responses, and formatting responses for the agent system.
 It ensures proper conversation flow when tools are interrupted by human input.
 """
 
-from logging import getLogger
 from typing import Any, Dict, List
 
 from langchain_core.callbacks import adispatch_custom_event
@@ -19,7 +18,7 @@ from langchain_core.messages import (
 )
 from langchain_core.runnables import RunnableConfig
 
-logger = getLogger(__name__)
+from app.misc.logger import logger
 
 
 def fix_tool_call_sequence(messages: List[BaseMessage]) -> Dict[str, Any]:

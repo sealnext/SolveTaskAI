@@ -1,5 +1,4 @@
 import json
-from logging import getLogger
 from typing import Annotated, Any, Literal
 
 from langchain_core.callbacks import adispatch_custom_event
@@ -27,9 +26,8 @@ from app.agent.ticket_agent.utils import (
 	prepare_creation_fields,
 	prepare_ticket_fields,
 )
+from app.misc.logger import logger
 from app.service.ticketing.client import BaseTicketingClient
-
-logger = getLogger(__name__)
 
 
 async def dispatch_tool_progress_event(tool_name: str, config: RunnableConfig):

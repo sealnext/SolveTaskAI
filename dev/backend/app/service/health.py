@@ -1,11 +1,8 @@
-from logging import getLogger
-
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.misc.logger import logger
 from app.misc.redis import redis
-
-logger = getLogger(__name__)
 
 
 class HealthService:

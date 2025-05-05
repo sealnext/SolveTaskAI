@@ -1,14 +1,12 @@
-from logging import getLogger
 from typing import List
 
 from fastapi import HTTPException, status
 
 from app.dto.api_key import ApiKey, ApiKeyCreate, ApiKeyResponse
 from app.misc.crypto import decrypt, encrypt
+from app.misc.logger import logger
 from app.model.api_key import ApiKeyDB
 from app.repository.api_key import ApiKeyRepository
-
-logger = getLogger(__name__)
 
 
 class ApiKeyService:

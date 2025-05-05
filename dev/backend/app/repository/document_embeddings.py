@@ -1,17 +1,15 @@
 import asyncio
 import re
 from contextlib import asynccontextmanager
-from logging import getLogger
 from typing import Any, AsyncIterator, Dict, List, Union
 
 from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
 
 from app.dto.document_embeddings import DocumentEmbedding
+from app.misc.logger import logger
 from app.misc.postgres import async_db_engine
 from app.misc.settings import settings
-
-logger = getLogger(__name__)
 
 
 class DocumentEmbeddingsRepository:

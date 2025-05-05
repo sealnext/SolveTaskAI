@@ -1,10 +1,6 @@
-from logging import getLogger
-
 from fastapi import APIRouter, HTTPException, status
 
 from app.dependency import HealthServiceDep
-
-logger = getLogger(__name__)
 
 router = APIRouter()
 

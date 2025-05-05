@@ -1,6 +1,4 @@
 # Standard library imports
-from logging import getLogger
-
 # Third-party imports
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
@@ -23,8 +21,6 @@ from .rag.graph import create_rag_graph
 from .state import AgentState
 from .ticket_agent.graph import create_ticket_agent
 from .tools import rag_tool, ticket_tool, tools_condition
-
-logger = getLogger(__name__)
 
 
 def create_agent_graph(

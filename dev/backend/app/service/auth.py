@@ -13,6 +13,7 @@ from app.misc.email import (
 	email_verification_template_text,
 )
 from app.misc.exception import SessionNotFoundException, TokenNotFoundException
+from app.misc.logger import logger
 from app.misc.redis import redis
 from app.misc.settings import settings
 from app.service.user import UserService
@@ -42,11 +43,21 @@ class AuthService:
 		user_id = int(user_id_str)
 		return user_id
 
+	@staticmethod
+	async def session_exists(session_id: str) -> bool:
+		user_id_str: str | None = await redis.get(f'session:{session_id}')
+		return user_id_str is not None
+
 	async def login(self, user_dto: UserLogin) -> str:
 		user = await self.user_service.get_user_by_email(user_dto)
 		password_hasher.verify(user.hashed_password, user_dto.password)
 		session_token: str = await AuthService._create_session(user.id)
 		return session_token
+
+	async def logout(self, session_id: str) -> None:
+		number_of_deleted_keys = await redis.delete(f'session:{session_id}')
+		if number_of_deleted_keys == 0:
+			logger.error(f'Session not found: {session_id}')
 
 	async def register(
 		self, user_dto: UserCreateByPassword, background_tasks: BackgroundTasks

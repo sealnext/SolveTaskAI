@@ -6,7 +6,6 @@ streaming responses, and handling various conversation-related operations for th
 """
 
 import json
-from logging import getLogger
 from typing import Any, AsyncGenerator, Optional
 from uuid import uuid4
 
@@ -24,10 +23,9 @@ from app.agent.state import AgentState
 from app.dto.agent import AgentStreamInput
 from app.dto.api_key import ApiKey
 from app.dto.project import Project
+from app.misc.logger import logger
 from app.repository.thread import ThreadRepository
 from app.service.ticketing.client import BaseTicketingClient
-
-logger = getLogger(__name__)
 
 # Constants for Event Handling (langgraph)
 EV_CHAT_MODEL_END = 'on_chat_model_end'

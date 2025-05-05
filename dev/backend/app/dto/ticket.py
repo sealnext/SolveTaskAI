@@ -1,13 +1,10 @@
 import json
 from datetime import datetime
-from logging import getLogger
 from textwrap import indent
 from typing import Any, Dict, List
 
 from langchain_core.documents import Document
 from pydantic import BaseModel, RootModel, model_validator
-
-logger = getLogger(__name__)
 
 
 # Response models for Jira API

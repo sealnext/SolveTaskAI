@@ -1,6 +1,4 @@
-from logging import getLogger
-
-logger = getLogger(__name__)
+from app.misc.logger import logger
 
 RETRIES_ALLOWED = 2
 
