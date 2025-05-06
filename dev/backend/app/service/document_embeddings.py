@@ -49,7 +49,7 @@ class DocumentEmbeddingsService:
 		    external_id: Internal identifier for the collection
 		    api_key: The API key for ticketing system access
 		"""
-		logger.info(f'Adding documents for project {project_key}')
+		logger.info('Adding documents for project %s', project_key)
 
 		# Get client from factory
 		client = self.factory.get_client(api_key)
@@ -108,11 +108,11 @@ class DocumentEmbeddingsService:
 
 	async def delete_documents(self, domain: str, project_key: str, external_id: int) -> None:
 		"""Delete all documents for a project from the embeddings repository."""
-		logger.info(f'Deleting documents for project {project_key}')
+		logger.info('Deleting documents for project %s', project_key)
 		await self.embeddings_repository.delete_collection(
 			domain=domain, project_key=project_key, external_id=external_id
 		)
-		logger.info(f'Successfully deleted collection for project {project_key}')
+		logger.info('Successfully deleted collection for project %s', project_key)
 
 	async def _generate_documents(
 		self, tickets_iterator: AsyncIterator[JiraIssueSchema]
@@ -140,7 +140,8 @@ class DocumentEmbeddingsService:
 					and ticket.summary
 				):
 					logger.warning(
-						f'Skipping ticket with missing required fields: {getattr(ticket, "key", "unknown")}'
+						'Skipping ticket with missing required fields: %s',
+						getattr(ticket, 'key', 'unknown'),
 					)
 					continue
 
@@ -159,7 +160,7 @@ class DocumentEmbeddingsService:
 
 				# Skip if no content after joining
 				if not content.strip():
-					logger.warning(f'Skipping ticket {ticket.key} with empty content')
+					logger.warning('Skipping ticket %s with empty content', ticket.key)
 					continue
 
 				# Create document with all available fields
@@ -184,7 +185,9 @@ class DocumentEmbeddingsService:
 				yield document
 
 			except Exception as e:
-				logger.error(
-					f'Error creating document for ticket {getattr(ticket, "key", "unknown")}: {e}'
+				logger.exception(
+					'Error creating document for ticket %s: %s',
+					getattr(ticket, 'key', 'unknown'),
+					e,
 				)
 				continue

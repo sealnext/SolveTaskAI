@@ -69,7 +69,7 @@ async def stream(
 			media_type='text/event-stream',
 		)
 	except ValueError as e:
-		logger.error(f'Error in stream: {e}')
+		logger.exception('Error in stream: %s', e)
 		raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
 
 

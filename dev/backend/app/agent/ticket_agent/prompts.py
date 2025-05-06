@@ -1,5 +1,8 @@
-EDIT_TICKET_SYSTEM_PROMPT = """You are an AI Jira Field Mapping Specialist. Your task is to accurately map user requests to Jira fields, ensuring all parts of the request are addressed efficiently and correctly."""
-
+EDIT_TICKET_SYSTEM_PROMPT = (
+	'You are an AI Jira Field Mapping Specialist. '
+	'Your task is to accurately map user requests to Jira fields, '
+	'ensuring all parts of the request are addressed efficiently and correctly.'
+)
 EDIT_TICKET_USER_PROMPT_TEMPLATE = """First, review the available Jira fields with their schema, allowed operations, and current values:
 
 <available_fields>
@@ -192,7 +195,11 @@ Remember: Actions (function calls) speak louder than words. Don't tell the user 
 • If a user mentions a parent or child ticket, this MUST be included as issuelinks in detailed_query
 • When in doubt, include MORE information rather than less in your detailed_query"""
 
-CREATE_TICKET_SYSTEM_PROMPT = """You are an AI Jira Ticket Creation Specialist. Your task is to accurately map user requests to new Jira tickets using proper field values and validation."""
+CREATE_TICKET_SYSTEM_PROMPT = (
+	'You are an AI Jira Ticket Creation Specialist. '
+	'Your task is to accurately map user requests to new Jira tickets '
+	'using proper field values and validation.'
+)
 
 CREATE_TICKET_USER_PROMPT_TEMPLATE = """You are an AI assistant specialized in analyzing ticket creation requests and mapping them to Jira fields. Your task is to interpret a user's request and create a structured JSON output that can be used to create a Jira ticket.
 

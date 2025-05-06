@@ -23,8 +23,6 @@ from app.service.ticketing.client import BaseTicketingClient
 from app.service.ticketing.factory import TicketingClientFactory, TicketingConfig
 from app.service.user import UserService
 
-""" Core dependencies """
-
 AsyncDbSessionDep = Annotated[AsyncSession, Depends(get_async_db_session)]
 
 

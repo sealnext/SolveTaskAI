@@ -159,7 +159,7 @@ class ProjectRepository:
 		"""
 		Deletes the link between a user and a project.
 		If this is the last user linked to the project, deletes the project and all associated resources.
-		If other users remain, removes the user's API keys from the project if they aren't used by other users.
+		If other users remain, removes the user's API keys from the project if they aren't used by others.
 		Returns True if the project itself was deleted, False otherwise.
 		"""
 		# Get project directly using get() instead of select for PK lookup

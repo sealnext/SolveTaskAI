@@ -52,11 +52,11 @@ class Email:
 		)
 		try:
 			result = _email_api.send_transac_email(email)
-			logger.warning(f'Successfully sent email: {result}')
+			logger.warning('Successfully sent email: %s', result)
 		except ApiException as e:
-			logger.error(f'Exception when calling brevo SMTPApi->send_transac_email: {e}')
+			logger.error('Exception when calling brevo SMTPApi->send_transac_email: %s', e)
 		except Exception as e:
-			logger.error(f'Exception when sending email: {e}')
+			logger.exception('Exception when sending email: %s', e)
 
 
 class EmailVerification(Email):
@@ -65,13 +65,9 @@ class EmailVerification(Email):
 		to: list[SendSmtpEmailTo],
 		html_content: str,
 		text_content: str,
-		subject: str = 'Verify your email to activate your account',
-		sender: SendSmtpEmailSender = SendSmtpEmailSender(
-			name='SEALNEXT', email='noreply@sealnext.com'
-		),
-		reply_to: SendSmtpEmailReplyTo = SendSmtpEmailReplyTo(
-			name='Sealnext Support', email='support@sealnext.com'
-		),
-		tags: list[str] = ['email_verification'],
 	):
+		subject = 'Verify your email to activate your account'
+		sender = SendSmtpEmailSender(name='SEALNEXT', email='noreply@sealnext.com')
+		reply_to = SendSmtpEmailReplyTo(name='Sealnext Support', email='support@sealnext.com')
+		tags = ['email_verification']
 		super().__init__(subject, sender, reply_to, html_content, text_content, to, tags)

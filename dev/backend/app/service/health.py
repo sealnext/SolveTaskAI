@@ -1,3 +1,4 @@
+import sqlalchemy
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,15 +14,27 @@ class HealthService:
 	async def check_redis_health() -> bool:
 		try:
 			return await redis.ping()
+		except redis.exceptions.ConnectionError as e:
+			logger.error("Can't connect to Redis: %s", e)
+			return False
+		except redis.exceptions.TimeoutError as e:
+			logger.error('Redis connection timed out: %s', e)
+			return False
+		except redis.exceptions.RedisError as e:
+			logger.error('Redis error: %s', e)
+			return False
 		except Exception as e:
-			logger.error(f'Error pinging Redis: {e}')
-		return False
+			logger.exception('Unexpected error while pinging Redis: %s', e)
+			return False
 
 	async def check_db_health(self) -> bool:
 		try:
 			result = await self.async_db_session.execute(text('SELECT 1'))
 			returned_value = result.scalar_one()
 			return returned_value == 1
+		except sqlalchemy.exc.SQLAlchemyError as e:
+			logger.error('SQLAlchemy error: %s', e)
+			return False
 		except Exception as e:
-			logger.error(f'Error executing DB health check: {e}')
-		return False
+			logger.exception('Unexpected error while executing DB health check: %s', e)
+			return False

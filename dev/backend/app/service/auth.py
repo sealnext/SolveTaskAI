@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 from brevo_python import SendSmtpEmailTo
 from fastapi import BackgroundTasks
 
-from app.dto.user import UserCreateByPassword, UserLogin
+from app.dto.user import UserCreateByPassword, UserLogin, UserPublic
 from app.misc.crypto import password_hasher
 from app.misc.email import (
 	EmailVerification,
@@ -48,20 +48,23 @@ class AuthService:
 		user_id_str: str | None = await redis.get(f'session:{session_id}')
 		return user_id_str is not None
 
-	async def login(self, user_dto: UserLogin) -> str:
+	async def login(self, user_dto: UserLogin) -> tuple[str, UserPublic]:
 		user = await self.user_service.get_user_by_email(user_dto)
 		password_hasher.verify(user.hashed_password, user_dto.password)
 		session_token: str = await AuthService._create_session(user.id)
-		return session_token
+		user_public_dto = UserPublic(
+			name=user.name, email=user.email, is_email_verified=user.is_email_verified
+		)
+		return session_token, user_public_dto
 
 	async def logout(self, session_id: str) -> None:
 		number_of_deleted_keys = await redis.delete(f'session:{session_id}')
 		if number_of_deleted_keys == 0:
-			logger.error(f'Session not found: {session_id}')
+			logger.info('Session not found: %s', session_id)
 
 	async def register(
 		self, user_dto: UserCreateByPassword, background_tasks: BackgroundTasks
-	) -> None:
+	) -> tuple[str, UserPublic]:
 		user = await self.user_service.create_user_by_password(user_dto)
 
 		email_verification_token = token_urlsafe(settings.email_verification_token_length)
@@ -90,7 +93,10 @@ class AuthService:
 		background_tasks.add_task(email.send)
 
 		session_token: str = await AuthService._create_session(user.id)
-		return session_token
+		user_public_dto = UserPublic(
+			name=None, email=user.email, is_email_verified=user.is_email_verified
+		)
+		return session_token, user_public_dto
 
 	async def verify_email(self, token: str) -> None:
 		user_id_str: str | None = await redis.get(f'email_verification:{token}')

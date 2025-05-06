@@ -25,4 +25,4 @@ class UserService:
 
 	async def verify_email(self, user_id: int) -> None:
 		user = await self.user_repository.update_user(user_id, is_email_verified=True)
-		logger.info(f'User (id: {user.id}) verified their email')
+		logger.info('User (id: %s) verified their email', user.id)

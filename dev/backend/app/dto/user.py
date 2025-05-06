@@ -33,6 +33,7 @@ def _validate_password(password: str) -> str:
 	return password
 
 
+# Input DTOs
 class Email(BaseModel):
 	email: EmailStr
 
@@ -59,3 +60,10 @@ class UserCreateByGitHub(_UserCreateBase):
 
 class UserCreateByGoogle(_UserCreateBase):
 	google_id: str
+
+
+# Output DTOs
+class UserPublic(BaseModel):
+	name: str | None
+	email: EmailStr
+	is_email_verified: bool

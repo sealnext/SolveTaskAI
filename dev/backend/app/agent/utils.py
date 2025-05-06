@@ -97,7 +97,7 @@ def create_error_response(
 	Returns:
 	    A dictionary containing the messages to return
 	"""
-	logger.error(f'Error calling LLM: {str(error)}')
+	logger.exception('Error calling LLM: %s', error)
 	error_message = AIMessage(content="I'm sorry, I encountered an error. Please try again.")
 
 	if state_corrections:
@@ -131,7 +131,7 @@ async def format_llm_response(
 				config=config,
 			)
 
-	logger.debug(f'Model response: {response}')
+	logger.debug('Model response: %s', response)
 
 	# Construct final result
 	if state_corrections:

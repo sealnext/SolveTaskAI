@@ -49,7 +49,7 @@ class TicketingClientFactory:
 			write=config.timeout,
 		)
 
-	def _create_client(self, service_type: TicketingSystemType) -> httpx.AsyncClient:
+	def _create_client(self) -> httpx.AsyncClient:
 		"""Create a new HTTP client for a specific service type."""
 		return httpx.AsyncClient(
 			timeout=self._timeout,

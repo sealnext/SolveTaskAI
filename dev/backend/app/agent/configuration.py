@@ -26,8 +26,8 @@ async def update_token_usage(
 	async with checkpointer._cursor() as cur:
 		await cur.execute(
 			"""
-			UPDATE thread_user 
-			SET 
+			UPDATE thread_user
+			SET
 				updated_at = NOW(),
 				input_tokens = COALESCE(input_tokens, 0) + %s,
 				output_tokens = COALESCE(output_tokens, 0) + %s
