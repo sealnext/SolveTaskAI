@@ -60,14 +60,15 @@ async def prepare_conversation_context(
 	# if thread_id is None, create a new thread else update the existing one
 	if thread_id is None:
 		thread_id = str(uuid4())
-		logger.info(f'Creating new thread: {thread_id}')
+		logger.info('Creating new thread: %s', thread_id)
 		await thread_repo.create(thread_id, user_id, user_input.project_id)
 	else:
 		thread = await thread_repo.get(thread_id)
 		if not thread:
 			raise HTTPException(
 				status.HTTP_404_NOT_FOUND,
-				f'Thread with id {thread_id} not found',
+				'Thread with id %s not found',
+				thread_id,
 			)
 		await thread_repo.update_timestamp(thread_id)
 
@@ -115,7 +116,8 @@ def _handle_interrupt_event(
 ) -> Optional[str]:
 	"""
 	Handles interrupt events within 'on_chain_stream'.
-	Langgraph interrupts are often nested within the 'chunk' tuple: (..., {'__interrupt__': (InterruptObject, ...)})
+	Langgraph interrupts are often nested within the 'chunk' tuple:
+	..., {'__interrupt__': (InterruptObject, ...)})
 	"""
 	chunk = event.get('data', {}).get('chunk', {})
 	if (
@@ -215,7 +217,7 @@ async def message_generator(
 		yield _format_sse({'type': 'done', 'thread_id': str(thread_id)})
 
 	except Exception as e:
-		logger.error(f'Error in message generator (Thread ID: {thread_id}): {e}', exc_info=True)
+		logger.exception('Error in message generator (Thread ID: %s): %s', thread_id, e)
 		error_payload = {'type': 'error', 'content': str(e)}
 		if thread_id:
 			error_payload['thread_id'] = str(thread_id)

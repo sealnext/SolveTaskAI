@@ -17,7 +17,9 @@ class ThreadRepository:
 
 	async def create(self, thread_id: str, user_id: int, project_id: int) -> None:
 		"""Create a new thread-user association."""
-		logger.info(f'Creating thread-user association for thread {thread_id} and user {user_id}')
+		logger.info(
+			'Creating thread-user association for thread %s and user %s', thread_id, user_id
+		)
 		try:
 			await self.session.execute(
 				insert(thread_user_association).values(
@@ -31,7 +33,7 @@ class ThreadRepository:
 			await self.session.commit()
 		except SQLAlchemyError as e:
 			await self.session.rollback()
-			logger.error(f'Failed to create thread-user association: {e}')
+			logger.error('Failed to create thread-user association: %s', e)
 			raise
 
 	async def get(self, thread_id: str) -> dict | None:
@@ -62,7 +64,7 @@ class ThreadRepository:
 				else None
 			)
 		except SQLAlchemyError as e:
-			logger.error(f'Failed to get thread {thread_id}: {e}')
+			logger.error('Failed to get thread %s: %s', thread_id, e)
 			raise
 
 	async def get_all(self, user_id: int) -> Sequence[dict]:
@@ -91,7 +93,7 @@ class ThreadRepository:
 			await self.session.commit()
 		except SQLAlchemyError as e:
 			await self.session.rollback()
-			logger.error(f'Failed to update timestamp for thread {thread_id}: {e}')
+			logger.error('Failed to update timestamp for thread %s: %s', thread_id, e)
 			raise
 
 	async def verify_ownership(self, thread_id: str, user_id: int) -> bool:
@@ -108,7 +110,7 @@ class ThreadRepository:
 			)
 			return result.first() is not None
 		except SQLAlchemyError as e:
-			logger.error(f'Failed to verify ownership for thread {thread_id}: {e}')
+			logger.error('Failed to verify ownership for thread %s: %s', thread_id, e)
 			raise
 
 	async def _get_checkpoint_ids(self, thread_id: str) -> List[str]:
@@ -122,7 +124,7 @@ class ThreadRepository:
 			result = await self.session.execute(checkpoint_ids_query, {'thread_id': thread_id})
 			return [row[0] for row in result]
 		except SQLAlchemyError as e:
-			logger.error(f'Failed to get checkpoint IDs for thread {thread_id}: {e}')
+			logger.error('Failed to get checkpoint IDs for thread %s: %s', thread_id, e)
 			raise
 
 	async def _delete_checkpoint_related(self, checkpoint_ids: List[str], thread_id: str) -> None:
@@ -156,7 +158,7 @@ class ThreadRepository:
 				{'thread_id': thread_id},
 			)
 		except SQLAlchemyError as e:
-			logger.error(f'Failed to delete checkpoint data for thread {thread_id}: {e}')
+			logger.error('Failed to delete checkpoint data for thread %s: %s', thread_id, e)
 			raise
 
 	async def remove(self, thread_id: str) -> None:
@@ -176,7 +178,7 @@ class ThreadRepository:
 			checkpoint_ids = await self._get_checkpoint_ids(thread_id)
 
 			if checkpoint_ids:
-				logger.info(f'Deleting {len(checkpoint_ids)} checkpoints for thread {thread_id}')
+				logger.info('Deleting %d checkpoints for thread %s', len(checkpoint_ids), thread_id)
 				await self._delete_checkpoint_related(checkpoint_ids, thread_id)
 
 			# Finally delete the thread-user association
@@ -187,14 +189,14 @@ class ThreadRepository:
 			)
 
 			if result.rowcount == 0:
-				logger.warning(f'No thread-user association found for thread {thread_id}')
+				logger.warning('No thread-user association found for thread %s', thread_id)
 
 			await self.session.commit()
-			logger.info(f'Successfully deleted thread {thread_id} and all related data')
+			logger.info('Successfully deleted thread %s and all related data', thread_id)
 
 		except SQLAlchemyError as e:
 			await self.session.rollback()
-			logger.error(f'Failed to remove thread {thread_id}: {e}')
+			logger.error('Failed to remove thread %s: %s', thread_id, e)
 			raise
 
 	async def get_project_id(self, thread_id: str) -> int | None:
@@ -207,5 +209,5 @@ class ThreadRepository:
 			)
 			return result.scalar_one_or_none()
 		except SQLAlchemyError as e:
-			logger.error(f'Failed to get project ID for thread {thread_id}: {e}')
+			logger.error('Failed to get project ID for thread %s: %s', thread_id, e)
 			raise

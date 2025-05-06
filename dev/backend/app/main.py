@@ -20,7 +20,7 @@ from app.service.auth import AuthService
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan() -> AsyncGenerator[None, None]:
 	await init_db()
 	await langgraph_db_pool.initialize()
 	yield
@@ -59,8 +59,8 @@ async def authorize(request: Request, call_next):
 		delete_session_cookie(response)
 		return response
 
-	except Exception as e:
-		logger.exception(f'Error retrieving user ID: {e}')
+	except Exception as e:  # pylint: disable=broad-exception-caught
+		logger.exception('Error retrieving user ID: %s', e)
 		return JSONResponse(
 			{'detail': 'Internal Server Error'},
 			status.HTTP_500_INTERNAL_SERVER_ERROR,

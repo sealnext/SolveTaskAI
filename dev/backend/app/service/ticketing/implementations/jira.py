@@ -82,7 +82,7 @@ class JiraClient(BaseTicketingClient):
 			params = {'startAt': start_at, 'maxResults': self.BATCH_SIZE}
 
 			try:
-				logger.info(f'Fetching projects from {url} with params {params}')
+				logger.info('Fetching projects from %s with params %s', url, params)
 				data = await self._make_request(
 					'GET', url, headers=self._get_auth_headers(), params=params
 				)
@@ -100,7 +100,7 @@ class JiraClient(BaseTicketingClient):
 					logger.info('Processing response as Jira Server object format')
 				else:
 					# Handle unexpected format
-					logger.warning(f'Unexpected project response format: {type(data)}')
+					logger.warning('Unexpected project response format: %s', type(data))
 					projects = []
 
 				if not projects and start_at == 0 and not all_projects:
@@ -110,7 +110,7 @@ class JiraClient(BaseTicketingClient):
 					# break
 
 				all_projects.extend(projects)
-				logger.info(f'Fetched {len(projects)} projects in this batch.')
+				logger.info('Fetched %s projects in this batch.', len(projects))
 
 				# Determine if this is the last page
 				is_last = False
@@ -138,7 +138,8 @@ class JiraClient(BaseTicketingClient):
 						status.HTTP_401_UNAUTHORIZED,
 						'Jira authentication failed. Check API key and email.',
 					)
-				elif e.response.status_code == status.HTTP_403_FORBIDDEN:
+
+				if e.response.status_code == status.HTTP_403_FORBIDDEN:
 					logger.error(
 						'Permission denied when fetching projects. Check API key permissions.'
 					)
@@ -146,20 +147,21 @@ class JiraClient(BaseTicketingClient):
 						status.HTTP_403_FORBIDDEN,
 						'Jira permission denied. The API key may lack project browsing permissions.',
 					)
-				else:
-					logger.error(
-						f'HTTP error fetching projects: {e.response.status_code} - {e.response.text}',
-						exc_info=True,
-					)
-					raise HTTPException(
-						e.response.status_code,
-						f'Failed to fetch projects: {e.response.text}',
-					)
+
+				logger.exception(
+					'HTTP error fetching projects: %s - %s', e.response.status_code, e.response.text
+				)
+				raise HTTPException(
+					e.response.status_code,
+					'Failed to fetch projects: %s',
+					e.response.text,
+				)
 			except Exception as e:
-				logger.error(f'Unexpected error fetching projects: {e}', exc_info=True)
+				logger.error('Unexpected error fetching projects: %s', e, exc_info=True)
 				raise HTTPException(
 					status.HTTP_500_INTERNAL_SERVER_ERROR,
-					f'Failed to fetch projects due to an unexpected error: {e}',
+					'Failed to fetch projects due to an unexpected error: %s',
+					e,
 				)
 
 		if not all_projects:
@@ -176,14 +178,19 @@ class JiraClient(BaseTicketingClient):
 		"""Fetch a batch of tickets for the client's project."""
 		if not self.project or not self.project.key:
 			raise ValueError(
-				'Project context is required for fetching tickets but was not provided during client initialization.'
+				'Project context is required for fetching tickets but was not provided '
+				'during client initialization.'
 			)
 
 		params = {
 			'jql': f'project = {self.project.key}',
 			'maxResults': self.BATCH_SIZE,  # Use BATCH_SIZE here
 			'startAt': start_at,
-			'fields': 'summary,description,customfield_10008,comment,status,priority,issuetype,labels,resolution,parent,assignee,reporter,resolutiondate,created,updated,project',
+			'fields': (
+				'summary,description,customfield_10008,comment,status,'
+				'priority,issuetype,labels,resolution,parent,'
+				'assignee,reporter,resolutiondate,created,updated,project'
+			),
 		}
 
 		try:
@@ -207,14 +214,17 @@ class JiraClient(BaseTicketingClient):
 					)
 				except Exception as val_err:
 					logger.warning(
-						f'Skipping issue due to validation error: {val_err}. Issue data: {issue}'
+						'Skipping issue due to validation error: %s. Issue data: %s', val_err, issue
 					)
 
 			return validated_issues
 
 		except Exception as e:
 			logger.error(
-				f'Error fetching tickets batch at {start_at} for project {self.project.key}: {e}'
+				'Error fetching tickets batch at %s for project %s: %s',
+				start_at,
+				self.project.key,
+				e,
 			)
 			# Re-raise the exception to be handled by the caller (get_tickets)
 			raise
@@ -223,12 +233,13 @@ class JiraClient(BaseTicketingClient):
 		"""Get all tickets for the client's project with efficient batch processing."""
 		if not self.project or not self.project.key:
 			raise ValueError(
-				'Project context is required for getting tickets but was not provided during client initialization.'
+				'Project context is required for getting tickets but was not provided '
+				'during client initialization.'
 			)
 
 		url = self._build_url('search')
 		project_key = self.project.key
-		logger.info(f'Starting to fetch tickets for project: {project_key}')
+		logger.info('Starting to fetch tickets for project: %s', project_key)
 
 		# First, get total number of tickets
 		try:
@@ -243,16 +254,16 @@ class JiraClient(BaseTicketingClient):
 				params=params_total,
 			)
 			total_tickets = data_total.get('total', 0) if isinstance(data_total, dict) else 0
-			logger.info(f'Total tickets found for project {project_key}: {total_tickets}')
+			logger.info('Total tickets found for project %s: %s', project_key, total_tickets)
 
 		except Exception as e:
-			logger.error(f'Failed to get total ticket count for project {project_key}: {e}')
+			logger.error('Failed to get total ticket count for project %s: %s', project_key, e)
 			raise HTTPException(
-				status.HTTP_500_INTERNAL_SERVER_ERROR, f'Failed to get ticket count: {e}'
+				status.HTTP_500_INTERNAL_SERVER_ERROR, 'Failed to get ticket count: %s', e
 			)
 
 		if total_tickets == 0:
-			logger.info(f'No tickets found for project {project_key}. Exiting.')
+			logger.info('No tickets found for project %s. Exiting.', project_key)
 			return  # Return empty generator
 
 		# Process in batches using concurrent requests
@@ -275,16 +286,19 @@ class JiraClient(BaseTicketingClient):
 					for ticket in batch:
 						yield ticket
 						fetched_count += 1
-				# Optional: Small delay can sometimes help with rate limits, but semaphore should manage concurrency
+				# Optional: Small delay can sometimes help with rate limits,
+				# but semaphore should manage concurrency
 				# await asyncio.sleep(0.05)
 			except Exception as e:
 				# Log error from a specific batch fetch but continue processing others
-				logger.error(f'Error processing a ticket batch for project {project_key}: {e}')
+				logger.error('Error processing a ticket batch for project %s: %s', project_key, e)
 				# Depending on requirements, you might want to raise an exception here
 				# or just log and continue to get as many tickets as possible.
 
 		logger.info(
-			f'Finished fetching tickets for project {project_key}. Total yielded: {fetched_count}'
+			'Finished fetching tickets for project %s. Total yielded: %s',
+			project_key,
+			fetched_count,
 		)
 
 	async def get_ticket(self, ticket_id: str) -> JiraIssueContentSchema:
@@ -301,20 +315,23 @@ class JiraClient(BaseTicketingClient):
 			return JiraIssueContentSchema.model_validate(data)
 		except httpx.HTTPStatusError as e:
 			if e.response.status_code == status.HTTP_404_NOT_FOUND:
-				raise HTTPException(status.HTTP_404_NOT_FOUND, f"Ticket '{ticket_id}' not found.")
-			elif e.response.status_code == status.HTTP_401_UNAUTHORIZED:
+				raise HTTPException(status.HTTP_404_NOT_FOUND, 'Ticket %s not found.', ticket_id)
+
+			if e.response.status_code == status.HTTP_401_UNAUTHORIZED:
 				raise HTTPException(status.HTTP_401_UNAUTHORIZED, 'Jira authentication failed.')
-			elif e.response.status_code == status.HTTP_403_FORBIDDEN:
+
+			if e.response.status_code == status.HTTP_403_FORBIDDEN:
 				raise HTTPException(status.HTTP_403_FORBIDDEN, 'Permission denied to view ticket.')
-			else:
-				raise HTTPException(
-					e.response.status_code,
-					f'Failed to get ticket: {e.response.text}',
-				)
-		except Exception as e:
-			logger.error(f'Unexpected error getting ticket {ticket_id}: {e}')
+
 			raise HTTPException(
-				status.HTTP_500_INTERNAL_SERVER_ERROR, f'Unexpected error getting ticket: {e}'
+				e.response.status_code,
+				'Failed to get ticket: %s',
+				e.response.text,
+			)
+		except Exception as e:
+			logger.error('Unexpected error getting ticket %s: %s', ticket_id, e)
+			raise HTTPException(
+				status.HTTP_500_INTERNAL_SERVER_ERROR, 'Unexpected error getting ticket: %s', e
 			)
 
 	async def delete_ticket(self, ticket_id: str, delete_subtasks: bool = False) -> str:
@@ -352,11 +369,14 @@ class JiraClient(BaseTicketingClient):
 			response.raise_for_status()
 			# Should not reach here if not 204, but as a fallback:
 			logger.warning(
-				f'Delete request for {ticket_id} returned unexpected status {response.status_code}'
+				'Delete request for %s returned unexpected status %s',
+				ticket_id,
+				response.status_code,
 			)
 			raise HTTPException(
 				response.status_code,
-				f'Unexpected status code {response.status_code} during deletion.',
+				'Unexpected status code %s during deletion.',
+				response.status_code,
 			)
 
 		except httpx.HTTPStatusError as e:
@@ -379,20 +399,26 @@ class JiraClient(BaseTicketingClient):
 			user_message = f'Failed to delete ticket {ticket_id}: {error_detail}'  # Default message
 
 			if status_code == status.HTTP_400_BAD_REQUEST:
-				user_message = f'Cannot delete issue {ticket_id}. It might have subtasks. Try again with deleteSubtasks=true. Details: {error_detail}'
+				user_message = (
+					f'Cannot delete issue {ticket_id}. It might have subtasks. '
+					f'Try again with deleteSubtasks=true. Details: {error_detail}'
+				)
 			elif status_code == status.HTTP_403_FORBIDDEN:
-				user_message = f"Permission denied to delete ticket {ticket_id}. Check 'Delete issues' permission. Details: {error_detail}"
+				user_message = (
+					f'Permission denied to delete ticket {ticket_id}. '
+					f"Check 'Delete issues' permission. Details: {error_detail}"
+				)
 			elif status_code == status.HTTP_404_NOT_FOUND:
 				user_message = f'Ticket {ticket_id} not found.'
 			elif status_code == status.HTTP_401_UNAUTHORIZED:
 				user_message = 'Jira authentication failed. Please check API credentials.'
 
 			logger.error(
-				f'Error deleting ticket {ticket_id} (Status {status_code}): {user_message}'
+				'Error deleting ticket %s (Status %s): %s', ticket_id, status_code, user_message
 			)
 			raise HTTPException(status_code, user_message)
 		except Exception as e:
-			logger.error(f'Unexpected error deleting ticket {ticket_id}: {e}')
+			logger.error('Unexpected error deleting ticket %s: %s', ticket_id, e)
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
 				f'Failed to delete ticket due to an unexpected error: {e}',
@@ -434,11 +460,14 @@ class JiraClient(BaseTicketingClient):
 				detail = 'Jira authentication failed.'
 
 			logger.error(
-				f'Error fetching edit metadata for {ticket_id} (Status {status_code}): {detail}'
+				'Error fetching edit metadata for %s (Status %s): %s',
+				ticket_id,
+				status_code,
+				detail,
 			)
 			raise HTTPException(status_code, detail)
 		except Exception as e:
-			logger.error(f'Unexpected error fetching edit metadata for {ticket_id}: {e}')
+			logger.error('Unexpected error fetching edit metadata for %s: %s', ticket_id, e)
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
 				f'Unexpected error fetching edit metadata: {e}',
@@ -479,10 +508,12 @@ class JiraClient(BaseTicketingClient):
 			elif status_code == status.HTTP_401_UNAUTHORIZED:
 				detail = 'Jira authentication failed.'
 
-			logger.error(f'Error fetching fields for {ticket_id} (Status {status_code}): {detail}')
+			logger.error(
+				'Error fetching fields for %s (Status %s): %s', ticket_id, status_code, detail
+			)
 			raise HTTPException(status_code, detail)
 		except Exception as e:
-			logger.error(f'Unexpected error fetching fields for {ticket_id}: {e}')
+			logger.error('Unexpected error fetching fields for %s: %s', ticket_id, e)
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
 				f'Unexpected error fetching ticket fields: {e}',
@@ -525,13 +556,14 @@ class JiraClient(BaseTicketingClient):
 			elif status_code == status.HTTP_400_BAD_REQUEST:
 				detail = f'Invalid user search request: {e.response.text}'
 
-			logger.error(f'Error searching users (Status {status_code}): {detail}')
+			logger.error('Error searching users (Status %s): %s', status_code, detail)
 			raise HTTPException(status_code, detail)
 		except Exception as e:
-			logger.error(f'Unexpected error searching users: {e}')
+			logger.error('Unexpected error searching users: %s', e)
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				f'Unexpected error searching users: {e}',
+				'Unexpected error searching users: %s',
+				e,
 			)
 
 	async def get_project_boards(self, project_key_or_id: str) -> List[Dict[str, Any]]:
@@ -571,7 +603,7 @@ class JiraClient(BaseTicketingClient):
 				)
 
 				if not isinstance(response, dict):
-					logger.error(f'Unexpected response type for boards: {type(response)}')
+					logger.error('Unexpected response type for boards: %s', type(response))
 					break  # Avoid infinite loop if response format is wrong
 
 				boards = response.get('values', [])
@@ -594,11 +626,11 @@ class JiraClient(BaseTicketingClient):
 				elif status_code == status.HTTP_401_UNAUTHORIZED:
 					detail = 'Jira authentication failed.'
 
-				logger.error(f'Error fetching project boards (Status {status_code}): {detail}')
+				logger.error('Error fetching project boards (Status %s): %s', status_code, detail)
 				raise HTTPException(status_code, detail)
 			except Exception as e:
 				logger.error(
-					f'Unexpected error fetching project boards for {project_key_or_id}: {e}'
+					'Unexpected error fetching project boards for %s: %s', project_key_or_id, e
 				)
 				raise HTTPException(
 					status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -640,7 +672,7 @@ class JiraClient(BaseTicketingClient):
 				)
 
 				if not isinstance(response, dict):
-					logger.error(f'Unexpected response type for sprints: {type(response)}')
+					logger.error('Unexpected response type for sprints: %s', type(response))
 					break
 
 				sprints = response.get('values', [])
@@ -661,10 +693,10 @@ class JiraClient(BaseTicketingClient):
 				elif status_code == status.HTTP_401_UNAUTHORIZED:
 					detail = 'Jira authentication failed.'
 
-				logger.error(f'Error fetching board sprints (Status {status_code}): {detail}')
+				logger.error('Error fetching board sprints (Status %s): %s', status_code, detail)
 				raise HTTPException(status_code, detail)
 			except Exception as e:
-				logger.error(f'Unexpected error fetching sprints for board {board_id}: {e}')
+				logger.error('Unexpected error fetching sprints for board %s: %s', board_id, e)
 				raise HTTPException(
 					status.HTTP_500_INTERNAL_SERVER_ERROR,
 					f'Unexpected error fetching board sprints: {e}',
@@ -675,15 +707,16 @@ class JiraClient(BaseTicketingClient):
 		"""Find sprints by name across all boards of the client's project."""
 		if not self.project or not self.project.key:
 			raise ValueError(
-				'Project context is required for finding sprints but was not provided during client initialization.'
+				'Project context is required for finding sprints but was not provided '
+				'during client initialization.'
 			)
 		project_key = self.project.key
-		logger.info(f"Searching for sprint '{sprint_name}' in project {project_key}")
+		logger.info("Searching for sprint '%s' in project %s", sprint_name, project_key)
 
 		try:
 			boards = await self.get_project_boards(project_key)
 			if not boards:
-				logger.warning(f'No boards found for project {project_key} to search for sprints.')
+				logger.warning('No boards found for project %s to search for sprints.', project_key)
 				return []
 
 			matching_sprints = []
@@ -695,7 +728,7 @@ class JiraClient(BaseTicketingClient):
 			for i, result in enumerate(board_sprint_results):
 				board_name = boards[i].get('name', f'Board ID {boards[i]["id"]}')
 				if isinstance(result, Exception):
-					logger.error(f'Failed to fetch sprints for {board_name}: {result}')
+					logger.error('Failed to fetch sprints for %s: %s', board_name, result)
 					continue  # Skip this board if fetching sprints failed
 
 				if isinstance(result, list):
@@ -705,19 +738,23 @@ class JiraClient(BaseTicketingClient):
 							matching_sprints.append({**sprint, 'board_name': board_name})
 
 			logger.info(
-				f"Found {len(matching_sprints)} sprints matching '{sprint_name}' in project {project_key}"
+				"Found %s sprints matching '%s' in project %s",
+				len(matching_sprints),
+				sprint_name,
+				project_key,
 			)
 			return matching_sprints
 
 		except Exception as e:
 			# Catch exceptions from get_project_boards or other unexpected issues
 			logger.error(
-				f"Error searching for sprint '{sprint_name}' in project {project_key}: {e}"
+				"Error searching for sprint '%s' in project %s: %s", sprint_name, project_key, e
 			)
 			# Re-raise as a generic server error or specific exception if needed
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				f'Failed to search for sprint: {e}',
+				'Failed to search for sprint: %s',
+				e,
 			)
 
 	async def search_issue_by_name(
@@ -726,10 +763,11 @@ class JiraClient(BaseTicketingClient):
 		"""Search for issues by name (summary) or key within the client's project using JQL."""
 		if not self.project or not self.project.key:
 			raise ValueError(
-				'Project context is required for searching issues but was not provided during client initialization.'
+				'Project context is required for searching issues but was not provided '
+				'during client initialization.'
 			)
 		project_key = self.project.key
-		logger.info(f"Searching for issue matching '{issue_name}' in project {project_key}")
+		logger.info("Searching for issue matching '%s' in project %s", issue_name, project_key)
 
 		if not issue_name or not isinstance(issue_name, str):
 			raise HTTPException(
@@ -754,12 +792,12 @@ class JiraClient(BaseTicketingClient):
 			)
 
 		jql = ' AND '.join(jql_parts)
-		logger.debug(f'Constructed JQL for issue search: {jql}')
+		logger.debug('Constructed JQL for issue search: %s', jql)
 
 		params = {
 			'jql': jql,
 			'maxResults': max_results,
-			'fields': 'summary,status,issuetype,assignee,reporter,priority,project',  # Key fields for search results
+			'fields': 'summary,status,issuetype,assignee,reporter,priority,project',
 			'validateQuery': 'strict',  # Validate JQL syntax
 		}
 
@@ -772,7 +810,7 @@ class JiraClient(BaseTicketingClient):
 			)
 			issues = response.get('issues', []) if isinstance(response, dict) else []
 			logger.info(
-				f"Found {len(issues)} issues matching '{issue_name}' in project {project_key}"
+				"Found %s issues matching '%s' in project %s", len(issues), issue_name, project_key
 			)
 			return issues
 
@@ -796,10 +834,10 @@ class JiraClient(BaseTicketingClient):
 			elif status_code == status.HTTP_403_FORBIDDEN:
 				detail = f'Permission denied to search issues in project {project_key}.'
 
-			logger.error(f'Error searching issues (Status {status_code}): {detail}')
+			logger.error('Error searching issues (Status %s): %s', status_code, detail)
 			raise HTTPException(status_code, detail)
 		except Exception as e:
-			logger.error(f'Unexpected error searching issues in project {project_key}: {e}')
+			logger.error('Unexpected error searching issues in project %s: %s', project_key, e)
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
 				f'Unexpected error searching issues: {e}',
@@ -810,7 +848,7 @@ class JiraClient(BaseTicketingClient):
 
 		Args:
 		    ticket_id: The ID or key of the ticket to update.
-		    payload: Dictionary containing fields to update (e.g., {"fields": {"summary": "New summary"}}).
+		    payload: Dictionary containing fields to update {"fields": {"summary": "New summary"}}
 
 		Returns:
 		    Success message.
@@ -823,14 +861,17 @@ class JiraClient(BaseTicketingClient):
 		# If updates across projects are needed, this check could be removed or made conditional.
 		if not self.project or not self.project.key:
 			logger.warning(
-				f'Updating ticket {ticket_id} without project context. Ensure ticket ID is correct.'
+				'Updating ticket %s without project context. Ensure ticket ID is correct.',
+				ticket_id,
 			)
-			# raise ValueError(
-			#     "Project context is required for updating tickets but was not provided during client initialization."
-			# )
+			raise ValueError(
+				'Project context is required for updating tickets but was not provided '
+				'during client initialization.'
+			)
 
 		if not ticket_id or not isinstance(ticket_id, str):
 			raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Invalid ticket ID')
+
 		if not payload or not isinstance(payload, dict):
 			raise HTTPException(
 				status.HTTP_400_BAD_REQUEST,
@@ -846,16 +887,18 @@ class JiraClient(BaseTicketingClient):
 
 			# Jira returns 204 No Content on successful update
 			if response.status_code == 204:
-				logger.info(f'Ticket {ticket_id} updated successfully.')
+				logger.info('Ticket %s updated successfully.', ticket_id)
 				return f'Ticket {ticket_id} updated successfully'
 
 			# If not 204, raise for status to handle errors
 			response.raise_for_status()
 			logger.warning(
-				f'Update request for {ticket_id} returned unexpected status {response.status_code}'
+				'Update request for %s returned unexpected status %s',
+				ticket_id,
+				response.status_code,
 			)
 			raise HTTPException(
-				status.response.status_code,
+				response.status_code,
 				f'Unexpected status code {response.status_code} during update.',
 			)
 
@@ -876,7 +919,10 @@ class JiraClient(BaseTicketingClient):
 			user_message = f'Failed to update ticket {ticket_id}: {error_detail}'  # Default
 
 			if status_code == status.HTTP_400_BAD_REQUEST:
-				user_message = f'Invalid update request for ticket {ticket_id}. Check payload format and field values. Details: {error_detail}'
+				user_message = (
+					f'Invalid update request for ticket {ticket_id}. '
+					f'Check payload format and field values. Details: {error_detail}'
+				)
 			elif status_code == status.HTTP_404_NOT_FOUND:
 				user_message = f'Ticket {ticket_id} not found.'
 			elif status_code == status.HTTP_403_FORBIDDEN:
@@ -885,11 +931,11 @@ class JiraClient(BaseTicketingClient):
 				user_message = 'Jira authentication failed.'
 
 			logger.error(
-				f'Error updating ticket {ticket_id} (Status {status_code}): {user_message}'
+				'Error updating ticket %s (Status %s): %s', ticket_id, status_code, user_message
 			)
 			raise HTTPException(status_code, user_message)
 		except Exception as e:
-			logger.error(f'Unexpected error updating ticket {ticket_id}: {e}')
+			logger.error('Unexpected error updating ticket %s: %s', ticket_id, e)
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
 				f'Failed to update ticket due to an unexpected error: {e}',
@@ -920,7 +966,9 @@ class JiraClient(BaseTicketingClient):
 		    HTTPException: If underlying operations fail.
 		"""
 		logger.warning(
-			f'Revert functionality for ticket {ticket_id} to version {version_id} is not fully implemented.'
+			'Revert functionality for ticket %s to version %s is not fully implemented.',
+			ticket_id,
+			version_id,
 		)
 		# Placeholder - requires fetching history, comparing fields, and constructing update payload
 		raise NotImplementedError(
@@ -936,14 +984,14 @@ class JiraClient(BaseTicketingClient):
 	async def get_issue_createmeta(
 		self,
 		project_key: str,
-		issue_type_name: str,
+		issue_type: str,
 		expand: str = 'projects.issuetypes.fields',
 	) -> dict:
 		"""Get metadata required to create an issue (fields, allowed values).
 
 		Args:
 		    project_key: The key of the project.
-		    issue_type_name: The name of the issue type (e.g., "Bug", "Task").
+		    issue_type: The name of the issue type (e.g., "Bug", "Task").
 		    expand: Optional fields to expand in the response for more detail.
 
 		Returns:
@@ -953,7 +1001,7 @@ class JiraClient(BaseTicketingClient):
 		    HTTPException: If fetching metadata fails.
 		"""
 		self._validate_project_key(project_key)
-		if not issue_type_name:
+		if not issue_type:
 			raise HTTPException(
 				status.HTTP_400_BAD_REQUEST, 'Issue type name is required for createmeta.'
 			)
@@ -961,7 +1009,7 @@ class JiraClient(BaseTicketingClient):
 		url = self._build_url('issue', 'createmeta')
 		params = {
 			'projectKeys': project_key,
-			'issuetypeNames': issue_type_name,
+			'issuetypeNames': issue_type,
 			'expand': expand,
 		}
 
@@ -976,41 +1024,46 @@ class JiraClient(BaseTicketingClient):
 				if issue_types:
 					# Return the metadata for the first (and likely only) issue type returned
 					return issue_types[0]
-				else:
-					raise HTTPException(
-						status.HTTP_404_NOT_FOUND,
-						f"Issue type '{issue_type_name}' not found or available in project '{project_key}' for creation.",
-					)
-			else:
-				logger.error(
-					f'Unexpected createmeta response format for {project_key}/{issue_type_name}: {metadata}'
-				)
+
 				raise HTTPException(
-					status.HTTP_500_INTERNAL_SERVER_ERROR,
-					'Unexpected response format from Jira createmeta.',
+					status.HTTP_404_NOT_FOUND,
+					f"Issue type '{issue_type}' not found or available in project '{project_key}' for creation.",
 				)
+
+			logger.error(
+				'Unexpected createmeta response format for %s/%s: %s',
+				project_key,
+				issue_type,
+				metadata,
+			)
+			raise HTTPException(
+				status.HTTP_500_INTERNAL_SERVER_ERROR,
+				'Unexpected response format from Jira createmeta.',
+			)
 
 		except httpx.HTTPStatusError as e:
 			status_code = e.response.status_code
-			detail = (
-				f'Failed to fetch createmeta for {project_key}/{issue_type_name}: {e.response.text}'
-			)
+			detail = f'Failed to fetch createmeta for {project_key}/{issue_type}: {e.response.text}'
 			if status_code == status.HTTP_400_BAD_REQUEST:
-				detail = f'Invalid request for createmeta (check project key/issue type name): {e.response.text}'
+				detail = (
+					f'Invalid request for createmeta (check project key/issue type name): '
+					f'{e.response.text}'
+				)
 			elif status_code == status.HTTP_401_UNAUTHORIZED:
 				detail = 'Jira authentication failed.'
 			elif status_code == status.HTTP_403_FORBIDDEN:
 				detail = f'Permission denied to fetch createmeta for project {project_key}.'
 
-			logger.error(f'Error fetching createmeta (Status {status_code}): {detail}')
+			logger.error('Error fetching createmeta (Status %s): %s', status_code, detail)
 			raise HTTPException(status_code, detail)
 		except Exception as e:
 			logger.error(
-				f'Unexpected error fetching createmeta for {project_key}/{issue_type_name}: {e}'
+				'Unexpected error fetching createmeta for %s/%s: %s', project_key, issue_type, e
 			)
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
-				f'Unexpected error fetching createmeta: {e}',
+				'Unexpected error fetching createmeta: %s',
+				e,
 			)
 
 	async def create_ticket(self, payload: dict) -> dict:
@@ -1054,16 +1107,17 @@ class JiraClient(BaseTicketingClient):
 		"""Get available issue types, optionally filtered by project.
 
 		Args:
-		    project_key: Optional project key to filter issue types for. If None, uses client's project context.
-		    names_only: If True, returns only a list of issue type names. Otherwise, returns full objects.
-		    simplified: If True, returns only a subset of fields for each issue type ('self', 'description', 'name', 'subtask', 'hierarchyLevel').
+			project_key: Optional project key to filter issue types. If None, uses client's project context.
+			names_only: If True, returns only a list of issue type names. Otherwise, returns full objects.
+			simplified: If True, returns only a subset of fields for each issue type
+									('self', 'description', 'name', 'subtask', 'hierarchyLevel').
 
 		Returns:
-		    List of issue type dictionaries or list of issue type names.
+			List of issue type dictionaries or list of issue type names.
 
 		Raises:
-		    ValueError: If project context is needed but not available.
-		    HTTPException: If fetching issue types fails.
+			ValueError: If project context is needed but not available.
+			HTTPException: If fetching issue types fails.
 		"""
 		project_url = self._build_url('project', project_key)
 		project_data = await self._make_request(
@@ -1074,7 +1128,8 @@ class JiraClient(BaseTicketingClient):
 
 		if names_only:
 			return [it.get('name', 'Unknown') for it in issue_types if isinstance(it, dict)]
-		elif simplified:
+
+		if simplified:
 			simplified_types = []
 			for issue_type in issue_types:
 				if isinstance(issue_type, dict):
@@ -1087,8 +1142,8 @@ class JiraClient(BaseTicketingClient):
 					}
 					simplified_types.append(simplified_type)
 			return simplified_types
-		else:
-			return issue_types
+
+		return issue_types
 
 	def _parse_create_errors(self, e: httpx.HTTPStatusError) -> str:
 		"""Parse specific Jira errors for ticket creation for better user feedback."""
@@ -1137,7 +1192,7 @@ class JiraClient(BaseTicketingClient):
 			)
 
 			if not users or not isinstance(users, list):
-				logger.warning(f'No users found for email: {email}')
+				logger.warning('No users found for email: %s', email)
 				return None
 
 			# Find the user with matching email
@@ -1145,11 +1200,11 @@ class JiraClient(BaseTicketingClient):
 				if isinstance(user, dict) and user.get('emailAddress') == email:
 					return user.get('accountId')
 
-			logger.warning(f'No exact email match found for: {email}')
+			logger.warning('No exact email match found for: %s', email)
 			return None
 
 		except Exception as e:
-			logger.warning(f'Error finding user by email {email}: {e}')
+			logger.warning('Error finding user by email %s: %s', email, e)
 			return None
 
 	async def get_project_context(self) -> Dict[str, Any]:
@@ -1167,7 +1222,7 @@ class JiraClient(BaseTicketingClient):
 		try:
 			issue_types = await self.get_issue_types(self.project.key)
 		except Exception as e:
-			logger.warning(f'Failed to fetch issue types for context: {e}')
+			logger.warning('Failed to fetch issue types for context: %s', e)
 			issue_types = []
 
 		# Get user account ID from email
@@ -1177,11 +1232,11 @@ class JiraClient(BaseTicketingClient):
 		try:
 			user_account_id = await self.get_user_by_email(user_email)
 		except Exception as e:
-			logger.warning(f'Failed to fetch user accountId for {user_email}: {e}')
+			logger.warning('Failed to fetch user accountId for %s: %s', user_email, e)
 
 		if not user_account_id:
 			user_account_id = user_email
-			logger.info(f'Using email as fallback for accountId: {user_email}')
+			logger.info('Using email as fallback for accountId: %s', user_email)
 
 		return {
 			'project_metadata': {

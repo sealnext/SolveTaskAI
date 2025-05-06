@@ -129,7 +129,7 @@ def create_ticket_agent(
 		except GraphInterrupt as i:
 			raise i
 		except Exception as e:
-			logger.warning(f'Error in create_ticket: {e}')
+			logger.exception('Error in create_ticket: %s', e)
 			return f'Failure - {e}'
 
 	async def edit_ticket(
@@ -232,13 +232,13 @@ def create_ticket_agent(
 		try:
 			if entity_type == 'account':
 				return await handle_account_search(client, value)
-			elif entity_type == 'sprint':
+
+			if entity_type == 'sprint':
 				# TODO: to be optimized
 				return await handle_sprint_search(client, value)
-			elif entity_type == 'issue':
+
+			if entity_type == 'issue':
 				return await handle_issue_search(client, value)
-			else:
-				raise ValueError(f'Unsupported entity type: {entity_type}')
 
 		except Exception as e:
 			return f'Search failed: {e}'
@@ -289,7 +289,7 @@ def create_ticket_agent(
 
 	async def _prepare_initial_messages(state: TicketAgentState):
 		"""Prepare initial messages if none exist."""
-		if state.context_metadata.__len__() == 0:
+		if len(state.context_metadata) == 0:
 			state.context_metadata = await client.get_project_context()
 
 		if state.messages[-1].tool_calls:
@@ -328,5 +328,5 @@ def create_ticket_agent(
 	builder.add_edge('tools', 'agent')
 
 	graph = builder.compile(checkpointer=checkpointer)
-	logger.info(f'Ticket agent graph created successfully: {graph}')
+	logger.info('Ticket agent graph created successfully: %s', graph)
 	return graph

@@ -39,7 +39,7 @@ class DocumentEmbeddingsRepository:
 			)
 			yield vector_store
 		except Exception as e:
-			logger.error(f'Error in vector store: {e}')
+			logger.exception('Error in vector store: %s', e)
 			raise
 
 	async def add_embeddings(
@@ -52,7 +52,7 @@ class DocumentEmbeddingsRepository:
 	) -> None:
 		"""Add embeddings to the vector store."""
 		unique_identifier = self._get_unique_identifier(domain, project_key, external_id)
-		logger.info(f'Starting embedding process for {unique_identifier}')
+		logger.info('Starting embedding process for %s', unique_identifier)
 
 		# Time document conversion
 		start_time = asyncio.get_running_loop().time()
@@ -62,13 +62,13 @@ class DocumentEmbeddingsRepository:
 				docs_list.append(doc)
 			documents = docs_list
 		conversion_time = asyncio.get_running_loop().time() - start_time
-		logger.info(f'Document conversion took {conversion_time:.2f}s')
+		logger.info('Document conversion took %.2fs', conversion_time)
 
 		doc_count = len(documents)
 
 		# Validate document count
 		if doc_count == 0:
-			logger.warning(f'No documents found for {unique_identifier}')
+			logger.warning('No documents found for %s', unique_identifier)
 			raise ValueError('No documents to process. The project might be empty or inaccessible.')
 
 		# Initialize timing metrics
@@ -83,7 +83,7 @@ class DocumentEmbeddingsRepository:
 
 		async with self._get_vector_store(unique_identifier) as vector_store:
 			vector_store_setup_time = asyncio.get_running_loop().time() - process_start
-			logger.info(f'Vector store setup took {vector_store_setup_time:.2f}s')
+			logger.info('Vector store setup took %.2fs', vector_store_setup_time)
 
 			# Split documents into optimal batch sizes
 			batch_size = 20  # Optimal batch size for OpenAI API
@@ -104,7 +104,7 @@ class DocumentEmbeddingsRepository:
 					processed_count += len(batch)
 				except Exception as e:
 					failed_count += len(batch)
-					logger.error(f'Batch processing error: {e}')
+					logger.error('Batch processing error: %s', e)
 				finally:
 					# Log detailed progress with rates
 					current_time = asyncio.get_running_loop().time()
@@ -119,11 +119,16 @@ class DocumentEmbeddingsRepository:
 						current_rate = len(batch) / elapsed_since_last
 
 						logger.info(
-							f'Progress: {progress:.1f}% '
-							f'({processed_count}/{doc_count} documents) | '
-							f'Failed: {failed_count} | '
-							f'Current rate: {current_rate:.2f} docs/sec | '
-							f'Average rate: {total_rate:.2f} docs/sec'
+							'Progress: %.1f%% (%d/%d documents) | '
+							'Failed: %d | '
+							'Current rate: %.2f docs/sec | '
+							'Average rate: %.2f docs/sec',
+							progress,
+							processed_count,
+							doc_count,
+							failed_count,
+							current_rate,
+							total_rate,
 						)
 						last_progress_time = current_time
 
@@ -137,17 +142,31 @@ class DocumentEmbeddingsRepository:
 			# Log final detailed stats
 			total_time = asyncio.get_running_loop().time() - process_start
 			logger.info(
-				f'\nProcessing Summary:\n'
-				f'- Total documents: {doc_count}\n'
-				f'- Successful: {processed_count} ({(processed_count / doc_count * 100):.1f}%)\n'
-				f'- Failed: {failed_count}\n'
-				f'- Total time: {total_time:.2f}s\n'
-				f'- Average rate: {processed_count / total_time:.2f} docs/sec\n'
-				f'\nBreakdown:\n'
-				f'- Document conversion: {conversion_time:.2f}s ({conversion_time / total_time * 100:.1f}%)\n'
-				f'- Vector store setup: {vector_store_setup_time:.2f}s ({vector_store_setup_time / total_time * 100:.1f}%)\n'
-				f'- Embedding generation: {total_embedding_time:.2f}s ({total_embedding_time / total_time * 100:.1f}%)\n'
-				f'- Database operations: {total_db_time:.2f}s ({total_db_time / total_time * 100:.1f}%)'
+				'Processing Summary:\n'
+				'- Total documents: %d\n'
+				'- Successful: %d (%.1f%%)\n'
+				'- Failed: %d\n'
+				'- Total time: %.2fs\n'
+				'- Average rate: %.2f docs/sec\n'
+				'Breakdown:\n'
+				'- Document conversion: %.2fs (%.1f%%)\n'
+				'- Vector store setup: %.2fs (%.1f%%)\n'
+				'- Embedding generation: %.2fs (%.1f%%)\n'
+				'- Database operations: %.2fs (%.1f%%)',
+				doc_count,
+				processed_count,
+				(processed_count / doc_count * 100),
+				failed_count,
+				total_time,
+				processed_count / total_time,
+				conversion_time,
+				conversion_time / total_time * 100,
+				vector_store_setup_time,
+				vector_store_setup_time / total_time * 100,
+				total_embedding_time,
+				total_embedding_time / total_time * 100,
+				total_db_time,
+				total_db_time / total_time * 100,
 			)
 
 	async def _process_batch(
@@ -196,11 +215,18 @@ class DocumentEmbeddingsRepository:
 
 			# Log detailed batch metrics
 			logger.info(
-				f'Batch processing metrics:\n'
-				f'- Metadata preparation: {prep_time:.2f}s ({prep_rate:.2f} docs/s)\n'
-				f'- Embedding generation: {embed_time:.2f}s ({embed_rate:.2f} docs/s)\n'
-				f'- Database insertion: {db_time:.2f}s ({db_rate:.2f} docs/s)\n'
-				f'- Total batch time: {prep_time + embed_time + db_time:.2f}s'
+				'Batch processing metrics:\n'
+				'- Metadata preparation: %.2fs (%.2f docs/s)\n'
+				'- Embedding generation: %.2fs (%.2f docs/s)\n'
+				'- Database insertion: %.2fs (%.2f docs/s)\n'
+				'- Total batch time: %.2fs',
+				prep_time,
+				prep_rate,
+				embed_time,
+				embed_rate,
+				db_time,
+				db_rate,
+				prep_time + embed_time + db_time,
 			)
 
 			return {
@@ -210,7 +236,7 @@ class DocumentEmbeddingsRepository:
 			}
 
 		except Exception as e:
-			logger.error(f'Error processing batch: {e}')
+			logger.exception('Error processing batch: %s', e)
 			raise
 
 	async def collection_exists(self, unique_identifier: str) -> bool:
@@ -221,11 +247,11 @@ class DocumentEmbeddingsRepository:
 	async def delete_collection(self, domain: str, project_key: str, external_id: int) -> None:
 		"""Delete a collection."""
 		unique_identifier = self._get_unique_identifier(domain, project_key, external_id)
-		logger.debug(f'Attempting to delete collection: {unique_identifier}')
+		logger.debug('Attempting to delete collection: %s', unique_identifier)
 
 		async with self._get_vector_store(unique_identifier) as vector_store:
 			await vector_store.adelete_collection()
-			logger.info(f'Successfully deleted collection: {unique_identifier}')
+			logger.info('Successfully deleted collection: %s', unique_identifier)
 
 	def _get_unique_identifier(self, domain: str, project_key: str, external_id: int) -> str:
 		"""Generate a unique identifier for the collection."""

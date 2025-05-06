@@ -68,7 +68,7 @@ async def add_internal_project(
 
 		return new_project
 	except ValueError as e:
-		logger.error(f'Failed to add internal project: {str(e)}')
+		logger.exception('Failed to add internal project: %s', e)
 		raise HTTPException(
 			status.HTTP_400_BAD_REQUEST,
 			detail=str(e),

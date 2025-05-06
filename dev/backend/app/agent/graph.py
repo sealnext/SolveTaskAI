@@ -70,7 +70,8 @@ async def call_model(state: AgentState, config: RunnableConfig):
 	checkpointer = config['configurable']['__pregel_checkpointer']
 	llm = agent_config.get_llm(checkpointer=checkpointer)
 
-	# Fix message sequence if user breaks the tool call interrupt approval step by sending a new message instead of approving the tool call
+	# Fix message sequence if user breaks the tool call interrupt approval step
+	# by sending a new message instead of approving the tool call
 	sequence_info = fix_tool_call_sequence(conversation_messages)
 	prepared_messages = sequence_info['prepared_messages']
 	state_corrections = sequence_info['state_corrections']

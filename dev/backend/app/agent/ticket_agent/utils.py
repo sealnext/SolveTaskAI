@@ -137,12 +137,12 @@ async def handle_review_process(
 	except GraphInterrupt as i:
 		raise i
 	except Exception as e:
-		logger.error(f'Review process failed: {e}', exc_info=True)
+		logger.exception('Review process failed: %s', e)
 		return f'Review process error: {e}'
 
 
 async def _handle_edit_confirmation(
-	review_config: ReviewConfig, client: BaseTicketingClient, config: RunnableConfig
+	review_config: ReviewConfig, client: BaseTicketingClient
 ) -> str:
 	"""Handle edit confirmation."""
 	preview_data = review_config.get('preview_data', {})
@@ -179,7 +179,10 @@ async def _handle_edit_confirmation(
 
 				if changed_fields:
 					message += f': {", ".join(changed_fields)} were changed'
-					message += " (these fields were modified - for any unmentioned fields please tell the user that you DIDN'T change them!)"
+					message += (
+						' (these fields were modified - for any unmentioned fields '
+						"please tell the user that you DIDN'T change them!)"
+					)
 
 				return message
 
@@ -196,7 +199,7 @@ async def _handle_edit_confirmation(
 
 
 async def _handle_delete_confirmation(
-	review_config: ReviewConfig, client: BaseTicketingClient, config: RunnableConfig
+	review_config: ReviewConfig, client: BaseTicketingClient
 ) -> str:
 	"""Execute the actual ticket deletion after confirmation."""
 	# Get user confirmation through interrupt - don't catch GraphInterrupt
@@ -223,7 +226,7 @@ async def _handle_delete_confirmation(
 
 
 async def _handle_create_confirmation(
-	review_config: ReviewConfig, client: BaseTicketingClient, config: RunnableConfig
+	review_config: ReviewConfig, client: BaseTicketingClient
 ) -> str:
 	"""Handle create confirmation."""
 	preview_data = review_config.get('preview_data', {})
@@ -397,13 +400,15 @@ async def handle_account_search(client: BaseTicketingClient, value: str) -> str:
 
 	if total == 1:
 		return f'Success! Use this accountId instead of the username: {users[0]["accountId"]}'
-	elif total > 1:
+
+	if total > 1:
 		user_list = '\n'.join([f'- {user["displayName"]}: {user["accountId"]}' for user in users])
 		return (
 			'There are multiple accounts that may match the name, '
 			'please use only the accountId for the most relevant name:\n'
 			f'{user_list}'
 		)
+
 	return f"No accounts found matching '{value}'. Please verify the username and try again."
 
 
@@ -416,18 +421,23 @@ async def handle_issue_search(client: BaseTicketingClient, value: str) -> str:
 	if total == 1:
 		issue = issues[0]
 		return f'Success! Use this issue reference instead of the name - Key: {issue["key"]}'
-	elif total > 1:
+
+	if total > 1:
 		issue_list = '\n'.join(
 			[f'- {issue["fields"]["summary"]}\n  Key: {issue["key"]}' for issue in issues]
 		)
 		return f'Multiple matching issues found. Please use the most relevant Key:\n{issue_list}'
+
 	return f"No issues found matching '{value}'. Please verify the issue name and try again."
 
 
 async def handle_sprint_search(client: BaseTicketingClient, value: str) -> str:
 	"""Handle Jira sprint search logic."""
 	result = await client.find_sprint_by_name(sprint_name=value)
-	return f'Successfully found entity, please use the id from the response instead of the raw names: {result}'
+	return (
+		f'Successfully found entity, please use the id from the '
+		f'response instead of the raw names: {result}'
+	)
 
 
 async def prepare_creation_fields(

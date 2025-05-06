@@ -28,7 +28,7 @@ class ApiKeyService:
 				user_id, api_key_data
 			)
 		except Exception as e:
-			logger.error(f'Failed to create API key: {e}')
+			logger.error('Failed to create API key: %s', e)
 			raise HTTPException(
 				status.HTTP_500_INTERNAL_SERVER_ERROR,
 				'Failed to create API key due to an internal error.',
@@ -62,13 +62,15 @@ class ApiKeyService:
 
 		if not deleted:
 			logger.warning(
-				f'Failed to delete API key {api_key_id} after ownership check for user {user_id}.'
+				'Failed to delete API key %s after ownership check for user %s.',
+				api_key_id,
+				user_id,
 			)
 			raise HTTPException(
 				status.HTTP_404_NOT_FOUND,
 				'API Key could not be deleted or was already removed.',
 			)
-		logger.info(f'API key {api_key_id} deleted successfully by user {user_id}.')
+		logger.info('API key %s deleted successfully by user %s.', api_key_id, user_id)
 
 	async def get_api_key_unmasked(self, api_key_id: int, user_id: int) -> ApiKey:
 		"""Get an API key by ID with unmasked key value. Use with caution."""

@@ -1,12 +1,13 @@
 from urllib.parse import urljoin
 
+from argon2.exceptions import VerifyMismatchError
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.dependency import AuthServiceDep
 from app.dto.user import UserCreateByPassword, UserLogin
 from app.misc.cookie import delete_session_cookie, set_session_cookie
-from app.misc.exception import TokenNotFoundException
+from app.misc.exception import TokenNotFoundException, UserNotFoundException
 from app.misc.logger import logger
 from app.misc.settings import settings
 
@@ -23,12 +24,14 @@ async def verify_user_session():
 @router.post('/login')
 async def login(auth_service: AuthServiceDep, user_dto: UserLogin):
 	try:
-		session_token: str = await auth_service.login(user_dto)
+		session_token, user_public_dto = await auth_service.login(user_dto)
+	except (UserNotFoundException, VerifyMismatchError):
+		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Log in failed')
 	except Exception as e:
-		logger.exception(f'Log in failed: {e}')
+		logger.exception('Log in failed: %s', e)
 		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Log in failed')
 
-	response = Response()  # http status 200
+	response = JSONResponse(user_public_dto.model_dump())
 	set_session_cookie(response, session_token)
 
 	return response
@@ -39,10 +42,10 @@ async def logout(auth_service: AuthServiceDep, request: Request):
 	try:
 		await auth_service.logout(request.state.session_id)
 	except Exception as e:
-		logger.exception(f'Log out failed: {e}')
+		logger.exception('Log out failed: %s', e)
 		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Log out failed')
 
-	response = Response()  # http status 200
+	response = Response()
 	delete_session_cookie(response)
 
 	return response
@@ -53,12 +56,12 @@ async def signup(
 	auth_service: AuthServiceDep, user_dto: UserCreateByPassword, background_tasks: BackgroundTasks
 ):
 	try:
-		session_token: str = await auth_service.register(user_dto, background_tasks)
+		session_token, user_public_dto = await auth_service.register(user_dto, background_tasks)
 	except Exception as e:
-		logger.exception(f'Sign up failed: {e}')
+		logger.exception('Sign up failed: %s', e)
 		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Sign up failed')
 
-	response = Response(status_code=status.HTTP_201_CREATED)
+	response = JSONResponse(user_public_dto.model_dump(), status_code=status.HTTP_201_CREATED)
 	set_session_cookie(response, session_token)
 
 	return response
@@ -70,11 +73,11 @@ async def verify_email(auth_service: AuthServiceDep, token: str):
 		await auth_service.verify_email(token)
 
 	except TokenNotFoundException as e:
-		logger.error(f'Token not found: {e}')
+		logger.exception('Token not found: %s', e)
 		raise HTTPException(status.HTTP_404_NOT_FOUND, 'Token not found')
 
 	except Exception as e:
-		logger.exception(f'Email verification failed: {e}')
+		logger.exception('Email verification failed: %s', e)
 		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Email verification failed')
 
 	login_url: str = urljoin(str(settings.origin_url), '/login?email_verified=true')

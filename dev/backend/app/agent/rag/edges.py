@@ -20,9 +20,10 @@ def decide_after_grading(state):
 	if not documents and retry_retrieve_count < RETRIES_ALLOWED:
 		logger.info('---DECISION: NO RELEVANT DOCUMENTS FOUND, RETRY RETRIEVAL---')
 		return 'retry'
-	elif not documents:
+
+	if not documents:
 		logger.info('---DECISION: MAX RETRIES REACHED---')
 		return 'max retries'
-	else:
-		logger.info(f'---DECISION: {len(documents)} RELEVANT DOCUMENTS FOUND, END PROCESS---')
-		return 'generate'
+
+	logger.info('---DECISION: %s RELEVANT DOCUMENTS FOUND, END PROCESS---', len(documents))
+	return 'generate'

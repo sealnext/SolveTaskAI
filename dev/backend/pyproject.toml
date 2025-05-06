@@ -26,4 +26,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "alembic>=1.15.2",
+    "pylint>=3.3.7",
+    "ruff>=0.11.8",
 ]

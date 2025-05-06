@@ -6,12 +6,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from app.misc.settings import settings
 
-""" Hashing """
-
 password_hasher = PasswordHasher()
-
-
-""" Encryption """
 
 _cipher = AESGCM(settings.encryption_key.get_secret_value())
 

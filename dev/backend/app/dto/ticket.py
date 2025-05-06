@@ -4,7 +4,7 @@ from textwrap import indent
 from typing import Any, Dict, List
 
 from langchain_core.documents import Document
-from pydantic import BaseModel, RootModel, model_validator
+from pydantic import BaseModel, model_validator
 
 
 # Response models for Jira API
@@ -12,33 +12,6 @@ class AvatarUrls(BaseModel):
 	"""Schema for avatar URLs."""
 
 	model_config = {'extra': 'allow'}
-
-
-class JiraProjectResponse(RootModel):
-	"""Model for Jira project response."""
-
-	root: List[dict]
-
-	def dict(self, **kwargs) -> Dict[str, Any]:
-		"""Convert list response to expected format."""
-		return {'values': self.root}
-
-	class Config:
-		"""Allow direct list input."""
-
-		frozen = True
-
-
-class JiraSearchResponse(BaseModel):
-	"""Model for Jira search response."""
-
-	issues: List[dict]
-	total: int
-
-	class Config:
-		"""Ensure response is always a dictionary."""
-
-		frozen = True
 
 
 class Ticket(BaseModel):
@@ -132,9 +105,6 @@ class JiraIssueContentSchema(BaseModel):
 	ticket_url: str
 	fields: Dict[str, Any] = {}
 
-	class Config:
-		populate_by_name = True
-
 	@model_validator(mode='before')
 	@classmethod
 	def flatten_fields(cls, values):
@@ -215,9 +185,6 @@ class JiraIssueSchema(BaseModel):
 	updated_at: datetime
 	project_id: str
 	ticket_url: str
-
-	class Config:
-		populate_by_name = True
 
 	@model_validator(mode='before')
 	@classmethod

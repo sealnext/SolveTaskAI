@@ -40,7 +40,7 @@ async def rag_tool(query: str) -> str:
 	Returns:
 	    String containing the retrieved documents or empty if none found
 	"""
-	return {}
+	pass
 
 
 async def ticket_tool(
@@ -53,7 +53,7 @@ async def ticket_tool(
 	- ticket_id (optional): the id of the ticket to be created, edited or deleted
 	- detailed_query: the detailed query to be used for the ticket
 	"""
-	return {}
+	pass
 
 
 # This is a custom tool condition that determines the next node based on the current state
@@ -78,7 +78,10 @@ def tools_condition(
 		tool_name = ai_message.tool_calls[0]['name']
 		if tool_name == 'ticket_tool':
 			return 'ticket_agent'
-		elif tool_name == 'rag_tool':
+
+		if tool_name == 'rag_tool':
 			return 'rag_agent'
+
 		return 'tools'
+
 	return '__end__'

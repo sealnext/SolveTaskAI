@@ -42,13 +42,14 @@ class BaseTicketingClient(ABC):
 		    Exception: Any other unexpected error during the request.
 		"""
 		timeout = timeout or self.DEFAULT_TIMEOUT
-		logger.debug(f'Making request: {method} {url}')
+		logger.debug('Making request: %s %s', method, url)
 
 		response = await self.http_client.request(method, url, timeout=timeout, **kwargs)
 
 		try:
 			return response.json()
 		except Exception:
+			logger.exception('Error parsing JSON response: %s', response.text)
 			return response
 
 	@abstractmethod
@@ -92,15 +93,13 @@ class BaseTicketingClient(ABC):
 		self,
 		ticket_id: str,
 		payload: Dict[str, Any],
-		notify_users: bool = False,
-		transition_id: str | None = None,
+		# notify_users: bool = False,
+		# transition_id: str | None = None,
 	) -> None:
 		raise NotImplementedError
 
 	@abstractmethod
-	async def revert_ticket_changes(
-		self, ticket_id: str, version_number: int | None = None
-	) -> None:
+	async def revert_ticket_changes(self, ticket_id: str, version_id: str | None = None) -> None:
 		raise NotImplementedError
 
 	@abstractmethod

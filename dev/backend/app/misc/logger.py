@@ -1,11 +1,12 @@
 import datetime
 import logging
+from enum import StrEnum
 
 from fastapi.logger import logger
 
 
 # ANSI color codes with styles
-class Colors:
+class Colors(StrEnum):
 	# Reset
 	RESET = '\033[0m'
 
@@ -76,10 +77,17 @@ class EnhancedColoredFormatter(logging.Formatter):
 			path_display = f'{Colors.BLUE}{path_only}{Colors.RESET}'
 
 		# Combine path with bold filename and line number
-		caller_info = f'{path_display}{file_color}{filename}{Colors.RESET}:{Colors.YELLOW}{record.lineno}{Colors.RESET}'
+		caller_info = (
+			f'{path_display}'
+			f'{file_color}{filename}{Colors.RESET}:'
+			f'{Colors.YELLOW}{record.lineno}{Colors.RESET}'
+		)
 
 		# Format the log message with enhanced timestamp
-		log_message = f'{Colors.MAGENTA}{timestamp}{Colors.RESET} [{colored_levelname}] {caller_info} - {record.msg}'
+		log_message = (
+			f'{Colors.MAGENTA}{timestamp}{Colors.RESET} [{colored_levelname}] '
+			f'{caller_info} - {record.msg}'
+		)
 
 		# Replace the message with our custom formatted one
 		record.msg = log_message

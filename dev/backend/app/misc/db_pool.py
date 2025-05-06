@@ -35,7 +35,7 @@ class DatabasePool:
 			logger.info('PostgreSQL checkpointer initialized')
 
 		except Exception as e:
-			logger.error(f'Failed to initialize database pool or checkpointer: {e}')
+			logger.exception('Failed to initialize database pool or checkpointer: %s', e)
 			await self.close()
 			raise
 
@@ -57,7 +57,7 @@ class DatabasePool:
 				await self.pool.close()
 				logger.info('PostgreSQL connection pool closed')
 			except Exception as e:
-				logger.error(f'Error closing pool: {e}')
+				logger.exception('Error closing pool: %s', e)
 			finally:
 				self.pool = None
 		elif self.pool:

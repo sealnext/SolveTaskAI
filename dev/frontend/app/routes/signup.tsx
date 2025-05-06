@@ -44,7 +44,7 @@ export async function clientAction({
 		if (response.status === 500) {
 			return {
 				error: true,
-				message: "Sign up failed. Probably email is already in use or password is too weak."
+				message: "Sign up failed. Possible reasons: email is already in use or password is too weak or an unexpected error occurred."
 			};
 		}
 		return {
@@ -52,6 +52,8 @@ export async function clientAction({
 			message: "An unexpected error occurred during sign up. Please try again."
 		};
 	}
+
+	const userPublicDto = await response.json() as UserPublic;
 
 	return redirect("/");
 }

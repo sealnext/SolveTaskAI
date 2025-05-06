@@ -19,7 +19,7 @@ from app.service.ticketing.client import BaseTicketingClient
 embeddings_model = OpenAIEmbeddings(model=settings.openai_embedding_model)
 
 
-number_of_docs_to_retrieve = 5
+NUMBER_OF_DOCS_TO_RETRIEVE = 5
 
 
 class RAGState(BaseModel):
@@ -37,9 +37,6 @@ class RAGState(BaseModel):
 	ignore_tickets: List[str] = Field(
 		default_factory=list, description='List of ticket IDs to ignore in retrieval'
 	)
-
-	class Config:
-		arbitrary_types_allowed = True
 
 
 async def create_vector_store(unique_identifier_project: str):
@@ -62,10 +59,14 @@ async def retrieve_documents(state: RAGState, client: BaseTicketingClient) -> RA
 		state.question = query
 		state.project = client.project
 
-		project_id = f'{re.sub(r"^https?://|/$", "", state.project.domain)}/{state.project.key}/{state.project.external_id}'
+		project_id = (
+			f'{re.sub(r"^https?://|/$", "", state.project.domain)}/'
+			f'{state.project.key}/'
+			f'{state.project.external_id}'
+		)
 		vector_store = await create_vector_store(project_id)
 
-		k = number_of_docs_to_retrieve * (state.retry_retrieve_count + 1)
+		k = NUMBER_OF_DOCS_TO_RETRIEVE * (state.retry_retrieve_count + 1)
 		documents_with_scores = await vector_store.asimilarity_search_with_score_by_vector(
 			await embeddings_model.aembed_query(state.question),
 			k=k,
