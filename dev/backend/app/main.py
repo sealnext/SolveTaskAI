@@ -16,6 +16,7 @@ from app.route.auth import router as auth_router
 from app.route.health import router as health_router
 from app.route.projects import router as projects_router
 from app.route.ticketing import router as ticketing_router
+from app.route.user import router as user_router
 from app.service.auth import AuthService
 
 
@@ -40,6 +41,7 @@ async def authorize(request: Request, call_next):
 	) or request.url.path == '/api/health':
 		return await call_next(request)
 
+	logger.info('Authorizing request: %s', request.url.path)
 	session_token = request.cookies.get('session_token')
 	if session_token is None:
 		return JSONResponse(
@@ -81,5 +83,6 @@ app_router.include_router(agent_router, prefix='/agent', tags=['Agent'])
 app_router.include_router(ticketing_router, prefix='/ticketing', tags=['Ticketing'])
 app_router.include_router(projects_router, prefix='/projects', tags=['Projects'])
 app_router.include_router(api_keys_router, prefix='/apikeys', tags=['API Keys'])
+app_router.include_router(user_router, prefix='/user', tags=['User'])
 
 app.include_router(app_router, prefix='/api')

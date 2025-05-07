@@ -27,5 +27,5 @@ export const loginSchema = z.object({
 export const userSchema = z.object({
   name: z.string().nullable(),
   email: z.string().email(),
-  is_email_verified: z.boolean(),
+  isEmailVerified: z.boolean(),
 });
