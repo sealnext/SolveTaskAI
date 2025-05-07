@@ -103,7 +103,7 @@ export function LoginForm({
                       className="absolute right-0 top-0 h-full aspect-square flex items-center justify-center group"
                       onClick={() => setShowPassword(!showPassword)}
                     >
-                      <span className="absolute inset-0 w-8 h-8 rounded-full bg-transparent group-hover:bg-black/5 m-auto"></span>
+                      <span className="absolute inset-0 w-8 h-8 rounded-full bg-transparent group-hover:bg-black/5 m-auto" />
                       {showPassword ? <EyeOff className="h-4 w-4 relative z-10" /> : <Eye className="h-4 w-4 relative z-10" />}
                     </button>
                   </div>
