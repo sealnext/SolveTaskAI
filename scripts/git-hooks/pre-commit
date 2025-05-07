@@ -1,16 +1,49 @@
 #!/bin/bash
 set -e
 
-# Display what's being run
-echo "Running import sorting check and fix..."
-uvx ruff check --select I --fix
+# Function to display command before executing it
+run_cmd() {
+  echo -e "🔹 Running: \033[32m$@\033[0m"
+  "$@"
+}
 
-echo "Running code formatting..."
-uvx ruff format
+# Navigate to project root based on the script's location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/../../dev/backend"
 
-echo "Running linting checks..."
-uvx ruff check
+# Check if .venv exists in dev/backend, if not create it
+if [ ! -d ".venv" ]; then
+  echo "Creating python virtual environment..."
+  run_cmd uv venv
+fi
+
+# Navigate to backend directory and setup environment
+echo -e "\n🔄 Setting up dependencies...\n"
+run_cmd uv lock
+run_cmd uv sync
+source .venv/bin/activate
+
+# Run checks
+echo -e "\n\n📋 ==================== CODE QUALITY CHECKS ====================\n"
+
+echo -e "🔤 Import sorting check and fix...\n"
+run_cmd ruff check --select I --fix
+echo -e "\n✅ Import sorting complete!\n\n"
+
+echo -e "🔍 Linting checks with auto-fix...\n"
+run_cmd ruff check --fix
+echo -e "\n✅ Linting checks complete!\n\n"
+
+echo -e "✨ Code formatting...\n"
+run_cmd ruff format
+echo -e "\n✅ Code formatting complete!\n\n"
+
+echo -e "🧪 Pylint...\n"
+echo -e "🔹 Running: \033[32mpylint --rcfile=.pylintrc \$(git ls-files '*.py')\033[0m"
+pylint --rcfile=.pylintrc $(git ls-files '*.py')
+echo -e "\n✅ Pylint checks complete!\n\n"
 
 # If we got this far, all checks passed
-echo "✓ All checks passed"
+echo -e "\n🎉 ==================== SUCCESS! ====================\n"
+echo -e "✓ All checks passed! Your code is looking great!\n"
 
