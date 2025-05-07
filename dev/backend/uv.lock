@@ -131,14 +131,14 @@ requires-dist = [
     { name = "argon2-cffi", specifier = ">=23.1.0" },
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "brevo-python", specifier = ">=1.1.2" },
-    { name = "cryptography", specifier = ">=44.0.2" },
+    { name = "cryptography", specifier = ">=44.0.3" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.12" },
     { name = "httpx", extras = ["http2"], specifier = ">=0.28.1" },
-    { name = "langchain", specifier = ">=0.3.24" },
+    { name = "langchain", specifier = ">=0.3.25" },
     { name = "langchain-google-genai", specifier = ">=2.1.4" },
-    { name = "langchain-openai", specifier = ">=0.3.15" },
+    { name = "langchain-openai", specifier = ">=0.3.16" },
     { name = "langchain-postgres", specifier = ">=0.0.14" },
-    { name = "langgraph", specifier = ">=0.4.1" },
+    { name = "langgraph", specifier = ">=0.4.2" },
     { name = "langgraph-checkpoint-postgres", specifier = ">=2.0.21" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2.7" },
     { name = "pydantic-settings", specifier = ">=2.9.1" },
@@ -776,7 +776,7 @@ wheels = [
 
 [[package]]
 name = "langgraph"
-version = "0.4.1"
+version = "0.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "langchain-core", marker = "python_full_version < '4.0'" },
@@ -786,9 +786,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "xxhash" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/da/89/270bb568fcb833f7140e92304e13443a38b1f74130902d498a57bd85dcef/langgraph-0.4.1.tar.gz", hash = "sha256:c6de009e638c3128232e8defa6e9a3218c03bcc2348ec7f06fba23ffcef4b98d", size = 125406 }
+sdist = { url = "https://files.pythonhosted.org/packages/de/ae/c93fc1bd7bbe0e6d0664abc53e385db2efd22808d18d215a06fe03395e61/langgraph-0.4.2.tar.gz", hash = "sha256:5f85aca630359f9bdbe68563599305fa4a291186b36942e1456533a308349b04", size = 125287 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/00/1d/726b69360d450eec422d2c2da856f99b040eb14042c3d0904756eb5d442c/langgraph-0.4.1-py3-none-any.whl", hash = "sha256:ad0a5fb4707ec46eb69a9905d629e3712ac14d58bd41fc63df18502dbb8e44b9", size = 151150 },
+    { url = "https://files.pythonhosted.org/packages/83/b0/f88b5d7f54767c6e47dddc42bb9c0ec881ab2044f055120f6be2384e4317/langgraph-0.4.2-py3-none-any.whl", hash = "sha256:59666217bfc3888d5de2a525468ed8c9ffc0a9346039f941502edcc0410d876c", size = 151073 },
 ]
 
 [[package]]

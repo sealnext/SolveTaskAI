@@ -20,7 +20,7 @@ from app.service.auth import AuthService
 
 
 @asynccontextmanager
-async def lifespan() -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 	await init_db()
 	await langgraph_db_pool.initialize()
 	yield
