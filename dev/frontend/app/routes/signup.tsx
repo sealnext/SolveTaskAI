@@ -1,10 +1,9 @@
 import React from 'react';
 import type { Route } from "./+types/signup";
 
-import { GalleryVerticalEnd } from 'lucide-react';
 import { SignUpForm } from '~/components/signup-form';
 import { redirect } from 'react-router';
-
+import { TermsDisclaimer } from '~/components/terms-disclaimer';
 export function meta() {
 	return [
 		{ title: "Sign up | Sealnext" },
@@ -53,8 +52,6 @@ export async function clientAction({
 		};
 	}
 
-	const userPublicDto = await response.json() as UserPublic;
-
 	return redirect("/");
 }
 
@@ -64,13 +61,13 @@ export default function SignUp({
   return (
 		<div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
 			<div className="flex w-full max-w-sm flex-col gap-6">
-				<a href="#" className="flex items-center gap-2 self-center font-medium">
-					<div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-						<GalleryVerticalEnd className="size-4" />
-					</div>
-					SEALNEXT
-				</a>
+				<img
+					src="https://cdn.sealnext.com/logo-full.svg"
+					alt="Sealnext"
+					className="w-full px-4 pointer-events-none dark:invert"
+				/>
 				<SignUpForm error={actionData?.error} errorMessage={actionData?.message} />
+				<TermsDisclaimer />
 			</div>
 		</div>
   );

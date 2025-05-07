@@ -1,4 +1,4 @@
-from app.dto.user import Email, UserCreateByPassword
+from app.dto.user import Email, UserCreateByPassword, UserPublic
 from app.misc.crypto import password_hasher
 from app.misc.exception import UserNotFoundException
 from app.misc.logger import logger
@@ -22,6 +22,16 @@ class UserService:
 		if user is None:
 			raise UserNotFoundException('User not found by email')
 		return user
+
+	async def get_user_profile(self, user_id: int) -> UserPublic:
+		user: UserDB | None = await self.user_repository.get_user_by_id(user_id)
+		if user is None:
+			raise UserNotFoundException('User not found by id')
+		return UserPublic(
+			name=user.name,
+			email=user.email,
+			is_email_verified=user.is_email_verified,
+		)
 
 	async def verify_email(self, user_id: int) -> None:
 		user = await self.user_repository.update_user(user_id, is_email_verified=True)

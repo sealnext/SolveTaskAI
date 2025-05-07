@@ -31,6 +31,10 @@ class UserRepository:
 		result = await self.async_db_session.execute(select(UserDB).where(UserDB.email == email))
 		return result.scalar()
 
+	async def get_user_by_id(self, user_id: int) -> UserDB | None:
+		result = await self.async_db_session.execute(select(UserDB).where(UserDB.id == user_id))
+		return result.scalar()
+
 	async def update_user(self, user_id: int, **kwargs) -> UserDB:
 		user = await self.async_db_session.get(UserDB, user_id)
 		if user is None:

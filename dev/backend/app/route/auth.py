@@ -15,14 +15,14 @@ router = APIRouter()
 
 
 @router.get('/verify')
-async def verify_user_session():
+async def verify_user_session() -> Response:
 	# Route to verify if the user is authenticated
 	# *** This doesn't bypass the middleware (special case) ***
 	return Response()
 
 
 @router.post('/login')
-async def login(auth_service: AuthServiceDep, user_dto: UserLogin):
+async def login(auth_service: AuthServiceDep, user_dto: UserLogin) -> JSONResponse:
 	try:
 		session_token, user_public_dto = await auth_service.login(user_dto)
 	except (UserNotFoundException, VerifyMismatchError):
@@ -38,7 +38,7 @@ async def login(auth_service: AuthServiceDep, user_dto: UserLogin):
 
 
 @router.post('/logout')
-async def logout(auth_service: AuthServiceDep, request: Request):
+async def logout(auth_service: AuthServiceDep, request: Request) -> Response:
 	try:
 		await auth_service.logout(request.state.session_id)
 	except Exception as e:
@@ -54,7 +54,7 @@ async def logout(auth_service: AuthServiceDep, request: Request):
 @router.post('/signup')
 async def signup(
 	auth_service: AuthServiceDep, user_dto: UserCreateByPassword, background_tasks: BackgroundTasks
-):
+) -> JSONResponse:
 	try:
 		session_token, user_public_dto = await auth_service.register(user_dto, background_tasks)
 	except Exception as e:
@@ -68,7 +68,7 @@ async def signup(
 
 
 @router.get('/verify-email')
-async def verify_email(auth_service: AuthServiceDep, token: str):
+async def verify_email(auth_service: AuthServiceDep, token: str) -> RedirectResponse:
 	try:
 		await auth_service.verify_email(token)
 
