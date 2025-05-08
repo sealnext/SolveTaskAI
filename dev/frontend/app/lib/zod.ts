@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// Password validation (matches Password DTO in Python)
 const passwordSchema = z.string()
   .min(12, "Password must be at least 12 characters long.")
   .refine(
@@ -23,7 +22,6 @@ export const loginSchema = z.object({
   password: passwordSchema,
 });
 
-// User schema (matches UserPublic DTO in Python)
 export const userSchema = z.object({
   name: z.string().nullable(),
   email: z.string().email(),

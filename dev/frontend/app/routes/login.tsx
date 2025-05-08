@@ -4,6 +4,7 @@ import { LoginForm } from "~/components/login-form";
 import { redirect } from 'react-router';
 import { ThemeToggle } from '~/components/theme-toggle';
 import { TermsDisclaimer } from '~/components/terms-disclaimer';
+
 export function meta() {
 	return [
 		{ title: "Log in | Sealnext" },

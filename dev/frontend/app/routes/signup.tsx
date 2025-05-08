@@ -1,9 +1,9 @@
 import React from 'react';
 import type { Route } from "./+types/signup";
-
 import { SignUpForm } from '~/components/signup-form';
 import { redirect } from 'react-router';
 import { TermsDisclaimer } from '~/components/terms-disclaimer';
+
 export function meta() {
 	return [
 		{ title: "Sign up | Sealnext" },
