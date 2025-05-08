@@ -1,9 +1,7 @@
 import React from 'react';
-import { useSetAtom } from 'jotai';
-import { redirect, useLoaderData } from 'react-router';
+import { redirect } from 'react-router';
 import { Menu } from "~/components/dropdown-menu";
 import { ThemeToggle } from '~/components/theme-toggle';
-import { userSchema } from '~/lib/zod';
 
 export function meta() {
 	return [
