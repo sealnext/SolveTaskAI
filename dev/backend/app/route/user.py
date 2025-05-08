@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Request
-
 from app.dependency import UserServiceDep
 from app.dto.user import UserPublic
 
