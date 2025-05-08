@@ -67,7 +67,7 @@ export function SignUpForm({
 									/>
 									<button
 										type="button"
-										className="absolute right-0 top-0 h-full aspect-square flex items-center justify-center group"
+										className="absolute right-0 top-0 h-full aspect-square rounded-full flex items-center justify-center group hover:cursor-pointer"
 										onClick={() => setShowPassword(!showPassword)}
 									>
 										<span className="absolute inset-0 w-8 h-8 rounded-full bg-transparent group-hover:bg-black/5 m-auto" />
@@ -75,7 +75,7 @@ export function SignUpForm({
 									</button>
 								</div>
 							</div>
-							<Button type="submit" className="w-full">
+							<Button type="submit" className="w-full hover:cursor-pointer">
 								Sign up
 							</Button>
 						</div>

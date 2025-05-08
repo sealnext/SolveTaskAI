@@ -38,11 +38,11 @@ export function LoginForm({
 				<Form method="post">
 					<div className="grid gap-6">
 						<div className="flex flex-col gap-4">
-							<Button variant="outline" className="w-full">
+							<Button variant="outline" className="w-full hover:cursor-pointer">
 								<FaGithub />
 								Log in with GitHub
 							</Button>
-							<Button variant="outline" className="w-full">
+							<Button variant="outline" className="w-full hover:cursor-pointer">
 								<FaGoogle />
 								Log in with Google
 							</Button>
@@ -89,7 +89,7 @@ export function LoginForm({
 									/>
 									<button
 										type="button"
-										className="absolute right-0 top-0 h-full aspect-square flex items-center justify-center group"
+										className="absolute right-0 top-0 h-full aspect-square rounded-full flex items-center justify-center group hover:cursor-pointer"
 										onClick={() => setShowPassword(!showPassword)}
 									>
 										<span className="absolute inset-0 w-8 h-8 rounded-full bg-transparent group-hover:bg-black/5 m-auto" />
@@ -97,7 +97,7 @@ export function LoginForm({
 									</button>
 								</div>
 							</div>
-							<Button type="submit" className="w-full">
+							<Button type="submit" className="w-full hover:cursor-pointer">
 								Log in
 							</Button>
 						</div>

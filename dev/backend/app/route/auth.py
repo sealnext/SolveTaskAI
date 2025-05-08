@@ -61,7 +61,7 @@ async def signup(
 		logger.exception('Sign up failed: %s', e)
 		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Sign up failed')
 
-	response = JSONResponse(user_public_dto.model_dump(), status_code=status.HTTP_201_CREATED)
+	response = JSONResponse(user_public_dto.model_dump(), status.HTTP_201_CREATED)
 	set_session_cookie(response, session_token)
 
 	return response
