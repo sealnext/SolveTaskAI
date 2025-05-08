@@ -7,12 +7,14 @@ import {
 	Scripts,
 	ScrollRestoration,
 } from "react-router";
-
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Route } from "./+types/root";
 import "./app.css";
 
 import { useAtomValue } from 'jotai'
 import { themeAtom } from '~/lib/atom'
+
+const queryClient = new QueryClient()
 
 export function Layout({ children }: { children: React.ReactNode }) {
 	const theme = useAtomValue(themeAtom);
@@ -65,18 +67,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-	return <Outlet />;
+	return (
+		<QueryClientProvider client={queryClient}>
+			<Outlet />
+		</QueryClientProvider>
+	);
 }
-
-// export function HydrateFallback() {
-// 	return (
-// 		<div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
-// 			<div className="flex w-full max-w-sm flex-col gap-6">
-// 				<img src="https://cdn.sealnext.com/logo-full.svg" alt="Sealnext" className="w-full px-4" />
-// 			</div>
-// 		</div>
-// 	);
-// }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 	let message = "Oops!";
