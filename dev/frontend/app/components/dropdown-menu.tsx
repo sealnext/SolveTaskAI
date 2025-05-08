@@ -13,13 +13,16 @@ import {
 	AvatarFallback,
 } from "~/components/ui/avatar"
 import { Form } from "react-router"
+import { Menu as MenuIcon } from "lucide-react"
 
 export function Menu() {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Avatar className="ring-2 ring-offset-1 ring-blue-300 hover:ring-blue-400 data-[state=open]:ring-blue-500 w-10 h-10">
-					<AvatarFallback>CN</AvatarFallback>
+					<AvatarFallback>
+						<MenuIcon className="h-5 w-5" />
+					</AvatarFallback>
 				</Avatar>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent className="w-40 mt-1 mr-4">
