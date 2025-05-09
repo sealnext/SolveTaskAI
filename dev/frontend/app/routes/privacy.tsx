@@ -64,7 +64,7 @@ export default function Privacy() {
 
               <h3 className="text-lg font-medium mt-3 mb-2">3.2 Information We Collect Automatically</h3>
               <ul className="list-disc pl-6 mt-2 space-y-1">
-                <li><strong>Usage Data:</strong> We collect information on how the Service is accessed and used. This may include information such as your computer's Internet Protocol address, browser type, browser version, the pages of our Service that you visit, the time and date of your visit, the time spent on those pages, and other diagnostic data.</li>
+                <li><strong>Usage Data:</strong> We collect information on how the Service is accessed and used. This may include information such as your computer&apos;s Internet Protocol address, browser type, browser version, the pages of our Service that you visit, the time and date of your visit, the time spent on those pages, and other diagnostic data.</li>
                 <li><strong>Cookies:</strong> We use cookies to maintain session information. A cookie is a small piece of data stored on your device. We use only essential authentication cookies necessary to provide our Service.</li>
               </ul>
 
@@ -232,7 +232,7 @@ export default function Privacy() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3">12. Children's Privacy</h2>
+              <h2 className="text-xl font-semibold mb-3">12. Children&apos;s Privacy</h2>
               <p>
                 Our Service does not address anyone under the age of 18 (&ldquo;Children&rdquo;). We do not knowingly collect personally identifiable information from anyone under the age of 18. If you are a parent or guardian and you are aware that your child has provided us with personal data, please contact us. If we become aware that we have collected personal data from children without verification of parental consent, we take steps to remove that information from our servers.
               </p>
@@ -257,7 +257,7 @@ export default function Privacy() {
             <section>
               <h2 className="text-xl font-semibold mb-3">14. Changes to This Privacy Policy</h2>
               <p>
-                We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last updated" date at the top of this Privacy Policy.
+                We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the &quot;Last updated&quot; date at the top of this Privacy Policy.
               </p>
               <p className="mt-2">
                 For significant changes, we will make reasonable efforts to provide notification through our Service or via email prior to the changes becoming effective. However, you are advised to review this Privacy Policy periodically for any changes. Changes to this Privacy Policy are effective when they are posted on this page. Your continued use of the Service after we post any modifications to the Privacy Policy will constitute your acknowledgment of the modifications and your consent to abide and be bound by the modified Privacy Policy.

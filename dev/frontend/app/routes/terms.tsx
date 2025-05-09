@@ -112,7 +112,7 @@ export default function Terms() {
                 <li>Use the Service for any illegal or unauthorized purpose</li>
                 <li>Violate any applicable laws or regulations</li>
                 <li>Interfere with the operation of the Service</li>
-                <li>Attempt to gain unauthorized access to the Service or other users' data</li>
+                <li>Attempt to gain unauthorized access to the Service or other users&apos; data</li>
                 <li>Upload or transmit malicious code or viruses</li>
                 <li>Use the Service to send spam or unsolicited communications</li>
                 <li>Misrepresent your identity or affiliation</li>
