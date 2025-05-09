@@ -63,7 +63,7 @@ export default function SignUp({
 			<div className="flex w-full max-w-sm flex-col gap-6">
 				<img
 					src="https://cdn.sealnext.com/logo-full.svg"
-					alt="Sealnext"
+					alt="SEALNEXT"
 					className="w-full px-4 pointer-events-none dark:invert"
 				/>
 				<SignUpForm error={actionData?.error} errorMessage={actionData?.message} />
