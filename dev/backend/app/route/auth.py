@@ -1,8 +1,13 @@
 from urllib.parse import urljoin
 
 from argon2.exceptions import VerifyMismatchError
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
+from starlette.status import (
+	HTTP_201_CREATED,
+	HTTP_404_NOT_FOUND,
+	HTTP_500_INTERNAL_SERVER_ERROR,
+)
 
 from app.dependency import AuthServiceDep
 from app.dto.user import UserCreateByPassword, UserLogin
@@ -14,8 +19,8 @@ from app.misc.settings import settings
 router = APIRouter()
 
 
-@router.get('/verify')
-async def verify_user_session() -> Response:
+@router.get('/status')
+async def is_authenticated() -> Response:
 	# Route to verify if the user is authenticated
 	# *** This doesn't bypass the middleware (special case) ***
 	return Response()
@@ -26,10 +31,10 @@ async def login(auth_service: AuthServiceDep, user_dto: UserLogin) -> JSONRespon
 	try:
 		session_token, user_public_dto = await auth_service.login(user_dto)
 	except (UserNotFoundException, VerifyMismatchError):
-		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Log in failed')
+		raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, 'Log in failed')
 	except Exception as e:
 		logger.exception('Log in failed: %s', e)
-		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Log in failed')
+		raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, 'Log in failed')
 
 	response = JSONResponse(user_public_dto.model_dump())
 	set_session_cookie(response, session_token)
@@ -43,7 +48,7 @@ async def logout(auth_service: AuthServiceDep, request: Request) -> Response:
 		await auth_service.logout(request.state.session_id)
 	except Exception as e:
 		logger.exception('Log out failed: %s', e)
-		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Log out failed')
+		raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, 'Log out failed')
 
 	response = Response()
 	delete_session_cookie(response)
@@ -59,12 +64,29 @@ async def signup(
 		session_token, user_public_dto = await auth_service.register(user_dto, background_tasks)
 	except Exception as e:
 		logger.exception('Sign up failed: %s', e)
-		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Sign up failed')
+		raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, 'Sign up failed')
 
-	response = JSONResponse(user_public_dto.model_dump(), status.HTTP_201_CREATED)
+	response = JSONResponse(user_public_dto.model_dump(), HTTP_201_CREATED)
 	set_session_cookie(response, session_token)
 
 	return response
+
+
+@router.get('/email-exists')
+async def email_exists(auth_service: AuthServiceDep, email: str) -> JSONResponse:
+	try:
+		await auth_service.email_exists(email)
+
+	except TokenNotFoundException as e:
+		logger.exception('Token not found: %s', e)
+		raise HTTPException(HTTP_404_NOT_FOUND, 'Token not found')
+
+	except Exception as e:
+		logger.exception('Email verification failed: %s', e)
+		raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, 'Email verification failed')
+
+	login_url: str = urljoin(str(settings.origin_url), '/login?email_verified=true')
+	return RedirectResponse(login_url)
 
 
 @router.get('/verify-email')
@@ -74,11 +96,11 @@ async def verify_email(auth_service: AuthServiceDep, token: str) -> RedirectResp
 
 	except TokenNotFoundException as e:
 		logger.exception('Token not found: %s', e)
-		raise HTTPException(status.HTTP_404_NOT_FOUND, 'Token not found')
+		raise HTTPException(HTTP_404_NOT_FOUND, 'Token not found')
 
 	except Exception as e:
 		logger.exception('Email verification failed: %s', e)
-		raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Email verification failed')
+		raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, 'Email verification failed')
 
 	login_url: str = urljoin(str(settings.origin_url), '/login?email_verified=true')
 	return RedirectResponse(login_url)

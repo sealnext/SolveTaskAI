@@ -12,30 +12,46 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Form, Link } from "react-router";
 import { Eye, EyeOff } from "lucide-react";
+import { FaGithub, FaGoogle } from "react-icons/fa";
 
-interface SignUpFormProps extends React.ComponentPropsWithoutRef<"div"> {
+interface LoginFormProps extends React.ComponentPropsWithoutRef<"div"> {
 	error?: boolean;
 	errorMessage?: string;
 }
 
-export function SignUpForm({
+export function LoginForm({
 	error,
-	errorMessage
-}: SignUpFormProps) {
+	errorMessage,
+}: LoginFormProps) {
 
 	const [showPassword, setShowPassword] = useState(false);
 
 	return (
 		<Card>
 			<CardHeader className="text-center">
-				<CardTitle className="text-xl">Create an account</CardTitle>
+				<CardTitle className="text-xl">Welcome back</CardTitle>
 				<CardDescription>
-					Sign up with an email and password
+					Use your GitHub or Google account
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<Form method="post">
 					<div className="grid gap-6">
+						<div className="flex flex-col gap-4">
+							<Button variant="outline" className="w-full hover:cursor-pointer">
+								<FaGithub />
+								Log in with GitHub
+							</Button>
+							<Button variant="outline" className="w-full hover:cursor-pointer">
+								<FaGoogle />
+								Log in with Google
+							</Button>
+						</div>
+						<div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
+							<span className="relative z-10 bg-card px-2 text-muted-foreground">
+								Or continue with
+							</span>
+						</div>
 						<div className="grid gap-6">
 							{error && (
 								<div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
@@ -56,6 +72,12 @@ export function SignUpForm({
 							<div className="grid gap-2">
 								<div className="flex items-center">
 									<Label htmlFor="password">Password</Label>
+									<a
+										href="#"
+										className="ml-auto text-sm underline-offset-4 hover:underline text-right"
+									>
+										Forgot your password?
+									</a>
 								</div>
 								<div className="relative">
 									<Input
@@ -76,13 +98,13 @@ export function SignUpForm({
 								</div>
 							</div>
 							<Button type="submit" className="w-full hover:cursor-pointer">
-								Sign up
+								Log in
 							</Button>
 						</div>
 						<div className="text-center text-sm">
-							Already have an account?{" "}
-							<Link to="/login" className="underline underline-offset-4">
-								Log in
+							Don&apos;t have an account?{" "}
+							<Link to="/signup" className="underline underline-offset-4">
+								Sign up
 							</Link>
 						</div>
 					</div>

@@ -33,6 +33,10 @@ class UserService:
 			is_email_verified=user.is_email_verified,
 		)
 
+	async def email_exists(self, email: str) -> bool:
+		user: UserDB | None = await self.user_repository.get_user_by_email(email)
+		return user is not None
+
 	async def verify_email(self, user_id: int) -> None:
 		user = await self.user_repository.update_user(user_id, is_email_verified=True)
 		logger.info('User (id: %s) verified their email', user.id)
