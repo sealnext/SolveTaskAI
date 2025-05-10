@@ -1,4 +1,3 @@
-import React from "react"
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -7,11 +6,11 @@ import {
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu"
 import {
 	Avatar,
 	AvatarFallback,
-} from "~/components/ui/avatar"
+} from "@/components/ui/avatar"
 import { Form } from "react-router"
 import {
 	AlertCircle,
@@ -25,12 +24,12 @@ import {
 	LogOut
 } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 export function Menu() {
 
 	const  { isPending, error, data } = useQuery({
-		queryKey: ["user"],
+		queryKey: ["user", "profile"],
 		queryFn: () => fetch("/api/user/profile")
 			.then(response => {
 				if (!response.ok) {

@@ -1,16 +1,14 @@
-import React from 'react';
 import { Moon, Sun, Monitor, Check } from "lucide-react"
 
-import { Button } from "~/components/ui/button"
+import { Button } from "@/components/ui/button"
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu"
-import { themeAtom } from "~/lib/atom"
+} from "@/components/ui/dropdown-menu"
+import { themeAtom } from "@/lib/atom"
 import { useAtom } from "jotai"
-import { cn } from "~/lib/utils"
 
 export function ThemeToggle() {
 	const [theme, setTheme] = useAtom(themeAtom);

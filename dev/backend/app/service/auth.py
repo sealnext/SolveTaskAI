@@ -98,6 +98,10 @@ class AuthService:
 		)
 		return session_token, user_public_dto
 
+	async def email_exists(self, email: str) -> bool:
+		user = await self.user_service.get_user_by_email(email)
+		return user is not None
+
 	async def verify_email(self, token: str) -> None:
 		user_id_str: str | None = await redis.get(f'email_verification:{token}')
 		if user_id_str is None:

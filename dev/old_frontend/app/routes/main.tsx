@@ -24,6 +24,20 @@ export async function clientAction() {
 }
 
 export default function Home() {
+
+	const { data } = useQuery({
+		queryKey: ["auth", "status"],
+		queryFn: () => fetch("/api/auth/status")
+			.then(response => {
+				return response.ok;
+			}),
+		retry: false
+	});
+
+	if (!data) {
+		return redirect("/login");
+	}
+
 	return (
 		<SidebarProvider>
 			<div className="relative flex flex-col h-full w-full">
