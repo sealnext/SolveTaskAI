@@ -24,7 +24,7 @@ run_cmd uv sync
 source .venv/bin/activate
 
 # Run checks
-echo -e "\n\n📋 ==================== CODE QUALITY CHECKS ====================\n"
+echo -e "\n\n📋 ==================== BACKEND CODE QUALITY CHECKS ====================\n"
 
 echo -e "🔤 Import sorting check and fix...\n"
 run_cmd ruff check --select I --fix
@@ -42,6 +42,16 @@ echo -e "🧪 Pylint...\n"
 echo -e "🔹 Running: \033[32mpylint --rcfile=.pylintrc \$(git ls-files '*.py')\033[0m"
 pylint --rcfile=.pylintrc $(git ls-files '*.py')
 echo -e "\n✅ Pylint checks complete!\n\n"
+
+# Frontend checks
+echo -e "\n\n📋 ==================== FRONTEND CODE QUALITY CHECKS ====================\n"
+
+# Navigate to frontend directory
+cd "$SCRIPT_DIR/../../dev/frontend"
+
+echo -e "🔍 ESLint checks...\n"
+run_cmd pnpm lint
+echo -e "\n✅ ESLint checks complete!\n\n"
 
 # If we got this far, all checks passed
 echo -e "\n🎉 ==================== SUCCESS! ====================\n"
