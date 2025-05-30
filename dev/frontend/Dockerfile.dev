@@ -1,0 +1,27 @@
+FROM node:alpine
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+
+# Install pnpm using npm
+RUN apk add --no-cache pnpm
+
+# Create user and group
+RUN groupadd -r app_group && useradd -r -g app_group app_user
+
+# Create PNPM_HOME directory with proper permissions
+RUN mkdir -p $PNPM_HOME && chown -R app_user:app_group $PNPM_HOME
+
+# Copy application files
+COPY --chown=app_user:app_group . /app
+WORKDIR /app
+
+# Switch to app_user
+USER app_user
+
+RUN pnpm install
+
+# Start the development server
+CMD ["pnpm", "dev", "--host"]
+# vite.config.ts specifies the port
+EXPOSE 80

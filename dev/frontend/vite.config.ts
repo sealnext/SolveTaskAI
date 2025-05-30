@@ -8,6 +8,7 @@ import tsConfigPaths from 'vite-tsconfig-paths';
 export default defineConfig({
 	server: {
 		port: 80,
+		host: '0.0.0.0', // Bind to all network interfaces for Docker
 		proxy: {
 			'/api': process.env.BACKEND_CONTAINER_URL || 'http://localhost:8000',
 		},
